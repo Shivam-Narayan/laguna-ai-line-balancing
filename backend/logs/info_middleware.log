@@ -77,3 +77,10 @@
 2026-06-16 15:32:18 - INFO - Incoming GET request at path: /swagger/ from origin: 
 2026-06-16 15:32:18 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
 2026-06-16 15:32:18 - INFO - Incoming GET request at path: /api/schema/ from origin: http://127.0.0.1:8000/api/schema/swagger-ui
+2026-06-16 15:39:52 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
+2026-06-16 15:39:52 - INFO - Incoming GET request at path: /api/schema/ from origin: http://127.0.0.1:8000/api/schema/swagger-ui
+2026-06-16 15:45:13 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
+2026-06-16 15:45:13 - INFO - Incoming GET request at path: /api/schema/ from origin: http://127.0.0.1:8000/api/schema/swagger-ui
+2026-06-16 15:48:47 - INFO - Incoming GET request at path: / from origin: http://127.0.0.1:8000
+2026-06-16 15:48:56 - INFO - Incoming GET request at path: / from origin: http://127.0.0.1:8000
+2026-06-16 15:49:02 - INFO - Incoming GET request at path: / from origin: http://127.0.0.1:8000/?format=api
