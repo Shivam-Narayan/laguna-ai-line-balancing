@@ -1,0 +1,12 @@
+**/__pycache__
+db.sqlite3
+# **/migrations
+absenteeism/models/dynamic_absenteeism_model.pkl
+web.config
+logs/error.log
+logs/info.log
+logs/*
+exports/*
+csv_files/Planned_Leaves.csv
+csv_files/attendance.csv
+.env

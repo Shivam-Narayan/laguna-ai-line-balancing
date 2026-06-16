@@ -1,0 +1,241 @@
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-Laguna}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_HOST_AUTHENTICATION_METHOD: md5
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # pgAdmin (Database UI)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@laguna.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin123}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles:
+      - dev
+
+  # Django Application
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+    environment:
+      # Django Settings
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      SECRET_KEY: ${SECRET_KEY:-django-insecure-qkfz4kr257o+r7^5d$+vvr4zbvr@7+_1mq8^y0qzql0c&h*eg0}
+      DEBUG: ${DEBUG:-True}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0}
+      
+      # Database Configuration
+      DB_ENGINE: ${DB_ENGINE:-django.db.backends.postgresql}
+      DB_NAME: ${DB_NAME:-Laguna}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_HOST: db
+      DB_PORT: "5432"
+      
+      # Redis Configuration
+      REDIS_BACKEND: ${REDIS_BACKEND:-redis://redis:6379/0}
+      
+      # Email Configuration
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-noreply@laguna-clothing.com}
+      MAILGUN_API_KEY: ${MAILGUN_API_KEY:-}
+      MAILGUN_DOMAIN: ${MAILGUN_DOMAIN:-}
+      MAILGUN_FROM_EMAIL: ${MAILGUN_FROM_EMAIL:-}
+      
+      # Server Configuration
+      PRODUCTION_URL: ${PRODUCTION_URL:-http://localhost:8000}
+      SERVER_URL: ${SERVER_URL:-http://localhost:8000}
+    ports:
+      - "${BACKEND_PORT:-8001}:8000"
+    volumes:
+      - .:/app
+      - static_volume:/app/static
+      - media_volume:/app/media
+      - logs_volume:/app/logs
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
+    profiles:
+      - dev
+
+  # Background Task Scheduler (Optional)
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    command: python manage.py runserver  # Replace with actual scheduler command
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      SECRET_KEY: ${SECRET_KEY:-django-insecure-qkfz4kr257o+r7^5d$+vvr4zbvr@7+_1mq8^y0qzql0c&h*eg0}
+      DB_ENGINE: ${DB_ENGINE:-django.db.backends.postgresql}
+      DB_NAME: ${DB_NAME:-Laguna}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_HOST: db
+      DB_PORT: "5432"
+      REDIS_BACKEND: ${REDIS_BACKEND:-redis://redis:6379/0}
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - .:/app
+      - logs_volume:/app/logs
+    profiles:
+      - scheduler  # Only run when explicitly enabled
+
+  # Production Django Application (Gunicorn)
+  backend_prod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: prod
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py collectstatic --noinput &&
+             gunicorn backend_laguna.wsgi:application
+             --bind 0.0.0.0:8000
+             --workers 4
+             --worker-class sync
+             --worker-tmp-dir /dev/shm
+             --max-requests 1000
+             --max-requests-jitter 50
+             --timeout 120
+             --access-logfile -
+             --error-logfile -"
+    environment:
+      ENVIRONMENT: production
+      SECRET_KEY: ${SECRET_KEY}
+      DEBUG: "False"
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS}
+      DB_ENGINE: ${DB_ENGINE:-django.db.backends.postgresql}
+      DB_NAME: ${DB_NAME:-Laguna}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: db
+      DB_PORT: "5432"
+      REDIS_BACKEND: ${REDIS_BACKEND:-redis://redis:6379/0}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-noreply@laguna-clothing.com}
+      PRODUCTION_URL: ${PRODUCTION_URL}
+      SERVER_URL: ${SERVER_URL}
+    expose:
+      - "8000"
+    volumes:
+      - static_volume:/app/static
+      - media_volume:/app/media
+      - logs_volume:/app/logs
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles:
+      - prod
+
+  # Production Celery worker
+  celery:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: prod
+    command: celery -A backend_laguna worker -l info
+    environment:
+      ENVIRONMENT: production
+      SECRET_KEY: ${SECRET_KEY}
+      DB_ENGINE: ${DB_ENGINE:-django.db.backends.postgresql}
+      DB_NAME: ${DB_NAME:-Laguna}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: db
+      DB_PORT: "5432"
+      REDIS_BACKEND: ${REDIS_BACKEND:-redis://redis:6379/0}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend_prod:
+        condition: service_started
+    volumes:
+      - logs_volume:/app/logs
+    restart: unless-stopped
+    profiles:
+      - prod
+
+  # Production Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - static_volume:/app/static:ro
+      - media_volume:/app/media:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend_prod
+    restart: unless-stopped
+    profiles:
+      - prod
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  static_volume:
+    driver: local
+  media_volume:
+    driver: local
+  logs_volume:
+    driver: local
+  pgadmin_data:
+    driver: local
+
