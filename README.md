@@ -92,13 +92,10 @@ python -m venv .venv
 # Linux/macOS
 source .venv/bin/activate
 
-# 4) Install python dependencies
-pip install -r requirements.txt
-
-# 5) Run setup and database migrations
+# 4) Install dependencies, generate and run database migrations
 python run.py
 
-# 6) Start the local development server
+# 5) Start the local development server
 python manage.py runserver
 ```
 
