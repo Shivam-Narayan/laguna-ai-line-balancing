@@ -1,0 +1,79 @@
+2026-06-16 15:10:40 - INFO - Incoming GET request at path: / from origin: 
+2026-06-16 15:10:41 - INFO - Incoming GET request at path: /favicon.ico from origin: http://127.0.0.1:8000
+2026-06-16 15:10:41 - WARNING - Blocked unknown path: /favicon.ico
+2026-06-16 15:13:06 - INFO - Incoming GET request at path: /swagger from origin: 
+2026-06-16 15:13:06 - WARNING - Blocked unknown path: /swagger
+2026-06-16 15:16:57 - INFO - Incoming GET request at path: / from origin: 
+2026-06-16 15:17:50 - INFO - Incoming GET request at path: /swagger from origin: 
+2026-06-16 15:17:50 - WARNING - Blocked unknown path: /swagger
+2026-06-16 15:20:16 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
+2026-06-16 15:20:16 - WARNING - Blocked unknown path: /api/schema/swagger-ui/
+2026-06-16 15:20:19 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
+2026-06-16 15:20:19 - WARNING - Blocked unknown path: /api/schema/swagger-ui/
+2026-06-16 15:20:20 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
+2026-06-16 15:20:20 - WARNING - Blocked unknown path: /api/schema/swagger-ui/
+2026-06-16 15:20:20 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
+2026-06-16 15:20:20 - WARNING - Blocked unknown path: /api/schema/swagger-ui/
+2026-06-16 15:20:21 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
+2026-06-16 15:20:21 - WARNING - Blocked unknown path: /api/schema/swagger-ui/
+2026-06-16 15:20:21 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
+2026-06-16 15:20:21 - WARNING - Blocked unknown path: /api/schema/swagger-ui/
+2026-06-16 15:20:21 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
+2026-06-16 15:20:21 - WARNING - Blocked unknown path: /api/schema/swagger-ui/
+2026-06-16 15:20:21 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
+2026-06-16 15:20:21 - WARNING - Blocked unknown path: /api/schema/swagger-ui/
+2026-06-16 15:20:21 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
+2026-06-16 15:20:21 - WARNING - Blocked unknown path: /api/schema/swagger-ui/
+2026-06-16 15:20:22 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
+2026-06-16 15:20:22 - WARNING - Blocked unknown path: /api/schema/swagger-ui/
+2026-06-16 15:21:30 - INFO - Incoming GET request at path: / from origin: 
+2026-06-16 15:21:39 - INFO - Incoming GET request at path: / from origin: http://127.0.0.1:8000
+2026-06-16 15:23:15 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
+2026-06-16 15:23:15 - WARNING - Blocked unknown path: /api/schema/swagger-ui/
+2026-06-16 15:23:16 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
+2026-06-16 15:23:16 - WARNING - Blocked unknown path: /api/schema/swagger-ui/
+2026-06-16 15:23:37 - INFO - Incoming GET request at path: /swagger/ from origin: 
+2026-06-16 15:23:37 - WARNING - Blocked unknown path: /swagger/
+2026-06-16 15:28:02 - INFO - Incoming GET request at path: /swagger/ from origin: 
+2026-06-16 15:28:02 - WARNING - Blocked unknown path: /swagger/
+2026-06-16 15:28:03 - INFO - Incoming GET request at path: /swagger/ from origin: 
+2026-06-16 15:28:03 - WARNING - Blocked unknown path: /swagger/
+2026-06-16 15:28:03 - INFO - Incoming GET request at path: /swagger/ from origin: 
+2026-06-16 15:28:03 - WARNING - Blocked unknown path: /swagger/
+2026-06-16 15:28:03 - INFO - Incoming GET request at path: /swagger/ from origin: 
+2026-06-16 15:28:03 - WARNING - Blocked unknown path: /swagger/
+2026-06-16 15:28:04 - INFO - Incoming GET request at path: /swagger/ from origin: 
+2026-06-16 15:28:04 - WARNING - Blocked unknown path: /swagger/
+2026-06-16 15:28:07 - INFO - Incoming GET request at path: / from origin: http://127.0.0.1:8000
+2026-06-16 15:28:23 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
+2026-06-16 15:28:23 - WARNING - Blocked unknown path: /api/schema/swagger-ui/
+2026-06-16 15:28:26 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
+2026-06-16 15:28:26 - WARNING - Blocked unknown path: /api/schema/swagger-ui/
+2026-06-16 15:28:27 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
+2026-06-16 15:28:27 - WARNING - Blocked unknown path: /api/schema/swagger-ui/
+2026-06-16 15:28:27 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
+2026-06-16 15:28:27 - WARNING - Blocked unknown path: /api/schema/swagger-ui/
+2026-06-16 15:28:27 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
+2026-06-16 15:28:27 - WARNING - Blocked unknown path: /api/schema/swagger-ui/
+2026-06-16 15:30:04 - INFO - Incoming GET request at path: / from origin: 
+2026-06-16 15:30:12 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
+2026-06-16 15:30:12 - WARNING - Blocked unknown path: /api/schema/swagger-ui/
+2026-06-16 15:30:13 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
+2026-06-16 15:30:13 - WARNING - Blocked unknown path: /api/schema/swagger-ui/
+2026-06-16 15:30:13 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
+2026-06-16 15:30:13 - WARNING - Blocked unknown path: /api/schema/swagger-ui/
+2026-06-16 15:30:25 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
+2026-06-16 15:30:25 - WARNING - Blocked unknown path: /api/schema/swagger-ui/
+2026-06-16 15:30:32 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
+2026-06-16 15:30:32 - WARNING - Blocked unknown path: /api/schema/swagger-ui/
+2026-06-16 15:30:33 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
+2026-06-16 15:30:33 - WARNING - Blocked unknown path: /api/schema/swagger-ui/
+2026-06-16 15:30:34 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
+2026-06-16 15:30:34 - WARNING - Blocked unknown path: /api/schema/swagger-ui/
+2026-06-16 15:30:34 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
+2026-06-16 15:30:34 - WARNING - Blocked unknown path: /api/schema/swagger-ui/
+2026-06-16 15:30:34 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
+2026-06-16 15:30:34 - WARNING - Blocked unknown path: /api/schema/swagger-ui/
+2026-06-16 15:32:18 - INFO - Incoming GET request at path: /swagger/ from origin: 
+2026-06-16 15:32:18 - INFO - Incoming GET request at path: /api/schema/swagger-ui/ from origin: 
+2026-06-16 15:32:18 - INFO - Incoming GET request at path: /api/schema/ from origin: http://127.0.0.1:8000/api/schema/swagger-ui

@@ -70,4 +70,12 @@ accounts_endpoints = [
     '/change-password/',
     '/protected/',
     '/fetch_logs/',
+    # API documentation & admin endpoints
+    '/admin/',
+    '/api/schema/',
+    '/api/schema/swagger-ui/',
+    '/api/schema/redoc/',
+    '/swagger/',
+    '/swagger-ui/',
+    '/test/',
 ]
