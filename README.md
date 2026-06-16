@@ -22,7 +22,7 @@ laguna-ai-line-balancing/             # Repository root
 │   ├── requirements.txt              # Python dependencies
 │   └── sonar-project.properties      # SonarQube configuration
 ├── docs/                             # Documentation (e.g. Docker configuration guides)
-├── scripts/                          # Script files (e.g. docker-helper utilities)
+├── scripts/                          # Script files (e.g. start & env templates)
 ├── tests/                            # Directory for tests
 ├── .env.example                      # Environment variables template
 ├── .gitattributes                    # Git attributes configuration
@@ -50,9 +50,25 @@ laguna-ai-line-balancing/             # Repository root
 
 ## Running the Application
 
-### 1. Docker (Recommended, run from root)
-The application services are managed via Docker Compose profiles:
+### 1. Docker (Recommended)
+You can manage and run the application services using the provided startup scripts (recommended) or manual Docker Compose profile commands.
 
+#### A. Using Startup Scripts
+* **Windows (PowerShell):**
+  ```powershell
+  .\scripts\start.ps1 -Dev
+  ```
+* **Windows (Command Prompt):**
+  ```cmd
+  scripts\start.bat --dev
+  ```
+* **Linux / macOS:**
+  ```bash
+  chmod +x scripts/start.sh
+  ./scripts/start.sh
+  ```
+
+#### B. Using Manual Docker Compose Commands
 ```bash
 # Start development stack (db, redis, pgadmin, backend in dev mode)
 docker compose --profile dev up --build -d
