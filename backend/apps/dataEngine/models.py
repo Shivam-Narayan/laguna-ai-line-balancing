@@ -61,7 +61,7 @@ class EmployeeMaster(models.Model):
     emp_code = models.IntegerField(primary_key=True)
     emp_name = models.CharField(max_length=100)
     date_of_joining = models.DateField()
-    line = models.CharField(null=True, blank=True)
+    line = models.CharField(max_length=100, null=True, blank=True)
     section = models.CharField(max_length=100,null=True, blank=True)
     designation = models.CharField(max_length=100)
     status = models.CharField(max_length=40, choices=STATUS_CHOICES, default='active')
