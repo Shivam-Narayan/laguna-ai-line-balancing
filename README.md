@@ -1,191 +1,121 @@
 # Laguna-AI Backend
 AI line-balancing backend application.
 
-## Project Structure (Optimized)
+## Project Structure (Restructured)
 
+```text
+laguna-ai-line-balancing/             # Repository root
+├── backend/                          # Lowercase backend code directory
+│   ├── apps/                         # All Django applications
+│   │   ├── absenteeism/             # Absenteeism prediction engine
+│   │   ├── accounts/                # User authentication & management
+│   │   ├── dataEngine/              # Data processing & employee management
+│   │   └── manning_sheet/           # Manning sheet & resource planning
+│   ├── backend_laguna/               # Django project configuration
+│   │   └── settings/                 # Environment settings (dev, prod)
+│   ├── core/                         # Shared utilities & configurations
+│   ├── data/                         # Data files (CSV, fixtures)
+│   ├── Dockerfile                    # Dockerfile for building backend images
+│   ├── .dockerignore                 # Docker ignore file
+│   ├── manage.py                     # Django management script
+│   ├── run.py                        # Setup & migration runner
+│   ├── requirements.txt              # Python dependencies
+│   └── sonar-project.properties      # SonarQube configuration
+├── docs/                             # Documentation (e.g. Docker configuration guides)
+├── scripts/                          # Script files (e.g. docker-helper utilities)
+├── tests/                            # Directory for tests
+├── .env.example                      # Environment variables template
+├── .gitattributes                    # Git attributes configuration
+├── .gitignore                        # Git ignore rules
+├── README-DEV.md                     # Developer guide
+├── README.md                         # This file
+├── docker-compose.yml                # Docker Compose multi-profile services
+└── docker-config.yml                 # Docker Compose overrides
 ```
-Backend/                             # Project root
-├── apps/                            # All Django applications
-│   ├── absenteeism/                # Absenteeism prediction engine
-│   │   ├── migrations/
-│   │   ├── management/commands/
-│   │   ├── templates/
-│   │   ├── views.py
-│   │   ├── models.py
-│   │   ├── urls.py
-│   │   ├── utils.py
-│   │   └── ...
-│   ├── accounts/                   # User authentication & management
-│   │   ├── api/                    # API boundary (views/serializers)
-│   │   ├── services/               # Domain/service layer (incremental)
-│   │   ├── migrations/
-│   │   ├── templates/
-│   │   ├── utils/
-│   │   ├── views.py                # Backward-compatible re-export
-│   │   ├── serializers.py          # Backward-compatible re-export
-│   │   ├── models.py
-│   │   └── ...
-│   ├── dataEngine/                 # Data processing & employee management
-│   │   ├── migrations/
-│   │   ├── management/commands/
-│   │   ├── views.py
-│   │   ├── models.py
-│   │   └── ...
-│   ├── manning_sheet/              # Manning sheet & resource planning
-│   │   ├── migrations/
-│   │   ├── management/commands/
-│   │   ├── views.py
-│   │   ├── models.py
-│   │   └── ...
-│   └── __init__.py
-│
-├── backend_laguna/                 # Django project configuration
-│   ├── settings/                   # Environment-specific settings
-│   │   ├── __init__.py
-│   │   ├── base.py                # Shared settings
-│   │   ├── dev.py                 # Development settings
-│   │   └── prod.py                # Production settings
-│   ├── settings.py                # Settings router
-│   ├── urls.py                    # Main URL configuration
-│   ├── wsgi.py                    # WSGI application
-│   ├── asgi.py                    # ASGI application
-│   ├── custom_middleware.py       # Custom middleware
-│   └── utils.py                   # Utility functions
-│
-├── core/                           # Shared utilities & configurations
-│   ├── app_scheduler.py           # APScheduler configuration
-│   └── __init__.py
-│
-├── static/                         # Static files (CSS, JS, images)
-├── media/                          # User-uploaded media
-├── data/                           # Data files (CSV, fixtures)
-├── logs/                           # Application logs (auto-created)
-├── tests/                          # Integration tests
-│
-├── manage.py                       # Django management script
-├── run.py                          # Setup & migration runner
-├── requirements.txt                # Python dependencies
-├── .env                            # Environment variables (create from .env.example)
-├── .env.example                    # Environment variables template
-├── .gitignore                      # Git ignore rules
-├── sonar-project.properties        # SonarQube configuration
-└── README.md                       # This file
 
-```
+---
 
 ## Environment Setup
 
-### Development Environment
-1. Copy `.env.example` to `.env`
-2. Update `.env` with your development settings
-3. Set `ENVIRONMENT=development` in `.env`
-4. The app will automatically use `backend_laguna/settings/dev.py`
+1. Copy `.env.example` to `.env` in the repository root:
+   ```bash
+   cp .env.example .env
+   ```
+2. Update `.env` with your settings (database credentials, SendGrid keys, etc.).
+3. Set the environment type:
+   - For development: `ENVIRONMENT=development`
+   - For production: `ENVIRONMENT=production`
 
-### Production Environment
-1. Set `ENVIRONMENT=production` in `.env`
-2. Configure all required environment variables
-3. The app will automatically use `backend_laguna/settings/prod.py`
+---
 
 ## Running the Application
 
-### Setup & Migrations
-```bash
-python run.py
-```
+### 1. Docker (Recommended, run from root)
+The application services are managed via Docker Compose profiles:
 
-### Docker (single file setup)
 ```bash
-# Development stack
+# Start development stack (db, redis, pgadmin, backend in dev mode)
 docker compose --profile dev up --build -d
 
-# Optional scheduler in development
+# Start development stack + background task scheduler
 docker compose --profile dev --profile scheduler up -d
 
-# Production-mode services (gunicorn + celery + nginx)
+# Start production stack (db, redis, backend_prod, celery, nginx proxy)
 docker compose --profile prod up --build -d
 ```
 
-### App Health Check
-- Root endpoint: `GET /`
-- Success response:
-```json
-{"message":"app is running successfully"}
-```
+#### Health Checks
+- Health endpoint: `GET http://localhost:8001/`
+- Success response: `{"message":"app is running successfully"}`
 
-- Unknown path response:
-```json
-{"error": "Unknown request path"}
-```
+#### Database UI (pgAdmin)
+- Access URL: `http://localhost:5050`
+- Default Credentials: `admin@laguna.com` / `admin123` (override using `PGADMIN_DEFAULT_EMAIL` and `PGADMIN_DEFAULT_PASSWORD` in `.env`).
 
-### pgAdmin (with Docker)
+---
+
+### 2. Local Python (Without Docker)
+To run the server natively on your host machine:
+
 ```bash
-# Start pgAdmin in dev profile
-docker compose --profile dev up -d pgadmin
-```
+# 1) Navigate to the backend directory
+cd backend
 
-- URL: `http://localhost:5050`
-- Default login email: `admin@laguna.com`
-- Default password: `admin123`
-- To override, set in `.env`:
-  - `PGADMIN_DEFAULT_EMAIL`
-  - `PGADMIN_DEFAULT_PASSWORD`
-  - `PGADMIN_PORT`
-
-### Local Python (without Docker)
-```bash
-# 1) Create virtual environment
+# 2) Create a virtual environment
 python -m venv .venv
 
-# 2) Activate
+# 3) Activate virtual environment
 # Windows (PowerShell)
 .venv\Scripts\Activate.ps1
 # Windows (cmd)
 .venv\Scripts\activate.bat
+# Linux/macOS
+source .venv/bin/activate
 
-# 3) Install dependencies
+# 4) Install python dependencies
 pip install -r requirements.txt
 
-# 4) Configure environment
-# copy .env.example to .env and update values
-
-# 5) Run migrations
+# 5) Run setup and database migrations
 python run.py
 
-# 6) Start development server
+# 6) Start the local development server
 python manage.py runserver
 ```
 
-### Direct Production Run (non-Docker)
-```bash
-ENVIRONMENT=production gunicorn backend_laguna.wsgi
-```
-
-### Background Schedulers
+#### Running Schedulers Natively
+From the `backend/` directory:
 ```bash
 python manage.py absenteeism_scheduler
 python manage.py dataEngine_scheduler
 python manage.py manning_sheet_scheduler
 ```
 
-## Quick Start
-
-```bash
-# 1) Start app in Docker (recommended)
-docker compose --profile dev up --build -d
-
-# 2) Open API
-# http://localhost:8001
-
-# 3) Check health endpoint
-curl http://localhost:8001/
-```
+---
 
 ## Key Features
-
-- **Modular Apps**: Each feature isolated in `apps/` folder
-- **Environment-Aware Config**: Separate settings for dev/prod
-- **Shared Utilities**: Reusable code in `core/` folder
-- **Background Jobs**: APScheduler for automated tasks
+- **Modular Django Architecture**: All features are organized under separate apps in the `backend/apps/` directory.
+- **Environment-Aware Settings**: Settings are split dynamically into `base.py`, `dev.py`, and `prod.py` configs under `backend/backend_laguna/settings/`.
+- **Dockerized Deployments**: Clean configurations separating development tools from production servers (Gunicorn + Celery + Nginx).
 - **Production-Ready**: Proper static/media/logs separation
 
 ## Important Notes
