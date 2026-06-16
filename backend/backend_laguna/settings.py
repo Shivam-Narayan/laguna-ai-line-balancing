@@ -10,6 +10,8 @@ from pathlib import Path
 # Get the Backend directory (where .env is located)
 BASE_DIR = Path(__file__).resolve().parent.parent
 ENV_FILE = BASE_DIR / '.env'
+if not ENV_FILE.exists():
+    ENV_FILE = BASE_DIR.parent / '.env'
 
 # Load .env file explicitly
 if ENV_FILE.exists():

@@ -1,0 +1,4 @@
+# Docker Compose configurations and overrides
+version: '3.8'
+services:
+  # Add overrides or extra developer-specific configurations here
