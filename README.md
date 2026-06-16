@@ -72,6 +72,11 @@ docker compose --profile prod up --build -d
 - Access URL: `http://localhost:5050`
 - Default Credentials: `admin@laguna.com` / `admin123` (override using `PGADMIN_DEFAULT_EMAIL` and `PGADMIN_DEFAULT_PASSWORD` in `.env`).
 
+#### API Documentation (Swagger / OpenAPI)
+- **Interactive Swagger UI**: `http://localhost:8001/api/schema/swagger-ui/` (Allows you to view and test all endpoints directly)
+- **Redoc UI**: `http://localhost:8001/api/schema/redoc/` (Alternate clean static layout)
+- **Raw OpenAPI 3 Schema**: `http://localhost:8001/api/schema/`
+
 ---
 
 ### 2. Local Python (Without Docker)

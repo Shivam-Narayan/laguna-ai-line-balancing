@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'apps.accounts',
     'rest_framework',
     'rest_framework.authtoken',
+    'drf_spectacular',
     'apps.dataEngine',
     'apps.absenteeism',
     'apps.manning_sheet',
@@ -156,6 +157,7 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'apps.accounts.authentication.MultiSessionTokenAuthentication',
     ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 AUTH_USER_MODEL = 'accounts.User'
@@ -257,3 +259,12 @@ LOGGING = {
         },
     },
 }
+
+# Spectacular Settings for OpenAPI / Swagger
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Laguna-AI Line Balancing API',
+    'DESCRIPTION': 'Interactive API documentation for the Laguna-AI Line Balancing backend application.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+}
+
