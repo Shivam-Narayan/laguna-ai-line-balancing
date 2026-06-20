@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 from pytz import timezone
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -9,7 +12,7 @@ def start():
     from .views import run_absenteeism_prediction, scheduler_prediction_data_email, save_absenteeism_report, fetch_absenteeism_report_data, run_absenteeism_report
     global scheduler_started
     if not scheduler_started:
-        print("🔄 Starting APScheduler for Absenteeism App...")
+        logger.info("🔄 Starting APScheduler for Absenteeism App...")
 
         # Set the timezone (e.g., for IST - Indian Standard Time)
         ist = timezone("Asia/Kolkata")
@@ -49,4 +52,4 @@ def start():
         scheduler.start()
         scheduler_started = True  # Set flag to True after starting
     else:
-        print("⚠ APScheduler for Absenteeism App is already running!")
+        logger.info("⚠ APScheduler for Absenteeism App is already running!")

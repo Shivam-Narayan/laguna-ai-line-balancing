@@ -150,16 +150,16 @@ def upload_absenteesim_data(request):
                     doj=row['DOJ'],  # Can be None
                     date=row['Date'],  # Mandatory
                     attendance=row['Attendance'],
-                    P=row['P'],
-                    WO=row['WO'],
-                    H=row['H'],
-                    L=row['L'],
-                    Ab=row['Ab'],
-                    DP=row['DP'],
-                    OT1=row['OT1']
+                    present_days=row['P'],
+                    weekly_offs=row['WO'],
+                    holidays=row['H'],
+                    leaves=row['L'],
+                    absent_days=row['Ab'],
+                    double_present=row['DP'],
+                    overtime_hours=row['OT1']
                 ))
             except Exception as e:
-                print(f"Error creating object for row: {row}, Error: {str(e)}")
+                logger.info(f"Error creating object for row: {row}, Error: {str(e)}")
 
         # Save to database
         if absenteeism_objects:
@@ -167,7 +167,7 @@ def upload_absenteesim_data(request):
                 Absenteeism.objects.bulk_create(absenteeism_objects)
                 return success_response(data= f'Data successfully uploaded {month} {year} and saved.', status=status.HTTP_201_CREATED)
             except Exception as e:
-                print(f"Error during bulk_create: {str(e)}")
+                logger.info(f"Error during bulk_create: {str(e)}")
                 return error_response(error=f"Error saving data to the database: {str(e)}", status=status.HTTP_400_BAD_REQUEST)
         else:
             return error_response(error='No valid data to save. All rows had missing Empcode.', status=status.HTTP_400_BAD_REQUEST)
@@ -860,7 +860,7 @@ def prepare_prediction_data(line_no, forecast_period, summation=False):
         return success_response(message='Data fetched successfully', data=prediction_response, status=status.HTTP_200_OK)
 
     except Exception as e:
-        print(f"Error in prepare_prediction_data: {str(e)}")
+        logger.info(f"Error in prepare_prediction_data: {str(e)}")
         return error_response(error=f"Unknown error: {str(e)}", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -895,7 +895,7 @@ def scheduler_prediction_data_email(line_no, forecast_period):
 
         return success_response(message=f"Email sent successfully to {userEmails}.", data={"message": "File attached to the email."})
     except Exception as e:
-        print(f"Unexpected Error: {e}")
+        logger.info(f"Unexpected Error: {e}")
         return error_response(error=f"An unexpected error occurred ({e}).", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 
@@ -1147,7 +1147,7 @@ def run_absenteeism_report(viaAPI):
         else:
             return csv_buffer, file_name
     except Exception as e:
-        print(f"Error in run_absenteeism_report: {str(e)}")
+        logger.info(f"Error in run_absenteeism_report: {str(e)}")
         logger.error(f"Error in run_absenteeism_report: {str(e)} at {datetime.now()} hours!", exc_info=True)
         return error_response(error= str(e), status=status.HTTP_400_BAD_REQUEST)
 
@@ -1194,7 +1194,7 @@ def save_absenteeism_report():
 
         return success_response(message="Absenteeism Report saved successfully.", status=status.HTTP_200_OK)
     except Exception as e:
-        print(f"Error in run_absenteeism_report: {str(e)}")
+        logger.info(f"Error in run_absenteeism_report: {str(e)}")
         logger.error(f"Error in run_absenteeism_report: {str(e)} at {datetime.now()} hours!", exc_info=True)
         return error_response(error= str(e), status=status.HTTP_400_BAD_REQUEST)
 
@@ -1266,7 +1266,7 @@ def fetch_absenteeism_report_data():
 
         return success_response(message='Absenteeism report data fetched successfully.', data=absenteeism_data, status=status.HTTP_200_OK)
     except Exception as e:
-        print(f"Error in fetch_absenteeism_report_data: {str(e)}")
+        logger.info(f"Error in fetch_absenteeism_report_data: {str(e)}")
         logger.error(f"Error in fetch_absenteeism_report_data: {str(e)} at {datetime.now()} hours!", exc_info=True)
         return error_response(error= str(e), status=status.HTTP_400_BAD_REQUEST)
 
@@ -1350,6 +1350,6 @@ def absenteeism_report(line_no, today):
         return success_response(message='Data fetched successfully', data=response, status=status.HTTP_200_OK)
 
     except Exception as e:
-        print(f"Error in prepare_prediction_data: {str(e)}")
+        logger.info(f"Error in prepare_prediction_data: {str(e)}")
         return error_response(error=f"Unknown error: {str(e)}", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

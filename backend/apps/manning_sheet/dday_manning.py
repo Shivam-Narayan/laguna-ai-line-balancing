@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
@@ -239,8 +242,8 @@ def reallocate_work(affected_allocations, emp_fact_df, allocation_date):
     # Verify no over-allocation occurred
     over_allocated = emp_fact_df[emp_fact_df["remaining_capacity"] < 0]
     if not over_allocated.empty:
-        print("WARNING: Over-allocation detected during reallocation process!")
-        print(over_allocated[["employee_id", "employee_name", "remaining_capacity"]])
+        logger.info("WARNING: Over-allocation detected during reallocation process!")
+        logger.info(over_allocated[["employee_id", "employee_name", "remaining_capacity"]])
         # Fix any negative capacities by setting to zero
         emp_fact_df.loc[emp_fact_df["remaining_capacity"] < 0, "remaining_capacity"] = 0
 
@@ -296,7 +299,7 @@ def perform_dday_allocation(allocation_date, attendance_df, emp_fact_df):
         ].index.tolist()
     else:
         current_absent = []
-        print("Warning: No attendance data found for this date!")
+        logger.info("Warning: No attendance data found for this date!")
 
     # Handle capacity for absent and early departure employees
     emp_fact_df.loc[emp_fact_df['employee_id'].isin(current_absent), 'remaining_capacity'] = 0
@@ -411,8 +414,8 @@ def perform_dday_allocation(allocation_date, attendance_df, emp_fact_df):
     # Check for any over-utilization
     over_allocated = emp_fact_df[emp_fact_df["remaining_capacity"] < 0]
     if not over_allocated.empty:
-        print(f"WARNING: {len(over_allocated)} employees have been over-allocated!")
-        print(over_allocated[["employee_id", "employee_name", "remaining_capacity"]])
+        logger.info(f"WARNING: {len(over_allocated)} employees have been over-allocated!")
+        logger.info(over_allocated[["employee_id", "employee_name", "remaining_capacity"]])
         stats['over_allocated_employees'] = len(over_allocated)
     else:
         stats['over_allocated_employees'] = 0
@@ -454,7 +457,7 @@ def run_intraday_allocation(allocation_date, attendance_df, emp_fact_df, run_tim
     previous_manning = None
 
     for run_time in sorted(run_times):
-        print(f"\nPerforming allocation run at {run_time}")
+        logger.info(f"\nPerforming allocation run at {run_time}")
 
         # Perform allocation for this run
         manning, stats, tracking = perform_dday_allocation(
@@ -478,7 +481,7 @@ def run_intraday_allocation(allocation_date, attendance_df, emp_fact_df, run_tim
 
         # Generate report for this run
         report = generate_reallocation_report(stats, tracking)
-        print(report)
+        logger.info(report)
 
 
     return daily_results

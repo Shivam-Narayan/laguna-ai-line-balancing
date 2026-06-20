@@ -6,16 +6,7 @@ import sys
 
 def main():
     """Run administrative tasks."""
-    # For development, use dev settings directly
-    # For production, use the router (which checks ENVIRONMENT)
-    environment = os.getenv('ENVIRONMENT', 'development').strip().lower()
-    
-    if environment == 'development':
-        settings_module = 'backend_laguna.settings.dev'
-    else:
-        settings_module = 'backend_laguna.settings.prod'
-    
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', settings_module)
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend_laguna.settings')
     
     try:
         from django.core.management import execute_from_command_line

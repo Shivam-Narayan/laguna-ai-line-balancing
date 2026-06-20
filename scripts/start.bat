@@ -15,7 +15,7 @@ set "ENV_FILE=%PROJECT_ROOT%\.env"
 
 REM ── Parse arguments ───────────────────────────────────────────────────────
 set "COMMAND="
-set "STAGED_MODE=true"
+set "STAGED_MODE=false"
 set "RESTORE_FILE="
 
 :parse_args
@@ -203,42 +203,37 @@ call :determine_docker_compose
 if errorlevel 1 exit /b 1
 
 if "%STAGED_MODE%"=="true" (
-    echo [INFO] Starting ALL services (staged sequence)...
+    echo [INFO] Starting ALL services ^(staged sequence^)...
 
-    echo   Stage 1/5: Core infrastructure (db, redis)...
+    echo   Stage 1/4: Core infrastructure ^(db, redis^)...
     %DC% --profile dev --profile prod up -d db redis
     echo   Waiting for databases to be healthy...
     timeout /t 10 /nobreak >nul
 
-    echo   Stage 2/5: Dev backend (Django runserver)...
-    %DC% --profile dev up -d backend
+    echo   Stage 2/4: Backend application...
+    %DC% --profile dev --profile prod up -d backend
     timeout /t 5 /nobreak >nul
 
-    echo   Stage 3/5: Prod backend (gunicorn)...
-    %DC% --profile prod up -d backend_prod
-    timeout /t 5 /nobreak >nul
-
-    echo   Stage 4/5: Background workers (celery)...
-    %DC% --profile prod up -d celery
+    echo   Stage 3/4: Background workers ^(celery, scheduler^)...
+    %DC% --profile prod --profile scheduler up -d celery scheduler
     timeout /t 3 /nobreak >nul
 
-    echo   Stage 5/5: Developer tools and reverse proxy (pgadmin, nginx)...
+    echo   Stage 4/4: Developer tools and reverse proxy ^(pgadmin, nginx^)...
     %DC% --profile dev up -d pgadmin
     %DC% --profile prod up -d nginx
 ) else (
-    echo [INFO] Starting ALL services (fast mode)...
-    %DC% --profile dev --profile prod up --force-recreate -d
+    echo [INFO] Starting ALL services ^(fast mode^)...
+    %DC% --profile dev --profile prod --profile scheduler up --force-recreate -d
 )
 
 echo [OK] All services started
-echo.
-%DC% ps -a
-echo.
-if not defined BACKEND_PORT set "BACKEND_PORT=8001"
+
+if not defined BACKEND_PORT set "BACKEND_PORT=8000"
 if not defined PGADMIN_PORT set "PGADMIN_PORT=5050"
 echo   Dev Backend:   http://localhost:%BACKEND_PORT%
 echo   Swagger:       http://localhost:%BACKEND_PORT%/api/schema/swagger-ui/
 echo   pgAdmin:       http://localhost:%PGADMIN_PORT%
+echo   Redis UI:      http://localhost:8082
 echo   Prod (nginx):  http://localhost
 echo.
 goto :eof
@@ -250,9 +245,9 @@ call :determine_docker_compose
 if errorlevel 1 exit /b 1
 
 if "%STAGED_MODE%"=="true" (
-    echo [INFO] Starting dev services (staged sequence)...
+    echo [INFO] Starting dev services ^(staged sequence^)...
 
-    echo   Stage 1/3: Core infrastructure (db, redis)...
+    echo   Stage 1/3: Core infrastructure ^(db, redis^)...
     %DC% --profile dev up -d db redis
     echo   Waiting for databases to be healthy...
     timeout /t 8 /nobreak >nul
@@ -261,22 +256,21 @@ if "%STAGED_MODE%"=="true" (
     %DC% --profile dev up -d backend
     timeout /t 5 /nobreak >nul
 
-    echo   Stage 3/3: Developer tools (pgadmin)...
+    echo   Stage 3/3: Developer tools ^(pgadmin^)...
     %DC% --profile dev up -d pgadmin
 ) else (
-    echo [INFO] Starting dev services (fast mode)...
+    echo [INFO] Starting dev services ^(fast mode^)...
     %DC% --profile dev up --force-recreate -d
 )
 
 echo [OK] All dev services started
-echo.
-%DC% ps -a
-echo.
-if not defined BACKEND_PORT set "BACKEND_PORT=8001"
+
+if not defined BACKEND_PORT set "BACKEND_PORT=8000"
 if not defined PGADMIN_PORT set "PGADMIN_PORT=5050"
 echo   Backend:  http://localhost:%BACKEND_PORT%
 echo   Swagger:  http://localhost:%BACKEND_PORT%/api/schema/swagger-ui/
 echo   pgAdmin:  http://localhost:%PGADMIN_PORT%
+echo   Redis UI: http://localhost:8082
 echo.
 goto :eof
 
@@ -287,31 +281,29 @@ call :determine_docker_compose
 if errorlevel 1 exit /b 1
 
 if "%STAGED_MODE%"=="true" (
-    echo [INFO] Starting production services (staged sequence)...
+    echo [INFO] Starting production services ^(staged sequence^)...
 
-    echo   Stage 1/4: Core infrastructure (db, redis)...
+    echo   Stage 1/4: Core infrastructure ^(db, redis^)...
     %DC% --profile prod up -d db redis
     timeout /t 10 /nobreak >nul
 
-    echo   Stage 2/4: Backend application (gunicorn)...
-    %DC% --profile prod up -d backend_prod
+    echo   Stage 2/4: Backend application...
+    %DC% --profile prod up -d backend
     timeout /t 8 /nobreak >nul
 
-    echo   Stage 3/4: Background workers (celery)...
+    echo   Stage 3/4: Background workers ^(celery^)...
     %DC% --profile prod up -d celery
     timeout /t 5 /nobreak >nul
 
-    echo   Stage 4/4: Reverse proxy (nginx)...
+    echo   Stage 4/4: Reverse proxy ^(nginx^)...
     %DC% --profile prod up -d nginx
 ) else (
-    echo [INFO] Starting production services (fast mode)...
+    echo [INFO] Starting production services ^(fast mode^)...
     %DC% --profile prod up --force-recreate -d
 )
 
 echo [OK] All production services started
-echo.
-%DC% ps -a
-echo.
+
 echo   Application: http://localhost (via nginx)
 echo.
 goto :eof

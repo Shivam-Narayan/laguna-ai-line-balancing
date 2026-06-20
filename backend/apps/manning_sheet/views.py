@@ -179,7 +179,7 @@ def loading_plan_file_upload(request):
             # final_df_all = [] # Commenting as not needed as of now
 
             for sheet_name, df in sheets_dict.items():
-                print(f"\nProcessing sheet: {sheet_name}")
+                logger.info(f"\nProcessing sheet: {sheet_name}")
                 df['sheet_name'] = sheet_name
                 df_load_plan, final_df_new = process_df(df, holiday_dates, last_date_of_year, payable_dates)
                 # Collect for later concatenation
@@ -447,8 +447,8 @@ def loading_plan_file_upload_old(request):
 
 
             if order_identifiers:
-                print(f"Order identifier columns found: {', '.join(order_identifiers)}")
-                print("Order references will be preserved during optimization")
+                logger.info(f"Order identifier columns found: {', '.join(order_identifiers)}")
+                logger.info("Order references will be preserved during optimization")
 
             
             # Handle fabric article column
@@ -471,22 +471,22 @@ def loading_plan_file_upload_old(request):
                 keep_split_tracking = 'y' #input("\nDo you want to keep split tracking IDs in the output? (y/n): ").lower().strip()
                 keep_split_id = (keep_split_tracking == 'y' or keep_split_tracking == 'yes')
                 if keep_split_id:
-                    print("Split tracking IDs will be kept in the final output")
+                    logger.info("Split tracking IDs will be kept in the final output")
                 else:
-                    print("Split tracking IDs will be removed from the final output")
+                    logger.info("Split tracking IDs will be removed from the final output")
 
             merge_with_original = 'n' #input("\nDo you want to preserve all original columns in your data? (y/n): ").lower().strip()
             preserve_columns = (merge_with_original == 'y' or merge_with_original == 'yes')
 
             confirm = 'y' #input("\nProceed with optimization? (y/n): ").lower().strip()
             if confirm != 'y' and confirm != 'yes':
-                print("Optimization cancelled.")
+                logger.info("Optimization cancelled.")
                 return
 
-            print("\nStarting production plan optimization...")
-            print("Considering both style and fabric article in sequencing...")
+            logger.info("\nStarting production plan optimization...")
+            logger.info("Considering both style and fabric article in sequencing...")
             if order_identifiers:
-                print("Preserving original order identifiers across allocations...")
+                logger.info("Preserving original order identifiers across allocations...")
 
             # Run optimization
             new_plan, original_total = redistribute_production_plan(
@@ -499,7 +499,7 @@ def loading_plan_file_upload_old(request):
             # Drop Split_ID if needed
             if 'Split_ID' in new_plan.columns:
                 new_plan = new_plan.drop('Split_ID', axis=1)
-                print("Dropped Split_ID column")
+                logger.info("Dropped Split_ID column")
 
             # Define the columns to group by
             group_columns = [
@@ -510,7 +510,7 @@ def loading_plan_file_upload_old(request):
 
             # Filter to columns that actually exist in the DataFrame
             existing_columns = [col for col in group_columns if col in new_plan.columns]
-            print(f"Grouping by {len(existing_columns)} columns: {', '.join(existing_columns)}")
+            logger.info(f"Grouping by {len(existing_columns)} columns: {', '.join(existing_columns)}")
 
 
             # Handle date columns specially - convert all date columns to string
@@ -519,24 +519,24 @@ def loading_plan_file_upload_old(request):
                     try:
                         # Only convert if it's actually a datetime column
                         if pd.api.types.is_datetime64_dtype(new_plan[col]):
-                            print(f"Converting datetime column to string: {col}")
+                            logger.info(f"Converting datetime column to string: {col}")
                             new_plan[col] = new_plan[col].dt.strftime('%Y-%m-%d')
                     except Exception as e:
-                        print(f"Warning: Could not convert date column {col}: {str(e)}")
+                        logger.info(f"Warning: Could not convert date column {col}: {str(e)}")
 
             # Perform the grouping with string-converted date columns
             try:
                 grouped_df = new_plan.groupby(existing_columns, as_index=False).agg({'Planned Qty': 'sum'})
                 grouped_total = grouped_df['Planned Qty'].sum()
 
-                print(f"Total quantity after grouping: {grouped_total}")
-                print(f"Difference: {grouped_total - original_total}")
+                logger.info(f"Total quantity after grouping: {grouped_total}")
+                logger.info(f"Difference: {grouped_total - original_total}")
 
                 if abs(grouped_total - original_total) > 0.1:  # Allow for minor rounding
-                    print("WARNING: Quantity change detected after grouping!")
+                    logger.info("WARNING: Quantity change detected after grouping!")
 
                     # Use the manual approach as a fallback
-                    print("Falling back to manual grouping method...")
+                    logger.info("Falling back to manual grouping method...")
 
                     # Manual grouping approach
                     grouped_data = {}
@@ -576,16 +576,16 @@ def loading_plan_file_upload_old(request):
                     grouped_df = pd.DataFrame(result_rows)
                     manual_total = grouped_df['Planned Qty'].sum()
 
-                    print(f"Manual grouping result: {len(grouped_df)} rows")
-                    print(f"Total quantity after manual grouping: {manual_total}")
-                    print(f"Difference from original: {manual_total - original_total}")
+                    logger.info(f"Manual grouping result: {len(grouped_df)} rows")
+                    logger.info(f"Total quantity after manual grouping: {manual_total}")
+                    logger.info(f"Difference from original: {manual_total - original_total}")
 
                 # Use the grouped DataFrame (either from pandas or manual approach)
                 new_plan = grouped_df
 
             except Exception as e:
-                print(f"ERROR during grouping: {str(e)}")
-                print("Continuing with ungrouped data to preserve quantities")
+                logger.info(f"ERROR during grouping: {str(e)}")
+                logger.info("Continuing with ungrouped data to preserve quantities")
 
             # Sort by Planned Dates
             if 'Planned Dates' in new_plan.columns:
@@ -594,12 +594,12 @@ def loading_plan_file_upload_old(request):
                     try:
                         new_plan['Planned Dates'] = pd.to_datetime(new_plan['Planned Dates'])
                     except:
-                        print("Warning: Could not convert Planned Dates back to datetime for sorting")
+                        logger.info("Warning: Could not convert Planned Dates back to datetime for sorting")
 
                 new_plan = new_plan.sort_values('Planned Dates', ascending=True)
-                print("Sorted data by Planned Dates in ascending order")
+                logger.info("Sorted data by Planned Dates in ascending order")
 
-            print(f"Final dataframe has {len(new_plan)} rows with total quantity {new_plan['Planned Qty'].sum()}")
+            logger.info(f"Final dataframe has {len(new_plan)} rows with total quantity {new_plan['Planned Qty'].sum()}")
 
             ################################################################################################
 
@@ -632,10 +632,10 @@ def loading_plan_file_upload_old(request):
                 unique_styles = new_plan['STYLE'].nunique()
                 unique_fabrics = new_plan['FABRIC ARTICLE'].nunique()
 
-                print(f"\nPlan statistics:")
-                print(f"Total unique styles: {unique_styles}")
-                print(f"Total unique fabric articles: {unique_fabrics}")
-                print(f"Total unique style+fabric combinations: {len(style_fabric_combos)}")
+                logger.info(f"\nPlan statistics:")
+                logger.info(f"Total unique styles: {unique_styles}")
+                logger.info(f"Total unique fabric articles: {unique_fabrics}")
+                logger.info(f"Total unique style+fabric combinations: {len(style_fabric_combos)}")
 
 
             if order_identifiers:
@@ -643,9 +643,9 @@ def loading_plan_file_upload_old(request):
                 total_orders = new_plan[id_field].nunique()
                 total_rows = len(new_plan)
 
-                print(f"\nOrder statistics:")
-                print(f"Total unique orders: {total_orders}")
-                print(f"Total rows in optimized plan: {total_rows}")
+                logger.info(f"\nOrder statistics:")
+                logger.info(f"Total unique orders: {total_orders}")
+                logger.info(f"Total rows in optimized plan: {total_rows}")
 
                 if 'Split_ID' in new_plan.columns:
                     split_ids = [x for x in new_plan['Split_ID'] if not pd.isna(x)]
@@ -660,8 +660,8 @@ def loading_plan_file_upload_old(request):
                     split_orders = sum(1 for count in order_splits.values() if count > 1)
                     max_splits = max(order_splits.values()) if order_splits else 0
 
-                    print(f"Orders split across multiple days: {split_orders} ({split_orders/total_orders*100:.1f}%)")
-                    print(f"Maximum splits for a single order: {max_splits}")
+                    logger.info(f"Orders split across multiple days: {split_orders} ({split_orders/total_orders*100:.1f}%)")
+                    logger.info(f"Maximum splits for a single order: {max_splits}")
 
             return success_response(message= 'File processed and data saved successfully', status=status.HTTP_201_CREATED)
         except Exception as e:
@@ -998,7 +998,7 @@ def manning_sheet_generation(request):
             df_name = df_info['name']
 
             try:
-                print(f"Processing {df_info['suffix']}...")
+                logger.info(f"Processing {df_info['suffix']}...")
 
                 # Get the dataframe using the appropriate method
                 # Directly access the dataframe from the dictionary without checking
@@ -1044,7 +1044,7 @@ def manning_sheet_generation(request):
 
                     # Add validation to ensure no negative initial capacities
                     if (emp_fact_df["remaining_capacity"] < 0).any():
-                        print(f"WARNING: Found negative initial capacities on {date}!")
+                        logger.info(f"WARNING: Found negative initial capacities on {date}!")
                         # Fix any negative values by setting to 0
                         emp_fact_df.loc[emp_fact_df["remaining_capacity"] < 0, "remaining_capacity"] = 0
 
@@ -1127,7 +1127,7 @@ def manning_sheet_generation(request):
 
                             # Ensure capacity is never negative due to floating-point errors
                             if new_capacity < 0:
-                                print(f"Fixing floating-point error: {new_capacity} set to 0")
+                                logger.info(f"Fixing floating-point error: {new_capacity} set to 0")
                                 new_capacity = 0
 
                             # Update employee's capacity
@@ -1201,9 +1201,9 @@ def manning_sheet_generation(request):
                     # Check for any employees with negative capacity at the end of processing each date
                     neg_capacity_emps = emp_fact_df[emp_fact_df["remaining_capacity"] < 0]
                     if not neg_capacity_emps.empty:
-                        print(f"ERROR: Found {len(neg_capacity_emps)} employees with negative capacity on {date}:")
+                        logger.info(f"ERROR: Found {len(neg_capacity_emps)} employees with negative capacity on {date}:")
                         for _, neg_emp in neg_capacity_emps.iterrows():
-                            print(f"  - Employee {neg_emp['employee_id']}: {neg_emp['remaining_capacity']}")
+                            logger.info(f"  - Employee {neg_emp['employee_id']}: {neg_emp['remaining_capacity']}")
                         # Fix negative capacities
                         emp_fact_df.loc[emp_fact_df["remaining_capacity"] < 0, "remaining_capacity"] = 0
 
@@ -1861,7 +1861,7 @@ def get_actual_vs_planned_data(line_no, forecast_period, today, summation=False,
         return success_response(message='Data fetched successfully', data=prediction_response, status=status.HTTP_200_OK)
 
     except Exception as e:
-        print(f"Error in prepare_prediction_data: {str(e)}")
+        logger.info(f"Error in prepare_prediction_data: {str(e)}")
         return error_response(error=f"Unknown error: {str(e)}", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -2211,7 +2211,7 @@ def get_unallocated_employees_count(line_no):
         else:
             return len(df)
     except Exception as e:
-        print(f"Error reading unallocated report: {e}")
+        logger.info(f"Error reading unallocated report: {e}")
         return 0  # In case of read/parsing error
 
 # To get the actual vs planned data for selected date
@@ -2558,7 +2558,7 @@ def get_dday_actual_vs_planned_data(line_no, today, section=None, operation=None
         )
  
     except Exception as e:
-        print(f"[ERROR] get_dday_actual_vs_planned_data: {str(e)}")
+        logger.info(f"[ERROR] get_dday_actual_vs_planned_data: {str(e)}")
         return error_response(
             error=f"Unknown error: {str(e)}",
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -2954,7 +2954,7 @@ def run_generate_emp_fact():
 
         return success_response(message="Data processed and uploaded to Database", status=status.HTTP_200_OK)
     except Exception as e:
-        print(f"Error in run_generate_emp_fact: {str(e)}")
+        logger.info(f"Error in run_generate_emp_fact: {str(e)}")
         logger.error(f"Error in run_generate_emp_fact: {str(e)} at {datetime.now()} hours!", exc_info=True)
         return error_response(error= str(e), status=status.HTTP_400_BAD_REQUEST)
     
@@ -3046,7 +3046,7 @@ def run_manning_generation(viaAPI, PERIOD):
         all_unallocated_employees = []
 
         for item in df_load_plan_transformed['line'].unique():
-            print(item)
+            logger.info(item)
             updated_manning = manning_df[manning_df["LINE"] == item]
             df_load_plan_transformed_updated = df_load_plan_transformed[df_load_plan_transformed['line'] == item]
             emp_fact_df_updated = emp_fact_df[emp_fact_df['line'] == item]
@@ -3099,7 +3099,7 @@ def run_manning_generation(viaAPI, PERIOD):
         return success_response(message="Successfully generated manning data", status=status.HTTP_200_OK)
 
     except Exception as e:
-        print("Error", e)
+        logger.info("Error", e)
         return error_response(error=f"Failed in manning sheet generation. {str(e)}", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -3163,13 +3163,13 @@ def run_dday_generation(viaAPI):
             emp_fact_df = emp_fact_df[emp_fact_df["type"].isin(["Primary", "Secondary"])]
 
         except DatabaseError as db_err:
-            print(f"Database Error: {db_err}")
+            logger.info(f"Database Error: {db_err}")
             return error_response(error="Database error occurred.", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         # from .dday_generation_v2 import get_run_type_for_testing
         # run_type = get_run_type_for_testing(use_fake_time=True, fake_time_str="08:50")
 
-        print(f"\nPerforming {run_type} allocation run for {current_date}")
+        logger.info(f"\nPerforming {run_type} allocation run for {current_date}")
         manning, stats, tracking = run_intraday_allocation_enhanced(
             allocation_date,
             attendance_df,
@@ -3191,15 +3191,15 @@ def run_dday_generation(viaAPI):
         initial_allocated = manning['allocated_capacity'].fillna(0).sum()
         initial_completeness = (initial_allocated / initial_planned * 100) if initial_planned > 0 else 0
 
-        print(f"\nINITIAL ALLOCATION RESULTS:")
-        print(f"- Total Planned: {initial_planned:.2f}")
-        print(f"- Initial Allocated: {initial_allocated:.2f}")
-        print(f"- Initial Completeness: {initial_completeness:.2f}%")
+        logger.info(f"\nINITIAL ALLOCATION RESULTS:")
+        logger.info(f"- Total Planned: {initial_planned:.2f}")
+        logger.info(f"- Initial Allocated: {initial_allocated:.2f}")
+        logger.info(f"- Initial Completeness: {initial_completeness:.2f}%")
 
         # STEP 2: NEW - Perform final allocation pass to maximize planned quantity fulfillment
-        print("\n" + "="*60)
-        print("PERFORMING FINAL ALLOCATION OPTIMIZATION PASS")
-        print("="*60)
+        logger.info("\n" + "="*60)
+        logger.info("PERFORMING FINAL ALLOCATION OPTIMIZATION PASS")
+        logger.info("="*60)
 
         # Get absent employees for the final pass
         attendance_df_temp = attendance_df.copy()
@@ -3234,23 +3234,23 @@ def run_dday_generation(viaAPI):
         final_completeness = (final_allocated / initial_planned * 100) if initial_planned > 0 else 0
         improvement = final_completeness - initial_completeness
 
-        print(f"\nFINAL ALLOCATION RESULTS:")
-        print(f"- Final Allocated: {final_allocated:.2f}")
-        print(f"- Final Completeness: {final_completeness:.2f}%")
-        print(f"- Improvement: +{improvement:.2f}%")
+        logger.info(f"\nFINAL ALLOCATION RESULTS:")
+        logger.info(f"- Final Allocated: {final_allocated:.2f}")
+        logger.info(f"- Final Completeness: {final_completeness:.2f}%")
+        logger.info(f"- Improvement: +{improvement:.2f}%")
 
         # Generate report (keeping your existing logic)
         report = generate_reallocation_report(stats, tracking)
-        print(report)
+        logger.info(report)
 
         # Check for over-allocation (keeping your existing logic)
         over_allocated = emp_fact_df[emp_fact_df["remaining_capacity"] < 0]
         if not over_allocated.empty:
-            print(f"WARNING: {len(over_allocated)} employees have been over-allocated!")
-            print(over_allocated[["employee_id", "employee_name", "remaining_capacity"]])
+            logger.info(f"WARNING: {len(over_allocated)} employees have been over-allocated!")
+            logger.info(over_allocated[["employee_id", "employee_name", "remaining_capacity"]])
 
         # FIXED: Generate unallocated report using the safe version
-        print("\nGenerating Unallocated Employees Report...")
+        logger.info("\nGenerating Unallocated Employees Report...")
         unallocated_report = generate_unallocated_report_safe(
             emp_fact_df,
             allocation_date,
@@ -3259,9 +3259,9 @@ def run_dday_generation(viaAPI):
         )
 
         # NEW: Analyze allocation gaps - but only if we have capacity data
-        print("\n" + "="*60)
-        print("ALLOCATION GAP ANALYSIS")
-        print("="*60)
+        logger.info("\n" + "="*60)
+        logger.info("ALLOCATION GAP ANALYSIS")
+        logger.info("="*60)
 
         # For gap analysis, we need a capacity-based report, so let's create a simple one
         try:
@@ -3281,22 +3281,22 @@ def run_dday_generation(viaAPI):
             gap_analysis = analyze_allocation_gaps(optimized_manning, capacity_report)
 
             if 'message' in gap_analysis:
-                print(gap_analysis['message'])
+                logger.info(gap_analysis['message'])
             else:
-                print(f"Operations with unmet quantities: {gap_analysis['unmet_operations_count']}")
-                print(f"Total unmet quantity: {gap_analysis['total_unmet_quantity']:.2f}")
-                print(f"Potential additional allocation: {gap_analysis['total_potential_additional_allocation']:.2f}")
+                logger.info(f"Operations with unmet quantities: {gap_analysis['unmet_operations_count']}")
+                logger.info(f"Total unmet quantity: {gap_analysis['total_unmet_quantity']:.2f}")
+                logger.info(f"Potential additional allocation: {gap_analysis['total_potential_additional_allocation']:.2f}")
 
                 if gap_analysis['potential_matches']:
-                    print("\nTop 5 Skills with Unmet Demand vs Available Capacity:")
-                    print("-" * 60)
+                    logger.info("\nTop 5 Skills with Unmet Demand vs Available Capacity:")
+                    logger.info("-" * 60)
                     for skill, data in list(gap_analysis['potential_matches'].items())[:5]:
-                        print(f"Skill {skill}:")
-                        print(f"  Unmet: {data['unmet_quantity']:.1f}, Available: {data['available_capacity']:.1f}")
-                        print(f"  Potential fulfillment: {data['potential_fulfillment']:.1f} ({data['fulfillment_percentage']:.1f}%)")
-                        print()
+                        logger.info(f"Skill {skill}:")
+                        logger.info(f"  Unmet: {data['unmet_quantity']:.1f}, Available: {data['available_capacity']:.1f}")
+                        logger.info(f"  Potential fulfillment: {data['potential_fulfillment']:.1f} ({data['fulfillment_percentage']:.1f}%)")
+                        logger.info()
         except Exception as e:
-            print(f"Gap analysis skipped due to error: {e}")
+            logger.info(f"Gap analysis skipped due to error: {e}")
 
         # FIXED: Analyze unallocated patterns with new structure
         analysis_summary = analyze_unallocated_patterns(unallocated_report)
@@ -3319,46 +3319,46 @@ def run_dday_generation(viaAPI):
         if not unallocated_report.empty:
             unallocated_output_path = f'exports/unallocated_report_dday.csv'
             unallocated_report.to_csv(unallocated_output_path, index=False)
-            print(f"Enhanced Unallocated report saved to: {unallocated_output_path}")
+            logger.info(f"Enhanced Unallocated report saved to: {unallocated_output_path}")
         else:
-            print("No unallocated employees found - all employees have been allocated!")
+            logger.info("No unallocated employees found - all employees have been allocated!")
 
         # FIXED: Display first few rows of unallocated report with correct columns
         if not unallocated_report.empty:
-            print(f"\nSample of Unallocated Employees Report:")
-            print("-" * 120)
+            logger.info(f"\nSample of Unallocated Employees Report:")
+            logger.info("-" * 120)
             # Use only columns that exist in the new structure
             available_columns = ['employee_id', 'employee_name', 'line', 'code', 'type', 'reason']
             display_columns = [col for col in available_columns if col in unallocated_report.columns]
             sample_report = unallocated_report.head(10)[display_columns]
-            print(sample_report.to_string(index=False))
+            logger.info(sample_report.to_string(index=False))
         else:
-            print("\nNo unallocated employees to display - all employees have been allocated!")
+            logger.info("\nNo unallocated employees to display - all employees have been allocated!")
 
         # FIXED: Show summary statistics with new structure
         if not unallocated_report.empty:
-            print(f"\nUnallocated Employees Statistics:")
-            print(f"Total Unallocated Records: {len(unallocated_report)}")
-            print(f"Unique Unallocated Employees: {unallocated_report['employee_id'].nunique()}")
+            logger.info(f"\nUnallocated Employees Statistics:")
+            logger.info(f"Total Unallocated Records: {len(unallocated_report)}")
+            logger.info(f"Unique Unallocated Employees: {unallocated_report['employee_id'].nunique()}")
 
             # Show breakdown by reason
             if 'reason' in unallocated_report.columns:
                 reason_counts = unallocated_report['reason'].value_counts()
-                print(f"Breakdown by Reason:")
+                logger.info(f"Breakdown by Reason:")
                 for reason, count in reason_counts.items():
-                    print(f"  {reason}: {count}")
+                    logger.info(f"  {reason}: {count}")
         else:
-            print(f"\nUnallocated Employees Statistics:")
-            print(f"All employees have been allocated successfully!")
+            logger.info(f"\nUnallocated Employees Statistics:")
+            logger.info(f"All employees have been allocated successfully!")
 
         # NEW: Show enhanced allocations made
         enhanced_allocations = optimized_manning[optimized_manning['reallocation_level'].isin(['final_optimization', 'final_optimization_addition', 'final_optimization_additional_row'])]
 
         if not enhanced_allocations.empty:
-            print(f"\n" + "="*60)
-            print("ENHANCED ALLOCATIONS SUMMARY")
-            print("="*60)
-            print(f"Additional allocations made: {len(enhanced_allocations)}")
+            logger.info(f"\n" + "="*60)
+            logger.info("ENHANCED ALLOCATIONS SUMMARY")
+            logger.info("="*60)
+            logger.info(f"Additional allocations made: {len(enhanced_allocations)}")
 
             # Calculate additional capacity more safely
             try:
@@ -3371,34 +3371,34 @@ def run_dday_generation(viaAPI):
                 else:
                     additional_capacity = enhanced_allocations['allocated_capacity'].fillna(0).sum()
 
-                print(f"Additional capacity allocated: {additional_capacity:.2f}")
+                logger.info(f"Additional capacity allocated: {additional_capacity:.2f}")
             except Exception as e:
-                print(f"Additional capacity calculation: {enhanced_allocations['allocated_capacity'].fillna(0).sum():.2f}")
+                logger.info(f"Additional capacity calculation: {enhanced_allocations['allocated_capacity'].fillna(0).sum():.2f}")
 
-            print(f"\nSample of Enhanced Allocations:")
-            print("-" * 120)
+            logger.info(f"\nSample of Enhanced Allocations:")
+            logger.info("-" * 120)
             display_cols = ['line', 'operation', 'code', 'planned_qty', 'allocated_capacity', 'allocated_emp_name', 'shortage_flag']
             available_cols = [col for col in display_cols if col in enhanced_allocations.columns]
             sample_enhanced = enhanced_allocations[available_cols].head(5)
-            print(sample_enhanced.to_string(index=False))
+            logger.info(sample_enhanced.to_string(index=False))
         else:
-            print(f"\n" + "="*60)
-            print("No additional allocations were made - your original allocation was already optimal!")
-            print("="*60)
+            logger.info(f"\n" + "="*60)
+            logger.info("No additional allocations were made - your original allocation was already optimal!")
+            logger.info("="*60)
 
         # Final summary
-        print(f"\n" + "="*80)
-        print("FINAL SUMMARY")
-        print("="*80)
-        print(f"🎯 Allocation Improvement: {initial_completeness:.2f}% → {final_completeness:.2f}% (+{improvement:.2f}%)")
-        print(f"📊 Total Planned Quantity: {initial_planned:.2f}")
-        print(f"📈 Additional Capacity Allocated: {final_allocated - initial_allocated:.2f}")
-        print(f"👥 Enhanced Allocations Made: {len(enhanced_allocations) if not enhanced_allocations.empty else 0}")
+        logger.info(f"\n" + "="*80)
+        logger.info("FINAL SUMMARY")
+        logger.info("="*80)
+        logger.info(f"🎯 Allocation Improvement: {initial_completeness:.2f}% → {final_completeness:.2f}% (+{improvement:.2f}%)")
+        logger.info(f"📊 Total Planned Quantity: {initial_planned:.2f}")
+        logger.info(f"📈 Additional Capacity Allocated: {final_allocated - initial_allocated:.2f}")
+        logger.info(f"👥 Enhanced Allocations Made: {len(enhanced_allocations) if not enhanced_allocations.empty else 0}")
         if not unallocated_report.empty:
-            print(f"❌ Unallocated Employees: {unallocated_report['employee_id'].nunique()}")
+            logger.info(f"❌ Unallocated Employees: {unallocated_report['employee_id'].nunique()}")
         else:
-            print(f"✅ All Employees Allocated Successfully!")
-        print("="*80)
+            logger.info(f"✅ All Employees Allocated Successfully!")
+        logger.info("="*80)
 
         # manning = optimized_manning #Comment as it is not required
         if 'raw_style' in manning.columns:
@@ -3442,7 +3442,7 @@ def run_dday_generation(viaAPI):
                 return success_response(message=f"No records generated for DDay", status=status.HTTP_200_OK)
             truncate_table(DDayData)
         except DatabaseError as db_err:
-            print(f"Error deleting old records: {db_err}")
+            logger.info(f"Error deleting old records: {db_err}")
             return error_response(error="Failed to clear old data.", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         # Insert data in chunks
@@ -3457,13 +3457,13 @@ def run_dday_generation(viaAPI):
                         DDayData.objects.bulk_create(manning_data, ignore_conflicts=True) 
 
         except IntegrityError as int_err:
-            print(f"Integrity Error: {int_err}")
+            logger.info(f"Integrity Error: {int_err}")
             return error_response(error="Data integrity issue.", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         except DatabaseError as db_err:
-            print(f"Database Error during bulk insert: {db_err}")
+            logger.info(f"Database Error during bulk insert: {db_err}")
             return error_response(error="Failed to insert data.", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        print(f"D-Day Manning Allocation Completed Successfully.")
+        logger.info(f"D-Day Manning Allocation Completed Successfully.")
 
         if not viaAPI:
             get_dday_data()
@@ -3473,7 +3473,7 @@ def run_dday_generation(viaAPI):
         return success_response(message=f"Successfully generated DDay data", status=status.HTTP_200_OK)
 
     except Exception as e:
-        print(e)
+        logger.info(e)
         return error_response(error=f"An unexpected error occurred. {e}", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
@@ -3838,7 +3838,7 @@ def run_generate_style_ob(viaAPI):
         chunked_data = [data_dicts[i:i + CHUNK_SIZE] for i in range(0, len(data_dicts), CHUNK_SIZE)]
 
         truncate_table(StyleOB)
-        print(f"Inserting {len(data_dicts)} unallocated records in {len(chunked_data)} chunks...")
+        logger.info(f"Inserting {len(data_dicts)} unallocated records in {len(chunked_data)} chunks...")
         with ThreadPoolExecutor(max_workers=10) as executor:
             executor.map(insert_chunk, chunked_data)
 
@@ -3902,7 +3902,7 @@ def fetch_and_transform_emp_attendance(run_type=None):
             </soap:Body>
             </soap:Envelope>
         """
-        print(f"Fetching API: {soap_url}")
+        logger.info(f"Fetching API: {soap_url}")
 
         # Disable SSL verification due to certificate issues
         response = requests.post(soap_url, data=soap_body, headers=headers, verify=False)
@@ -4098,7 +4098,7 @@ def fetch_and_transform_empdetails():
             </soap:Body>
             </soap:Envelope>
         """
-        print(f"Fetching API: {soap_url}")
+        logger.info(f"Fetching API: {soap_url}")
 
         # Disable SSL verification due to certificate issues
         response = requests.post(soap_url, data=soap_body, headers=headers, verify=False)
@@ -4409,7 +4409,7 @@ def insert_all_unallocated_employees(all_unallocated_employees, df_active_employ
 
     chunked_data = [data_dicts[i:i + CHUNK_SIZE] for i in range(0, len(data_dicts), CHUNK_SIZE)]
 
-    print(f"Inserting {len(data_dicts)} unallocated records in {len(chunked_data)} chunks...")
+    logger.info(f"Inserting {len(data_dicts)} unallocated records in {len(chunked_data)} chunks...")
     with ThreadPoolExecutor(max_workers=10) as executor:
         executor.map(insert_chunk, chunked_data)
 
@@ -4487,7 +4487,7 @@ def insert_consolidated_df(consolidated_df):
     chunked_data = [data_dicts[i:i + CHUNK_SIZE] for i in range(0, len(data_dicts), CHUNK_SIZE)]
 
     # Step 3: Insert each chunk sequentially to preserve order
-    print(f"Inserting {len(data_dicts)} records in {len(chunked_data)} chunks sequentially...")
+    logger.info(f"Inserting {len(data_dicts)} records in {len(chunked_data)} chunks sequentially...")
     for chunk in chunked_data:
         insert_chunk(chunk)
 
@@ -5378,7 +5378,7 @@ def add_bulk_wip_data(request):
             truncate_table(WIPData)
             WIPData.objects.bulk_create(wip_instances, batch_size=1000)
 
-        print(f"Inserted {len(wip_instances)} records into WIPData.")
+        logger.info(f"Inserted {len(wip_instances)} records into WIPData.")
         return success_response(message=f'Inserted {len(wip_instances)} records into WIPData.', data="message", status=status.HTTP_200_OK)
     except Exception as e:
         return error_response(error= str(e), status=status.HTTP_400_BAD_REQUEST)

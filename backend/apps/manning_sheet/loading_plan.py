@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 import pandas as pd
 from collections import defaultdict
 
@@ -43,7 +46,7 @@ def redistribute_production_plan(data, line_capacities=None, respect_date_ranges
 
 
     if 'FABRIC ARTICLE' not in data.columns:
-        print("Warning: 'FABRIC ARTICLE' column not found in data. Adding default value.")
+        logger.info("Warning: 'FABRIC ARTICLE' column not found in data. Adding default value.")
         data['FABRIC ARTICLE'] = 'DEFAULT'  # Add a default fabric article if the column doesn't exist
 
 
@@ -55,10 +58,10 @@ def redistribute_production_plan(data, line_capacities=None, respect_date_ranges
 
     has_order_identifiers = len(order_identifiers) > 0
     if has_order_identifiers:
-        print(f"Order identifiers found: {', '.join(order_identifiers)}")
-        print("Order details will be preserved during optimization")
+        logger.info(f"Order identifiers found: {', '.join(order_identifiers)}")
+        logger.info("Order details will be preserved during optimization")
     else:
-        print("No order identifiers found in data")
+        logger.info("No order identifiers found in data")
 
     lines = data['Line'].unique()
     planned_dates = sorted(data['Planned Dates'].unique())
@@ -79,7 +82,7 @@ def redistribute_production_plan(data, line_capacities=None, respect_date_ranges
         for line in lines:
             if line not in line_capacities:
                 line_capacities[line] = 1300
-                print(f"Warning: No capacity defined for {line}, using default 1300")
+                logger.info(f"Warning: No capacity defined for {line}, using default 1300")
 
     # Create a mapping of delivery dates to priority levels (earlier = higher priority)
     all_del_dates = sorted(data['DEL DATE'].unique())
@@ -90,7 +93,7 @@ def redistribute_production_plan(data, line_capacities=None, respect_date_ranges
 
     # Process each production line separately
     for line in lines:
-        print(f"Processing {line} (Capacity: {line_capacities[line]} units/day)...")
+        logger.info(f"Processing {line} (Capacity: {line_capacities[line]} units/day)...")
         daily_capacity = line_capacities[line]
         line_data = data[data['Line'] == line].copy()
 
@@ -120,7 +123,7 @@ def redistribute_production_plan(data, line_capacities=None, respect_date_ranges
             # Store sequence for this week
             style_fabric_week_sequence[week] = style_fabric_order
             style_fabric_week_first_date[week] = style_fabric_first_date
-            print(f"  Week {week}: {len(style_fabric_order)} style+fabric combinations in sequence")
+            logger.info(f"  Week {week}: {len(style_fabric_order)} style+fabric combinations in sequence")
 
         # Process orders individually to preserve order details (instead of pre-aggregating)
         if has_order_identifiers:
@@ -207,7 +210,7 @@ def redistribute_production_plan(data, line_capacities=None, respect_date_ranges
 
         # Add max styles tracking
         if max_styles_per_day:
-            print(f"Limiting {line} to maximum {max_styles_per_day} style+fabric combinations per day")
+            logger.info(f"Limiting {line} to maximum {max_styles_per_day} style+fabric combinations per day")
 
         # Allocation strategy - modified to handle both grouped and individual orders
         current_week = None
@@ -233,7 +236,7 @@ def redistribute_production_plan(data, line_capacities=None, respect_date_ranges
             if week != current_week:
                 current_week = week
                 week_styles_fabrics_processed = set()
-                print(f"  Processing Week {week}")
+                logger.info(f"  Processing Week {week}")
 
     
             week_styles_fabrics_processed.add(style_fabric_key)
@@ -422,8 +425,8 @@ def redistribute_production_plan(data, line_capacities=None, respect_date_ranges
 
             # Strategy 5: If we STILL have quantity, allow exceeding capacity slightly---this section needs one more iteration
             if remaining_qty > 0:
-                print(f"Warning: Could not fully allocate {style} (fabric article: {fabric_article}) within capacity limits.")
-                print(f"         Allowing slight overloading to accommodate {remaining_qty} units")
+                logger.info(f"Warning: Could not fully allocate {style} (fabric article: {fabric_article}) within capacity limits.")
+                logger.info(f"         Allowing slight overloading to accommodate {remaining_qty} units")
 
                 # Try to add to days where this style+fabric is already allocated
                 style_fabric_days = [date for date in planned_dates if style_fabric_key in day_styles_fabrics[date]]
@@ -458,7 +461,7 @@ def redistribute_production_plan(data, line_capacities=None, respect_date_ranges
                     new_plan.append(new_row)
 
                     day_loads[best_day] += remaining_qty
-                    print(f"         Added to existing style+fabric day {best_day}, new load: {day_loads[best_day]}")
+                    logger.info(f"         Added to existing style+fabric day {best_day}, new load: {day_loads[best_day]}")
                     remaining_qty = 0
                 else:
                     # Try to add to days in the same week
@@ -478,7 +481,7 @@ def redistribute_production_plan(data, line_capacities=None, respect_date_ranges
 
                         day_loads[best_day] += remaining_qty
                         day_styles_fabrics[best_day].add(style_fabric_key)
-                        print(f"         Added to same week day {best_day}, new load: {day_loads[best_day]}")
+                        logger.info(f"         Added to same week day {best_day}, new load: {day_loads[best_day]}")
                         remaining_qty = 0
                     else:
                         ########################## version 6 in testing ####################################
@@ -501,7 +504,7 @@ def redistribute_production_plan(data, line_capacities=None, respect_date_ranges
                         if not valid_days:
                             # Use all planned dates as a last resort
                             valid_days = planned_dates
-                            print(f"         WARNING: No valid days within date constraints for {style}, using any available day")
+                            logger.info(f"         WARNING: No valid days within date constraints for {style}, using any available day")
                         
                         # Find the day with the lowest load
                         best_day = min(valid_days, key=lambda d: day_loads[d]) if valid_days else planned_dates[0]
@@ -509,7 +512,7 @@ def redistribute_production_plan(data, line_capacities=None, respect_date_ranges
                         # Create a safety net - if somehow best_day is still not defined, use the first planned date
                         if not best_day:
                             best_day = planned_dates[0]
-                            print(f"         CRITICAL: Using first available date as fallback for {style}")
+                            logger.info(f"         CRITICAL: Using first available date as fallback for {style}")
                         
                         split_count += 1
                         new_row = template_row.copy()
@@ -524,18 +527,18 @@ def redistribute_production_plan(data, line_capacities=None, respect_date_ranges
                         
                         day_loads[best_day] += remaining_qty
                         day_styles_fabrics[best_day].add(style_fabric_key)
-                        print(f"         Added to day {best_day} as last resort, new load: {day_loads[best_day]}")
+                        logger.info(f"         Added to day {best_day} as last resort, new load: {day_loads[best_day]}")
                         remaining_qty = 0
 
                         #######################################################################
     new_plan_df = pd.DataFrame(new_plan)
 
 
-    print("\nAnalyzing redistribution results...")
+    logger.info("\nAnalyzing redistribution results...")
     original_total = analyze_redistribution(data, new_plan_df, line_capacities)
     if 'Planned Qty' in new_plan_df.columns:
         new_plan_df['Planned Qty'] = new_plan_df['Planned Qty'].astype(float)
-        print("Rounded all planned quantities to whole numbers")
+        logger.info("Rounded all planned quantities to whole numbers")
 
     return new_plan_df, original_total
 
@@ -597,8 +600,8 @@ def analyze_redistribution(original_df, new_df, line_capacities):
             new_overloaded += 1
             new_total_over += (load - capacity_limit)
 
-    print(f"Original plan: {original_overloaded} days exceeding capacity ({original_total_over:.2f} total units over)")
-    print(f"New plan: {new_overloaded} days exceeding capacity ({new_total_over:.2f} total units over)")
+    logger.info(f"Original plan: {original_overloaded} days exceeding capacity ({original_total_over:.2f} total units over)")
+    logger.info(f"New plan: {new_overloaded} days exceeding capacity ({new_total_over:.2f} total units over)")
 
     # Analyze style distribution
     original_style_fabric_count = [len(style_fabrics) for style_fabrics in original_style_fabrics.values()]
@@ -610,8 +613,8 @@ def analyze_redistribution(original_df, new_df, line_capacities):
     original_single_style_fabric = sum(1 for count in original_style_fabric_count if count == 1)
     new_single_style_fabric = sum(1 for count in new_style_fabric_count if count == 1)
 
-    print(f"Original plan: {original_avg_style_fabrics:.2f} avg style+fabric combinations per day, {original_single_style_fabric} single-combination days")
-    print(f"New plan: {new_avg_style_fabrics:.2f} avg style+fabric combinations per day, {new_single_style_fabric} single-combination days")
+    logger.info(f"Original plan: {original_avg_style_fabrics:.2f} avg style+fabric combinations per day, {original_single_style_fabric} single-combination days")
+    logger.info(f"New plan: {new_avg_style_fabrics:.2f} avg style+fabric combinations per day, {new_single_style_fabric} single-combination days")
 
     ######### capacity utilization by line
     lines = set([key.split('|')[0] for key in new_loads.keys()])
@@ -626,7 +629,7 @@ def analyze_redistribution(original_df, new_df, line_capacities):
             orig_avg = sum(original_line_util) / len(original_line_util)
             new_avg = sum(new_line_util) / len(new_line_util)
 
-            print(f"{line}: Original capacity utilization: {orig_avg:.2f}%, New: {new_avg:.2f}%")
+            logger.info(f"{line}: Original capacity utilization: {orig_avg:.2f}%, New: {new_avg:.2f}%")
 
     # Check for any potential issues with the new plan
     under_utilized_lines = {}
@@ -643,18 +646,18 @@ def analyze_redistribution(original_df, new_df, line_capacities):
             ####strategy 6 needs to be included to handle this
 
     if under_utilized_lines:
-        print("\nWarning: Some days have less than 50% capacity utilization:")
+        logger.info("\nWarning: Some days have less than 50% capacity utilization:")
         for line, count in under_utilized_lines.items():
-            print(f"  {line}: {count} days under 50% capacity")
+            logger.info(f"  {line}: {count} days under 50% capacity")
 
     # Verify total quantities remain the same
     original_total = original_df['Planned Qty'].sum()
     new_total = new_df['Planned Qty'].sum()
 
     if abs(original_total - new_total) > 0.01:
-        print(f"\nWarning: Total quantities differ! Original: {original_total:.2f}, New: {new_total:.2f}")
+        logger.info(f"\nWarning: Total quantities differ! Original: {original_total:.2f}, New: {new_total:.2f}")
     else:
-        print(f"\nTotal quantities preserved: {original_total:.2f} units")
+        logger.info(f"\nTotal quantities preserved: {original_total:.2f} units")
 
     if 'ORDER NO' in new_df.columns or 'OC NO' in new_df.columns:
         order_split_analysis(new_df)
@@ -669,7 +672,7 @@ def order_split_analysis(new_df):
     """
 
     if 'Split_ID' not in new_df.columns:
-        print("\nNo split tracking information available")
+        logger.info("\nNo split tracking information available")
         return
 
     
@@ -696,8 +699,8 @@ def order_split_analysis(new_df):
     max_split_count = max(split_counts.values()) if split_counts else 0
     avg_split_count = sum(split_counts.values()) / len(split_counts) if split_counts else 0
 
-    print(f"\nOrder split analysis:")
-    print(f"  Total orders: {total_orders}")
-    print(f"  Orders split across multiple days: {total_split_orders} ({total_split_orders/total_orders*100:.1f}%)")
-    print(f"  Maximum splits for a single order: {max_split_count}")
-    print(f"  Average splits per split order: {avg_split_count:.2f}")
+    logger.info(f"\nOrder split analysis:")
+    logger.info(f"  Total orders: {total_orders}")
+    logger.info(f"  Orders split across multiple days: {total_split_orders} ({total_split_orders/total_orders*100:.1f}%)")
+    logger.info(f"  Maximum splits for a single order: {max_split_count}")
+    logger.info(f"  Average splits per split order: {avg_split_count:.2f}")

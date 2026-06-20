@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 import os
 import re
 import ast
@@ -105,9 +108,9 @@ def fetch_data(all_data, page=0, api_url=None, department=None, transform_df=Tru
         if poRef and style and color:
             api_endpoint += f"&poRef={poRef}&style={style}&color={color}&line={line}"
         
-        print(f"Fetching API: {api_endpoint}")
+        logger.info(f"Fetching API: {api_endpoint}")
         response = requests.get(api_endpoint, headers={'x-api-key': API_KEY})
-        print("Response: ", response)
+        logger.info("Response: ", response)
 
         if response.status_code != 200:
             empty_df = pd.DataFrame()
@@ -123,7 +126,7 @@ def fetch_data(all_data, page=0, api_url=None, department=None, transform_df=Tru
             if data and "content" in data:
                 all_data.extend(data["content"])
 
-            print(f"Fetched page {page + 1} of {data.get('totalPages', 'Unknown')}")
+            logger.info(f"Fetched page {page + 1} of {data.get('totalPages', 'Unknown')}")
             
             if not data.get("last", True):
                 return fetch_data(all_data, page + 1, api_url, department, transform_df)  # ✅ Return result from recursive call
@@ -137,7 +140,7 @@ def fetch_data(all_data, page=0, api_url=None, department=None, transform_df=Tru
         else:
             return all_data
     except Exception as e:
-        print(f"Error fetching data: {e}")
+        logger.info(f"Error fetching data: {e}")
 
 
 
@@ -145,13 +148,13 @@ def fetch_data(all_data, page=0, api_url=None, department=None, transform_df=Tru
 def convert_to_dataframe(all_data):
     try:
         if not all_data:
-            print("No data to save.")
+            logger.info("No data to save.")
             return False
         df = pd.DataFrame(all_data)
         all_data.clear()
         return df
     except Exception as e:
-        print(f"Error generating dataframe: {e}")
+        logger.info(f"Error generating dataframe: {e}")
         return False
 
 
@@ -164,13 +167,13 @@ def save_to_csv(file_name, df):
         # Delete existing file if it exists
         if os.path.exists(file_path):
             os.remove(file_path)
-            print(f"Existing file {file_path} deleted.")
+            logger.info(f"Existing file {file_path} deleted.")
         
         # Save DataFrame to CSV
         df.to_csv(file_path, index=False, encoding='utf-8')
-        print(f"Data saved to {file_path}")
+        logger.info(f"Data saved to {file_path}")
     except Exception as e:
-        print(f"Error saving CSV: {e}")
+        logger.info(f"Error saving CSV: {e}")
 
 
 
@@ -179,7 +182,7 @@ def get_file_name(api_url):
     try:
         return api_url.split("external/")[1]
     except Exception as e:
-        print(f"Error in getting file name: {e}")
+        logger.info(f"Error in getting file name: {e}")
         return "output"
 
 
@@ -188,11 +191,11 @@ def get_file_name(api_url):
 def fetch_skill_matrix():
     try:
         all_data = []
-        print("Fetching Skill Matrix")
+        logger.info("Fetching Skill Matrix")
         df = fetch_data(all_data, 0, SKILL_MATRIX_API_URL)
         return df
     except Exception as e:
-        print(f"Error in Skill Matrix API: {e}")
+        logger.info(f"Error in Skill Matrix API: {e}")
 
 
 
@@ -200,11 +203,11 @@ def fetch_skill_matrix():
 def fetch_operations():
     try:
         all_data = []
-        print("Fetching Operations")
+        logger.info("Fetching Operations")
         df = fetch_data(all_data, 0, OPERATION_API_URL, DEPARTMENT)
         return df
     except Exception as e:
-        print(f"Error in Operations API: {e}")
+        logger.info(f"Error in Operations API: {e}")
 
 
 
@@ -212,12 +215,12 @@ def fetch_operations():
 def fetch_style_ob():
     try:
         all_data = []
-        print("Fetching Style OB Operations")
+        logger.info("Fetching Style OB Operations")
         raw_data = fetch_data(all_data, 0, STYLEOB_API_URL, transform_df=False)
         df = creates_dataframe(raw_data)
         return df
     except Exception as e:
-        print(f"Error in Style OB API: {e}")
+        logger.info(f"Error in Style OB API: {e}")
 
 
 
@@ -225,11 +228,11 @@ def fetch_style_ob():
 def fetch_wip(poRef, style, color, line):
     try:
         all_data = []
-        print("Fetching WIP Data")
+        logger.info("Fetching WIP Data")
         raw_data = fetch_data(all_data, 0, WIP_API_URL, poRef=poRef, style=style, color=color, line=line, transform_df=False)
         return raw_data
     except Exception as e:
-        print(f"Error in WIP Data API: {e}")
+        logger.info(f"Error in WIP Data API: {e}")
 
 
 
@@ -398,8 +401,8 @@ def merge_dataframe(df_skill_matrix, df_operations):
 
         return df_merged
     except Exception as e:
-        print(e)
-        print(f"Error in merging skill matrix and operations dataframes: {e}")
+        logger.info(e)
+        logger.info(f"Error in merging skill matrix and operations dataframes: {e}")
 
 
 
@@ -798,7 +801,7 @@ def delete_old_exported_files(days_old, file_extension):
     exports_dir = os.path.join(settings.BASE_DIR, 'exports')
 
     if not os.path.exists(exports_dir):
-        print("Exports directory does not exist.")
+        logger.info("Exports directory does not exist.")
         return
 
     today = datetime.now().date()
@@ -812,7 +815,7 @@ def delete_old_exported_files(days_old, file_extension):
                 os.remove(file_path)
                 deleted_files.append(file)
 
-    print(f"Deleted {len(deleted_files)} old file(s): {deleted_files}")
+    logger.info(f"Deleted {len(deleted_files)} old file(s): {deleted_files}")
 
 # Merge operations and style_ob dataframes
 def merge_machine_sam(df_operations, df_sections):
@@ -1181,7 +1184,7 @@ def transform_unallocated_to_on_hold_from_dict(unallocated_data_dicts):
         truncate_table(EmployeesOnHold)
         EmployeesOnHold.objects.bulk_create(new_entries, batch_size=1000)
 
-    print(f"Inserted {len(new_entries)} EmployeesOnHold records.")
+    logger.info(f"Inserted {len(new_entries)} EmployeesOnHold records.")
 
 
 # To add code also but on standby as of now
@@ -1218,7 +1221,7 @@ def transform_unallocated_to_on_hold_from_dict_updated(unallocated_data_dicts):
     with transaction.atomic():
         truncate_table(EmployeesOnHold)
         EmployeesOnHold.objects.bulk_create(new_entries, batch_size=1000)
-    print(f"Inserted {len(new_entries)} EmployeesOnHold records.")
+    logger.info(f"Inserted {len(new_entries)} EmployeesOnHold records.")
 
 
 

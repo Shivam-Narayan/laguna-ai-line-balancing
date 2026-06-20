@@ -3,6 +3,8 @@ import pandas as pd
 
 from django.http import HttpResponse
 
+import typing
+from django.core.exceptions import ObjectDoesNotExist
 from datetime import datetime
 from rest_framework import status
 from rest_framework.response import Response
@@ -121,7 +123,7 @@ def upload_historical_weather_data(request):
             return success_response(message= 'Data uploaded successfully', status=200)
 
         except Exception as e:
-            return error_response(error= f"som eerror {str(e)}", status=500)
+            return error_response(error= f"Some error: {str(e)}", status=500)
 
     return error_response(error= 'Invalid request method', status=405)
 
@@ -174,7 +176,7 @@ def operators_data(request):
        
         if not line_no:
             return error_response(
-                error='Line are required.',
+                error='Line is required.',
                 status=status.HTTP_400_BAD_REQUEST
             )
        
@@ -209,7 +211,7 @@ def operators_data(request):
             status=status.HTTP_200_OK
         )
    
-    except EmployeeMaster.DoesNotExist:
+    except ObjectDoesNotExist:
         return error_response(
             error="Employee Master Model does not exist.",
             status=status.HTTP_404_NOT_FOUND
@@ -243,7 +245,7 @@ def export_operators_data(request):
             )
         
         # Get the actual field names from the EmployeeMaster model
-        fields = [field.name for field in EmployeeMaster._meta.get_fields()]
+        fields = [field.name for field in EmployeeMaster._meta.get_fields()] # type: ignore
         
         if not fields:
             return error_response(
@@ -288,7 +290,7 @@ def export_operators_data(request):
         
         return response
     
-    except EmployeeMaster.DoesNotExist:
+    except ObjectDoesNotExist:
         return error_response(
             error="Employee Master Model does not exist.",
             status=status.HTTP_404_NOT_FOUND
@@ -328,7 +330,7 @@ def export_operators_data_email(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        fields = [field.name for field in EmployeeMaster._meta.get_fields()]
+        fields = [field.name for field in typing.cast(typing.Any, EmployeeMaster)._meta.get_fields()]
         
         if not fields:
             return error_response(
@@ -382,7 +384,7 @@ def export_operators_data_email(request):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    except EmployeeMaster.DoesNotExist:
+    except ObjectDoesNotExist:
         return error_response(
             error="Employee Master Model does not exist.",
             status=status.HTTP_404_NOT_FOUND
@@ -426,10 +428,10 @@ def upload_attendance_file(request):
             df.dropna(subset=['employee_id', 'attendance_date'], inplace=True)
             
             # Convert data types
-            df['employee_id'] = df['employee_id'].astype(int)
-            df['attendance_date'] = pd.to_datetime(df['attendance_date']).dt.date
-            df['last_updated'] = pd.to_datetime(df['last_updated']).dt.time
-            df['early_departure'] = df['early_departure'].apply(lambda x: x.upper() == 'TRUE')
+            df['employee_id'] = pd.to_numeric(df['employee_id'], errors='coerce').fillna(0).astype(int)
+            df['attendance_date'] = pd.to_datetime(df['attendance_date'], errors='coerce').dt.date
+            df['last_updated'] = pd.to_datetime(df['last_updated'], errors='coerce').dt.time.replace({pd.NaT: None})
+            df['early_departure'] = df['early_departure'].apply(lambda x: str(x).upper() == 'TRUE')
 
             # Bulk insert into database
             records = [
@@ -486,15 +488,20 @@ def run_generate_employee_master():
         logger.info(f"*******************************************************************")
         logger.info(f"Running Employee Master generation at {str(datetime.now())} hours!")
         # df_active_employees = pd.read_csv('csv_files/Active_Employees.csv')
-        active_employees_queryset = ActiveEmployees.objects.all().values()
+        active_employees_queryset = ActiveEmployees.objects.all().values() # type: ignore
         df_active_employees = pd.DataFrame(list(active_employees_queryset))
         df_active_employees.rename(columns={'employee_id': 'Emp No', 'employee_name': 'Employee name', 'line': 'Line', 'section': 'Section', 'designation': 'Designation'}, inplace=True)
 
         # Fetch data from Django model
-        queryset = EMPFact.objects.all().values()  # Convert QuerySet to a list of dictionaries
+        queryset = EMPFact.objects.all().values()  # Convert QuerySet to a list of dictionaries # type: ignore
 
         # Convert QuerySet to Pandas DataFrame
         df_emp_fact = pd.DataFrame(list(queryset))
+
+        if df_active_employees.empty:
+            df_active_employees = pd.DataFrame(columns=['Emp No', 'Employee name', 'Line', 'Section', 'Designation'])
+        if df_emp_fact.empty:
+            df_emp_fact = pd.DataFrame(columns=['employee_id', 'section', 'line', 'type', 'operation'])
 
         # Convert Emp No and EMPLOYEE ID to numeric
         # df_active_employees["Emp No"] = pd.to_numeric(df_active_employees["Emp No"], errors="coerce")
@@ -521,8 +528,8 @@ def run_generate_employee_master():
         df_merged["type"] = df_merged["type"].str.lower()
 
         # Assign primary and secondary operations
-        df_merged["primary"] = df_merged["operation"].where(df_merged["type"] == "primary", "-")
-        df_merged["secondary"] = df_merged["operation"].where(df_merged["type"] == "secondary", "-")
+        df_merged["primary"] = df_merged["operation"].where(df_merged["type"] == "primary", "-").fillna("-")
+        df_merged["secondary"] = df_merged["operation"].where(df_merged["type"] == "secondary", "-").fillna("-")
 
         # Rename and select relevant columns
         df_grouped = df_merged[["Emp No", "Employee name", "Line", "Section", "Designation", "primary", "secondary"]].copy()
@@ -548,8 +555,8 @@ def run_generate_employee_master():
             ["emp_code", "name", "line", "designation", "section", "status"],
             as_index=False
         ).agg({
-            "primary": lambda x: ", ".join(filter(lambda v: v != "-", x)),  
-            "secondary": lambda x: ", ".join(filter(lambda v: v != "-", x))  
+            "primary": lambda x: ", ".join([str(v) for v in x if str(v) != "-" and str(v).lower() != "nan"]),  
+            "secondary": lambda x: ", ".join([str(v) for v in x if str(v) != "-" and str(v).lower() != "nan"])  
         })
 
         # Replace empty values with "-"
@@ -608,10 +615,10 @@ def add_local_holiday_calender(request):
 
         holiday_df['date'] = pd.to_datetime(holiday_df['date'])
         # Extract day, month, year and week from the date
-        holiday_df['day'] = holiday_df['date'].dt.day
-        holiday_df['month'] = holiday_df['date'].dt.month
-        holiday_df['year'] = holiday_df['date'].dt.year
-        holiday_df['week'] = holiday_df['date'].dt.isocalendar().week  # ISO week number (1-53)
+        holiday_df['day'] = holiday_df['date'].dt.day # type: ignore
+        holiday_df['month'] = holiday_df['date'].dt.month # type: ignore
+        holiday_df['year'] = holiday_df['date'].dt.year # type: ignore
+        holiday_df['week'] = holiday_df['date'].dt.isocalendar().week  # ISO week number (1-53) # type: ignore
             
         # Process and save the data
         records = [
@@ -660,11 +667,11 @@ def add_payable_working_days(request):
 
         holiday_df['date'] = pd.to_datetime(holiday_df['date'])
         # Extract day, month, year and week from the date
-        holiday_df['day'] = holiday_df['date'].dt.day
-        holiday_df['month'] = holiday_df['date'].dt.month
-        holiday_df['year'] = holiday_df['date'].dt.year
-        holiday_df['week'] = holiday_df['date'].dt.isocalendar().week  # ISO week number (1-53)
-        print(holiday_df)
+        holiday_df['day'] = holiday_df['date'].dt.day # type: ignore
+        holiday_df['month'] = holiday_df['date'].dt.month # type: ignore
+        holiday_df['year'] = holiday_df['date'].dt.year # type: ignore
+        holiday_df['week'] = holiday_df['date'].dt.isocalendar().week  # ISO week number (1-53) # type: ignore
+        logger.info(holiday_df)
             
         # Process and save the data
         records = [

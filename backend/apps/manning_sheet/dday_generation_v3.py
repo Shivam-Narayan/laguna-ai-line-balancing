@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 import os
 import ast
 import math
@@ -72,15 +75,15 @@ def get_run_type_for_testing(use_fake_time=True, fake_time_str=None):
         # Use the manually specified time
         try:
             fake_time = datetime.strptime(fake_time_str, "%H:%M").time()
-            print(f"Using fake time: {fake_time_str}")
+            logger.info(f"Using fake time: {fake_time_str}")
             current_time = fake_time
         except ValueError:
-            print(f"Invalid time format: {fake_time_str}. Using real time instead.")
+            logger.info(f"Invalid time format: {fake_time_str}. Using real time instead.")
             current_time = datetime.now().time()
     else:
         # Use the real current time
         current_time = datetime.now().time()
-        print(f"Using real time: {current_time.strftime('%H:%M')}")
+        logger.info(f"Using real time: {current_time.strftime('%H:%M')}")
 
     # Determine run type based on the time
     if current_time >= evening_time:
@@ -337,7 +340,7 @@ def add_wip_backlog(planned_manning_df, wip_df):
 
     # If there are no common columns to join on, return the original dataframe
     if not join_columns:
-        print("Warning: No common columns found between manning and WIP dataframes")
+        logger.info("Warning: No common columns found between manning and WIP dataframes")
         return updated_manning
 
     # Convert join columns to a consistent type (string in this case)
@@ -387,10 +390,10 @@ def add_wip_backlog(planned_manning_df, wip_df):
                     updated_manning.loc[idx, 'target_90'] = new_allocated_capacity * 0.9
 
                     # Log the change for debugging
-                    print(f"Updated allocated capacity for idx {idx}: {row['original_planned_qty']} -> {new_total_qty}, "
+                    logger.info(f"Updated allocated capacity for idx {idx}: {row['original_planned_qty']} -> {new_total_qty}, "
                           f"Allocated: {updated_manning.loc[idx, 'allocated_capacity']} -> {new_allocated_capacity}")
 
-    print(f"Added backlog to {merged_df[merged_df['wip_qty'] > 0].shape[0]} operations")
+    logger.info(f"Added backlog to {merged_df[merged_df['wip_qty'] > 0].shape[0]} operations")
     return updated_manning
 
 
@@ -488,7 +491,7 @@ def balance_by_operation_sequence_enhanced(planned_manning_df, emp_fact_df, wip_
 
     # Ensure op_seq column exists
     if 'op_seq' not in balanced_manning.columns:
-        print("Warning: op_seq column not found. Creating dummy sequence.")
+        logger.info("Warning: op_seq column not found. Creating dummy sequence.")
         # Create a temporary sequence based on operation order
         balanced_manning['op_seq'] = balanced_manning.groupby(['line', 'section']).cumcount() + 1
 
@@ -538,7 +541,7 @@ def balance_by_operation_sequence_enhanced(planned_manning_df, emp_fact_df, wip_
                     })
 
     # Print summary of the allocation tracker
-    print(f"Balance operation: Initialized allocation tracker with {len(employee_allocation_tracker)} employees")
+    logger.info(f"Balance operation: Initialized allocation tracker with {len(employee_allocation_tracker)} employees")
 
 
     # Join WIP data if available
@@ -830,17 +833,17 @@ def balance_by_operation_sequence_enhanced(planned_manning_df, emp_fact_df, wip_
         emp_id = row['allocated_emp_id']
         if pd.notna(emp_id) and emp_id in absent_set:
             absent_allocations_count += 1
-            print(f"WARNING: Row {idx} has absent employee {emp_id} assigned in balance operation")
+            logger.info(f"WARNING: Row {idx} has absent employee {emp_id} assigned in balance operation")
             balanced_manning.loc[idx, 'allocated_emp_id'] = None
             balanced_manning.loc[idx, 'allocated_emp_name'] = None
             balanced_manning.loc[idx, 'allocated_capacity'] = 0
             balanced_manning.loc[idx, 'shortage_flag'] = 'Reallocation Failed - Employee Absent'
 
     if absent_allocations_count > 0:
-        print(f"Fixed {absent_allocations_count} absent employee allocations in balance operation")
+        logger.info(f"Fixed {absent_allocations_count} absent employee allocations in balance operation")
 
     # Print summary of reallocations
-    print(f"OP_SEQ balancing: Performed {reallocation_count} reallocations")
+    logger.info(f"OP_SEQ balancing: Performed {reallocation_count} reallocations")
 
     return balanced_manning
 
@@ -1186,10 +1189,10 @@ def reallocate_work_enhanced(affected_allocations, emp_fact_df, allocation_date,
             absent_set = set(absent_employees)
         else:
             absent_set = absent_employees
-        print(f"Processing {len(absent_set)} absent employees")
+        logger.info(f"Processing {len(absent_set)} absent employees")
     else:
         absent_set = set()
-        print("No absent employees to process")
+        logger.info("No absent employees to process")
 
     reallocation_tracking = []
     affected_allocations['reallocation_level'] = None
@@ -1207,7 +1210,7 @@ def reallocate_work_enhanced(affected_allocations, emp_fact_df, allocation_date,
 
     # If full_manning_df is provided, pre-populate with existing allocations
     if full_manning_df is not None:
-        print(f"Pre-populating capacity map with existing allocations from {len(full_manning_df)} rows")
+        logger.info(f"Pre-populating capacity map with existing allocations from {len(full_manning_df)} rows")
 
         for idx, row in full_manning_df.iterrows():
             emp_id = row['allocated_emp_id']
@@ -1227,7 +1230,7 @@ def reallocate_work_enhanced(affected_allocations, emp_fact_df, allocation_date,
     for emp_id, emp_data in employee_capacity_map.items():
         emp_fact_df.loc[emp_fact_df['employee_id'] == emp_id, 'remaining_capacity'] = emp_data['remaining_capacity']
 
-    print(f"Initialized consolidated capacity tracking for {len(employee_capacity_map)} employees")
+    logger.info(f"Initialized consolidated capacity tracking for {len(employee_capacity_map)} employees")
 
     # Process each allocation that needs modification
     for index, row in affected_allocations.iterrows():
@@ -1260,7 +1263,7 @@ def reallocate_work_enhanced(affected_allocations, emp_fact_df, allocation_date,
                 # Update emp_fact_df
                 emp_fact_df.loc[emp_fact_df['employee_id'] == current_emp_id, 'remaining_capacity'] = employee_capacity_map[current_emp_id]['remaining_capacity']
 
-                print(f"Freed {current_allocation} capacity from employee {current_emp_id} for reallocation (row {index})")
+                logger.info(f"Freed {current_allocation} capacity from employee {current_emp_id} for reallocation (row {index})")
 
         # 1. Check floaters first
         available_employee = check_floaters_for_allocation(emp_fact_df, code=code, absent_employees=absent_set)
@@ -1381,12 +1384,12 @@ def reallocate_work_enhanced(affected_allocations, emp_fact_df, allocation_date,
 
                 # Skip if absent
                 if emp_id in absent_set:
-                    print(f"WARNING: Found absent employee {emp_id} in available employees!")
+                    logger.info(f"WARNING: Found absent employee {emp_id} in available employees!")
                     continue
 
                 # Get remaining capacity from consolidated map
                 if emp_id not in employee_capacity_map:
-                    print(f"WARNING: Employee {emp_id} not found in capacity map!")
+                    logger.info(f"WARNING: Employee {emp_id} not found in capacity map!")
                     continue
 
                 available_capacity = employee_capacity_map[emp_id]['remaining_capacity']
@@ -1466,14 +1469,14 @@ def reallocate_work_enhanced(affected_allocations, emp_fact_df, allocation_date,
     for emp_id, emp_data in employee_capacity_map.items():
         if emp_data['remaining_capacity'] < 0:
             over_allocated_count += 1
-            print(f"ERROR: Employee {emp_id} ({emp_data['name']}) is over-allocated! "
+            logger.info(f"ERROR: Employee {emp_id} ({emp_data['name']}) is over-allocated! "
                   f"Remaining capacity: {emp_data['remaining_capacity']}")
             # Force fix
             emp_data['remaining_capacity'] = 0
             emp_fact_df.loc[emp_fact_df['employee_id'] == emp_id, 'remaining_capacity'] = 0
 
     if over_allocated_count > 0:
-        print(f" {over_allocated_count} over-allocated employees")
+        logger.info(f" {over_allocated_count} over-allocated employees")
 
     # : Final verification step to catch any missed absent employees - AND SET TARGETS
     absent_allocations_count = 0
@@ -1481,7 +1484,7 @@ def reallocate_work_enhanced(affected_allocations, emp_fact_df, allocation_date,
         emp_id = row['allocated_emp_id']
         if pd.notna(emp_id) and emp_id in absent_set:
             absent_allocations_count += 1
-            print(f"WARNING: Row {idx} still has absent employee {emp_id} assigned")
+            logger.info(f"WARNING: Row {idx} still has absent employee {emp_id} assigned")
             planned_qty_for_target = row['planned_qty']  # Get planned qty for this row
             affected_allocations.loc[idx, 'allocated_emp_id'] = None
             affected_allocations.loc[idx, 'allocated_emp_name'] = None
@@ -1492,13 +1495,13 @@ def reallocate_work_enhanced(affected_allocations, emp_fact_df, allocation_date,
             affected_allocations.loc[idx, 'target_90'] = planned_qty_for_target * 0.9
 
     if absent_allocations_count > 0:
-        print(f" {absent_allocations_count} allocations that still had absent employees assigned")
+        logger.info(f" {absent_allocations_count} allocations that still had absent employees assigned")
 
     # Print allocation statistics
-    print(f"Allocation summary: {len(reallocation_tracking)} reallocations performed")
+    logger.info(f"Allocation summary: {len(reallocation_tracking)} reallocations performed")
     successful_count = len(affected_allocations[affected_allocations['shortage_flag'].str.contains('Reallocated', na=False)])
     failed_count = len(affected_allocations[affected_allocations['shortage_flag'].str.contains('Failed', na=False)])
-    print(f"Successful: {successful_count}, Failed: {failed_count}")
+    logger.info(f"Successful: {successful_count}, Failed: {failed_count}")
 
     return affected_allocations, reallocation_tracking
 
@@ -1549,7 +1552,7 @@ def build_employee_capacity_map(emp_fact_df):
             'allocations': []  # Track all allocations for this person
         }
 
-    print(f"Built capacity map for {len(employee_capacity_map)} unique employees")
+    logger.info(f"Built capacity map for {len(employee_capacity_map)} unique employees")
     return employee_capacity_map
 
 
@@ -1567,7 +1570,7 @@ def update_emp_fact_df_with_consolidated_capacity(emp_fact_df, employee_capacity
         # This ensures consistency across all their skill rows
         emp_fact_df.loc[emp_fact_df['employee_id'] == emp_id, 'remaining_capacity'] = emp_data['remaining_capacity']
 
-    print("Updated emp_fact_df with consolidated remaining capacities")
+    logger.info("Updated emp_fact_df with consolidated remaining capacities")
 
 
 
@@ -1659,14 +1662,14 @@ def allocate_employee_capacity(employee_capacity_map, emp_id, allocation_amount,
     bool: True if allocation successful, False if insufficient capacity
     """
     if emp_id not in employee_capacity_map:
-        print(f"ERROR: Employee {emp_id} not found in capacity map")
+        logger.info(f"ERROR: Employee {emp_id} not found in capacity map")
         return False
 
     emp_data = employee_capacity_map[emp_id]
 
     # Check if sufficient capacity available
     if emp_data['remaining_capacity'] < allocation_amount:
-        print(f"WARNING: Insufficient capacity for employee {emp_id}. "
+        logger.info(f"WARNING: Insufficient capacity for employee {emp_id}. "
               f"Requested: {allocation_amount}, Available: {emp_data['remaining_capacity']}")
         return False
 
@@ -1679,7 +1682,7 @@ def allocate_employee_capacity(employee_capacity_map, emp_id, allocation_amount,
         'section': section
     })
 
-    print(f"Allocated {allocation_amount} capacity to employee {emp_id}. "
+    logger.info(f"Allocated {allocation_amount} capacity to employee {emp_id}. "
           f"Remaining: {emp_data['remaining_capacity']}")
 
     return True
@@ -1698,7 +1701,7 @@ def free_employee_capacity(employee_capacity_map, emp_id, allocation_amount, row
     bool: True if successfully freed, False if allocation not found
     """
     if emp_id not in employee_capacity_map:
-        print(f"ERROR: Employee {emp_id} not found in capacity map")
+        logger.info(f"ERROR: Employee {emp_id} not found in capacity map")
         return False
 
     emp_data = employee_capacity_map[emp_id]
@@ -1710,11 +1713,11 @@ def free_employee_capacity(employee_capacity_map, emp_id, allocation_amount, row
             emp_data['remaining_capacity'] += allocation_amount
             emp_data['allocations'].pop(i)
 
-            print(f"Freed {allocation_amount} capacity from employee {emp_id}. "
+            logger.info(f"Freed {allocation_amount} capacity from employee {emp_id}. "
                   f"New remaining: {emp_data['remaining_capacity']}")
             return True
 
-    print(f"WARNING: Could not find allocation to free for employee {emp_id}, "
+    logger.info(f"WARNING: Could not find allocation to free for employee {emp_id}, "
           f"row {row_idx}, amount {allocation_amount}")
     return False
 
@@ -1766,7 +1769,7 @@ def perform_dday_allocation_enhanced(allocation_date, attendance_df, emp_fact_df
 
     # Ensure op_seq column exists for sorting purposes
     if 'op_seq' not in planned_manning.columns:
-        print("Warning: op_seq column not found. Creating sequence numbers.")
+        logger.info("Warning: op_seq column not found. Creating sequence numbers.")
         # Create a sequence number within each line and section
         planned_manning['op_seq'] = planned_manning.groupby(['line', 'section']).cumcount() + 1
 
@@ -1827,7 +1830,7 @@ def perform_dday_allocation_enhanced(allocation_date, attendance_df, emp_fact_df
             # Store WIP quantity in our tracking column
             working_manning['wip_quantity'] = merged_df[wip_qty_col]
         else:
-            print("Warning: Could not add WIP information - missing columns")
+            logger.info("Warning: Could not add WIP information - missing columns")
             working_manning['wip_quantity'] = 0
 
     # For noon run, update based on completion status
@@ -1875,7 +1878,7 @@ def perform_dday_allocation_enhanced(allocation_date, attendance_df, emp_fact_df
             # If conversion fails, keep as string
             pass
 
-        print(f"Identified {len(current_absent)} absent employees")
+        logger.info(f"Identified {len(current_absent)} absent employees")
 
         # Identify present employees
         current_present = latest_attendance[latest_attendance['status'] == 'P'].index.tolist()
@@ -1889,7 +1892,7 @@ def perform_dday_allocation_enhanced(allocation_date, attendance_df, emp_fact_df
         current_absent = []
         current_present = []
         attendance_status_map = pd.Series(dtype='object')
-        print("Warning: No attendance data found for this date!")
+        logger.info("Warning: No attendance data found for this date!")
 
     # Add planned leaves to absent list for planning runs
     if is_planning and planned_leaves:
@@ -1970,7 +1973,7 @@ def perform_dday_allocation_enhanced(allocation_date, attendance_df, emp_fact_df
         if balanced_manning.loc[idx, 'shortage_flag'] == 'Reallocated via OP_SEQ':
             # Skip if balanced_manning is trying to allocate an absent employee
             if balanced_manning.loc[idx, 'allocated_emp_id'] in absent_set:
-                print(f"WARNING: Skipping OP_SEQ balancing for row {idx} - would allocate absent employee")
+                logger.info(f"WARNING: Skipping OP_SEQ balancing for row {idx} - would allocate absent employee")
                 continue
 
             # Record original allocation for tracking
@@ -2056,7 +2059,7 @@ def perform_dday_allocation_enhanced(allocation_date, attendance_df, emp_fact_df
         emp_id = final_manning.loc[idx, 'allocated_emp_id']
         if pd.notna(emp_id) and emp_id in absent_set:
             absent_allocations_count += 1
-            print(f"WARNING: Row {idx} still has absent employee {emp_id} assigned")
+            logger.info(f"WARNING: Row {idx} still has absent employee {emp_id} assigned")
             # Fix the allocation
             final_manning.loc[idx, 'allocated_emp_id'] = None
             final_manning.loc[idx, 'allocated_emp_name'] = None
@@ -2064,7 +2067,7 @@ def perform_dday_allocation_enhanced(allocation_date, attendance_df, emp_fact_df
             final_manning.loc[idx, 'shortage_flag'] = 'Reallocation Failed - Employee Absent'
 
     if absent_allocations_count > 0:
-        print(f"Fixed {absent_allocations_count} allocations that still had absent employees assigned")
+        logger.info(f"Fixed {absent_allocations_count} allocations that still had absent employees assigned")
 
 
     # Record this run's changes
@@ -2121,8 +2124,8 @@ def perform_dday_allocation_enhanced(allocation_date, attendance_df, emp_fact_df
     # Check for any over-utilization
     over_allocated = emp_fact_df[emp_fact_df["remaining_capacity"] < 0]
     if not over_allocated.empty:
-        print(f"WARNING: {len(over_allocated)} employees have been over-allocated!")
-        print(over_allocated[["employee_id", "employee_name", "remaining_capacity"]])
+        logger.info(f"WARNING: {len(over_allocated)} employees have been over-allocated!")
+        logger.info(over_allocated[["employee_id", "employee_name", "remaining_capacity"]])
         stats['over_allocated_employees'] = len(over_allocated)
     else:
         stats['over_allocated_employees'] = 0
@@ -2279,7 +2282,7 @@ def analyze_mass_absenteeism(attendance_df, allocation_date, emp_details):
         }
 
     except Exception as e:
-        print(f"Error analyzing mass absenteeism: {e}")
+        logger.info(f"Error analyzing mass absenteeism: {e}")
         return {'mass_absenteeism_found': False, 'error': str(e)}
 
 
@@ -2301,7 +2304,7 @@ def run_intraday_allocation_enhanced(allocation_date, attendance_df, emp_fact_df
     """
     if run_type == "morning":
         # Morning run (8:50 AM): Initial line balancing with op_seq logic
-        print("Running 8:50 AM allocation with op_seq prioritization")
+        logger.info("Running 8:50 AM allocation with op_seq prioritization")
         return perform_dday_allocation_enhanced(
             allocation_date=allocation_date, 
             attendance_df=attendance_df, 
@@ -2311,15 +2314,15 @@ def run_intraday_allocation_enhanced(allocation_date, attendance_df, emp_fact_df
 
     elif run_type == "noon":
         # Noon run (12:45 PM): Re-evaluate based on morning progress
-        print("Running 12:45 PM allocation with morning output evaluation")
+        logger.info("Running 12:45 PM allocation with morning output evaluation")
 
         try:
             morning_manning = pd.DataFrame(list(
                 DDayData.objects.all().values()
             ))
-            print(f"Loaded morning Dday allocation..........")
+            logger.info(f"Loaded morning Dday allocation..........")
         except Exception as e:
-            print(f"Could not load morning allocation, starting fresh: {e}")
+            logger.info(f"Could not load morning allocation, starting fresh: {e}")
             # If we can't load morning results, just run a fresh allocation
             return perform_dday_allocation_enhanced(
                 allocation_date=allocation_date, 
@@ -2341,7 +2344,7 @@ def run_intraday_allocation_enhanced(allocation_date, attendance_df, emp_fact_df
 
     elif run_type == "evening":
         # Evening run (5:30 PM): Plan for next day with backlog
-        print("Running 5:30 PM allocation for next day planning")
+        logger.info("Running 5:30 PM allocation for next day planning")
 
         # Calculate tomorrow's date
         next_day = allocation_date + pd.Timedelta(days=1)
@@ -2349,7 +2352,7 @@ def run_intraday_allocation_enhanced(allocation_date, attendance_df, emp_fact_df
         # Keep incrementing until a valid working day is found
         while True:
             isWorkingDay, reason = is_allowed_working_day(next_day.date())
-            print(isWorkingDay, reason)
+            logger.info(isWorkingDay, reason)
             if isWorkingDay:
                 break
             next_day += pd.Timedelta(days=1)
@@ -2358,9 +2361,9 @@ def run_intraday_allocation_enhanced(allocation_date, attendance_df, emp_fact_df
         # Get tomorrow's planned allocation
         try:
             tomorrow_manning, _ = load_planned_allocation(next_day, None)
-            print(f"Loaded planning data for {next_day.strftime('%Y-%m-%d')}")
+            logger.info(f"Loaded planning data for {next_day.strftime('%Y-%m-%d')}")
         except Exception as e:
-            print(f"No planning data found for tomorrow, using empty DataFrame: {e}")
+            logger.info(f"No planning data found for tomorrow, using empty DataFrame: {e}")
             # Create an empty DataFrame with the same structure as today's
             today_manning, _ = load_planned_allocation(allocation_date, None)
             tomorrow_manning = today_manning.copy().iloc[0:0]  # Empty DataFrame with same columns
@@ -2371,9 +2374,9 @@ def run_intraday_allocation_enhanced(allocation_date, attendance_df, emp_fact_df
         if wip_df is not None:
             try:
                 tomorrow_with_backlog = add_wip_backlog(tomorrow_manning, wip_df)
-                print("Loaded end-of-day WIP data")
+                logger.info("Loaded end-of-day WIP data")
             except Exception as e:
-                print(f"No evening WIP update found, using existing WIP data: {e}")
+                logger.info(f"No evening WIP update found, using existing WIP data: {e}")
                 tomorrow_with_backlog = tomorrow_manning
 
         # 3. Check for planned leaves tomorrow
@@ -2381,7 +2384,7 @@ def run_intraday_allocation_enhanced(allocation_date, attendance_df, emp_fact_df
             # Check for planned leaves tomorrow
             leaves_df = pd.read_csv('csv_files/Planned_Leaves.csv')
             employee_id_col = 'Empployee ID' if 'Empployee ID' in leaves_df.columns else 'Employee ID'
-            print("Loaded planned leaves data")
+            logger.info("Loaded planned leaves data")
 
             # Filter for tomorrow's leaves
             leaves_df['Date'] = pd.to_datetime(leaves_df['Date'])
@@ -2391,7 +2394,7 @@ def run_intraday_allocation_enhanced(allocation_date, attendance_df, emp_fact_df
             # Mark these employees as unavailable
             emp_fact_df.loc[emp_fact_df['employee_id'].isin(tomorrow_leaves), 'PLANNED_LEAVE'] = True
         except Exception as e:
-            print(f"No planned leaves data found: {e}")
+            logger.info(f"No planned leaves data found: {e}")
             tomorrow_leaves = []
 
         # 4. Plan next day's allocation considering planned leaves
@@ -2440,7 +2443,7 @@ def generate_unallocated_report(emp_fact_df, allocation_date, attendance_df=None
     """
 
     if manning_df is None:
-        print("Warning: No manning dataframe provided. Cannot determine unallocated employees.")
+        logger.info("Warning: No manning dataframe provided. Cannot determine unallocated employees.")
         return pd.DataFrame()
 
     # Get all unique employee IDs from emp_fact_df
@@ -2472,11 +2475,11 @@ def generate_unallocated_report(emp_fact_df, allocation_date, attendance_df=None
     # Find truly unallocated employees
     unallocated_employee_ids = all_employee_ids - all_allocated
 
-    print(f"Total employees: {len(all_employee_ids)}")
-    print(f"Allocated in main: {len(allocated_main)}")
-    print(f"Allocated as additional: {len(allocated_additional)}")
-    print(f"Total allocated: {len(all_allocated)}")
-    print(f"Truly unallocated: {len(unallocated_employee_ids)}")
+    logger.info(f"Total employees: {len(all_employee_ids)}")
+    logger.info(f"Allocated in main: {len(allocated_main)}")
+    logger.info(f"Allocated as additional: {len(allocated_additional)}")
+    logger.info(f"Total allocated: {len(all_allocated)}")
+    logger.info(f"Truly unallocated: {len(unallocated_employee_ids)}")
 
     # Create unallocated report
     unallocated_report = pd.DataFrame()
@@ -2529,7 +2532,7 @@ def generate_unallocated_report_safe(emp_fact_df, allocation_date, attendance_df
     try:
         return generate_unallocated_report(emp_fact_df, allocation_date, attendance_df, manning_df)
     except Exception as e:
-        print(f"Error generating unallocated report: {e}")
+        logger.info(f"Error generating unallocated report: {e}")
         return pd.DataFrame()
 
 def determine_unallocation_reason(emp_id, emp_record, attendance_df=None, manning_df=None, allocation_date=None):
@@ -2651,46 +2654,46 @@ def print_unallocated_summary(analysis_summary):
     """
 
     if 'message' in analysis_summary:
-        print("\n" + "="*80)
-        print("UNALLOCATED EMPLOYEES ANALYSIS")
-        print("="*80)
-        print(analysis_summary['message'])
+        logger.info("\n" + "="*80)
+        logger.info("UNALLOCATED EMPLOYEES ANALYSIS")
+        logger.info("="*80)
+        logger.info(analysis_summary['message'])
         return
 
-    print("\n" + "="*80)
-    print("UNALLOCATED EMPLOYEES ANALYSIS SUMMARY")
-    print("="*80)
+    logger.info("\n" + "="*80)
+    logger.info("UNALLOCATED EMPLOYEES ANALYSIS SUMMARY")
+    logger.info("="*80)
 
-    print(f"Total Unallocated Records: {analysis_summary['total_unallocated_records']}")
-    print(f"Unique Unallocated Employees: {analysis_summary['unique_unallocated_employees']}")
+    logger.info(f"Total Unallocated Records: {analysis_summary['total_unallocated_records']}")
+    logger.info(f"Unique Unallocated Employees: {analysis_summary['unique_unallocated_employees']}")
 
-    print(f"\nREASON BREAKDOWN:")
-    print("-" * 40)
+    logger.info(f"\nREASON BREAKDOWN:")
+    logger.info("-" * 40)
     for reason, data in analysis_summary['reason_breakdown'].items():
-        print(f"{reason}: {data['Unique_Employees']} employees")
+        logger.info(f"{reason}: {data['Unique_Employees']} employees")
 
-    print(f"\nTOP LINES WITH UNALLOCATED EMPLOYEES:")
-    print("-" * 40)
+    logger.info(f"\nTOP LINES WITH UNALLOCATED EMPLOYEES:")
+    logger.info("-" * 40)
     for line, data in list(analysis_summary['line_breakdown'].items())[:5]:
-        print(f"Line {line}: {data['Unique_Employees']} employees")
+        logger.info(f"Line {line}: {data['Unique_Employees']} employees")
 
-    print(f"\nTOP SKILLS WITH UNALLOCATED EMPLOYEES:")
-    print("-" * 40)
+    logger.info(f"\nTOP SKILLS WITH UNALLOCATED EMPLOYEES:")
+    logger.info("-" * 40)
     for skill, data in list(analysis_summary['skill_breakdown'].items())[:5]:
-        print(f"Skill {skill}: {data['Unique_Employees']} employees")
+        logger.info(f"Skill {skill}: {data['Unique_Employees']} employees")
 
-    print(f"\nEMPLOYEE TYPE BREAKDOWN:")
-    print("-" * 40)
+    logger.info(f"\nEMPLOYEE TYPE BREAKDOWN:")
+    logger.info("-" * 40)
     for emp_type, data in analysis_summary['type_breakdown'].items():
-        print(f"{emp_type}: {data['Unique_Employees']} employees")
+        logger.info(f"{emp_type}: {data['Unique_Employees']} employees")
 
     if analysis_summary['multi_skill_employees']:
-        print(f"\nEMPLOYEES WITH MULTIPLE UNALLOCATED SKILLS:")
-        print("-" * 50)
+        logger.info(f"\nEMPLOYEES WITH MULTIPLE UNALLOCATED SKILLS:")
+        logger.info("-" * 50)
         for emp_id, skill_count in list(analysis_summary['multi_skill_employees'].items())[:5]:
-            print(f"Employee {emp_id}: {skill_count} unallocated skills")
+            logger.info(f"Employee {emp_id}: {skill_count} unallocated skills")
 
-    print("="*80)
+    logger.info("="*80)
 
 
 def analyze_allocation_gaps(manning_df, unallocated_df):
@@ -2743,7 +2746,7 @@ def perform_final_allocation_pass(manning_df, emp_fact_df, absent_employees=None
     Perform a final comprehensive allocation pass to maximize utilization
     of planned quantities with remaining employee capacity
     """
-    print("Starting final allocation pass to maximize planned quantity fulfillment...")
+    logger.info("Starting final allocation pass to maximize planned quantity fulfillment...")
 
     # Create absent set for faster lookups
     if absent_employees is None:
@@ -2799,7 +2802,7 @@ def perform_final_allocation_pass(manning_df, emp_fact_df, absent_employees=None
     # Sort unmet work by priority (higher priority first)
     unmet_work.sort(key=lambda x: x['priority_score'], reverse=True)
 
-    print(f"Found {len(unmet_work)} operations with unmet planned quantities")
+    logger.info(f"Found {len(unmet_work)} operations with unmet planned quantities")
 
     additional_allocations = 0
     total_additional_capacity = 0
@@ -2872,11 +2875,11 @@ def perform_final_allocation_pass(manning_df, emp_fact_df, absent_employees=None
                 additional_allocations += 1
                 total_additional_capacity += allocation_amount
 
-                print(f"Additional allocation: {best_emp['employee_name']} -> Row {row_idx}, Capacity: {allocation_amount}")
+                logger.info(f"Additional allocation: {best_emp['employee_name']} -> Row {row_idx}, Capacity: {allocation_amount}")
 
-    print(f"Final allocation pass completed:")
-    print(f"- Additional allocations: {additional_allocations}")
-    print(f"- Total additional capacity allocated: {total_additional_capacity}")
+    logger.info(f"Final allocation pass completed:")
+    logger.info(f"- Additional allocations: {additional_allocations}")
+    logger.info(f"- Total additional capacity allocated: {total_additional_capacity}")
 
     return enhanced_manning
 

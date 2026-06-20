@@ -48,88 +48,22 @@ services:
     profiles:
       - dev
 
-  # Django Application
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      target: dev
-    command: >
-      sh -c "python manage.py migrate &&
-             python manage.py runserver 0.0.0.0:8000"
+  # Redis Commander (Redis UI)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
     environment:
-      # Django Settings
-      ENVIRONMENT: ${ENVIRONMENT:-development}
-      SECRET_KEY: ${SECRET_KEY:-django-insecure-qkfz4kr257o+r7^5d$+vvr4zbvr@7+_1mq8^y0qzql0c&h*eg0}
-      DEBUG: ${DEBUG:-True}
-      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0}
-      
-      # Database Configuration
-      DB_ENGINE: ${DB_ENGINE:-django.db.backends.postgresql}
-      DB_NAME: ${DB_NAME:-Laguna}
-      DB_USER: ${DB_USER:-postgres}
-      DB_PASSWORD: ${DB_PASSWORD:-postgres}
-      DB_HOST: db
-      DB_PORT: "5432"
-      
-      # Redis Configuration
-      REDIS_BACKEND: ${REDIS_BACKEND:-redis://redis:6379/0}
-      
-      # Email Configuration
-      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
-      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-noreply@laguna-clothing.com}
-      MAILGUN_API_KEY: ${MAILGUN_API_KEY:-}
-      MAILGUN_DOMAIN: ${MAILGUN_DOMAIN:-}
-      MAILGUN_FROM_EMAIL: ${MAILGUN_FROM_EMAIL:-}
-      
-      # Server Configuration
-      PRODUCTION_URL: ${PRODUCTION_URL:-http://localhost:8000}
-      SERVER_URL: ${SERVER_URL:-http://localhost:8000}
+      - REDIS_HOSTS=local:redis:6379
     ports:
-      - "${BACKEND_PORT:-8001}:8000"
-    volumes:
-      - ./backend:/app
-      - static_volume:/app/static
-      - media_volume:/app/media
-      - logs_volume:/app/logs
+      - "8082:8081"
     depends_on:
-      db:
-        condition: service_healthy
       redis:
         condition: service_healthy
-    stdin_open: true
-    tty: true
+    restart: unless-stopped
     profiles:
       - dev
 
-  # Background Task Scheduler (Optional)
-  scheduler:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      target: dev
-    command: python manage.py runserver  # Replace with actual scheduler command
-    environment:
-      ENVIRONMENT: ${ENVIRONMENT:-development}
-      SECRET_KEY: ${SECRET_KEY:-django-insecure-qkfz4kr257o+r7^5d$+vvr4zbvr@7+_1mq8^y0qzql0c&h*eg0}
-      DB_ENGINE: ${DB_ENGINE:-django.db.backends.postgresql}
-      DB_NAME: ${DB_NAME:-Laguna}
-      DB_USER: ${DB_USER:-postgres}
-      DB_PASSWORD: ${DB_PASSWORD:-postgres}
-      DB_HOST: db
-      DB_PORT: "5432"
-      REDIS_BACKEND: ${REDIS_BACKEND:-redis://redis:6379/0}
-    depends_on:
-      - db
-      - redis
-    volumes:
-      - ./backend:/app
-      - logs_volume:/app/logs
-    profiles:
-      - scheduler  # Only run when explicitly enabled
-
-  # Production Django Application (Gunicorn)
-  backend_prod:
+  # Unified Backend Application (Production Configuration by default)
+  backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -155,7 +89,7 @@ services:
       DB_ENGINE: ${DB_ENGINE:-django.db.backends.postgresql}
       DB_NAME: ${DB_NAME:-Laguna}
       DB_USER: ${DB_USER:-postgres}
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
       DB_HOST: db
       DB_PORT: "5432"
       REDIS_BACKEND: ${REDIS_BACKEND:-redis://redis:6379/0}
@@ -166,7 +100,7 @@ services:
     expose:
       - "8000"
     volumes:
-      - static_volume:/app/static
+      - static_volume:/app/static_files
       - media_volume:/app/media
       - logs_volume:/app/logs
     depends_on:
@@ -176,7 +110,38 @@ services:
         condition: service_healthy
     restart: unless-stopped
     profiles:
+      - dev
       - prod
+
+  # Background Task Scheduler (Optional)
+  scheduler:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: dev
+    command: >
+      sh -c "python manage.py absenteeism_scheduler &
+             python manage.py dataEngine_scheduler &
+             python manage.py manning_sheet_scheduler &
+             wait"
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      SECRET_KEY: ${SECRET_KEY:-django-insecure-qkfz4kr257o+r7^5d$+vvr4zbvr@7+_1mq8^y0qzql0c&h*eg0}
+      DB_ENGINE: ${DB_ENGINE:-django.db.backends.postgresql}
+      DB_NAME: ${DB_NAME:-Laguna}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_HOST: db
+      DB_PORT: "5432"
+      REDIS_BACKEND: ${REDIS_BACKEND:-redis://redis:6379/0}
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./backend:/app
+      - logs_volume:/app/logs
+    profiles:
+      - scheduler
 
   # Production Celery worker
   celery:
@@ -191,7 +156,7 @@ services:
       DB_ENGINE: ${DB_ENGINE:-django.db.backends.postgresql}
       DB_NAME: ${DB_NAME:-Laguna}
       DB_USER: ${DB_USER:-postgres}
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
       DB_HOST: db
       DB_PORT: "5432"
       REDIS_BACKEND: ${REDIS_BACKEND:-redis://redis:6379/0}
@@ -200,7 +165,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      backend_prod:
+      backend:
         condition: service_started
     volumes:
       - logs_volume:/app/logs
@@ -216,11 +181,11 @@ services:
       - "443:443"
     volumes:
       - ./nginx.conf.template:/etc/nginx/nginx.conf:ro
-      - static_volume:/app/static:ro
+      - static_volume:/app/static_files:ro
       - media_volume:/app/media:ro
       - ./ssl:/etc/nginx/ssl:ro
     depends_on:
-      - backend_prod
+      - backend
     restart: unless-stopped
     profiles:
       - prod
@@ -238,4 +203,3 @@ volumes:
     driver: local
   pgadmin_data:
     driver: local
-

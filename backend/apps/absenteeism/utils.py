@@ -111,11 +111,11 @@ def send_email(recipient_emails, data, subject, type, file_name, test=False):
         if response.status_code in [200, 202]:
             return email_body
         else:
-            print(f"Error sending email: {response.status_code}, {response.body}")
+            logger.info(f"Error sending email: {response.status_code}, {response.body}")
             return None
 
     except Exception as e:
-        print(f"Error sending email: {e}")
+        logger.info(f"Error sending email: {e}")
         return None
 
 def generate_prediction_data(data):

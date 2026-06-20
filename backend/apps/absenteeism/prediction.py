@@ -7,6 +7,7 @@ import pandas as pd
 
 from django.db import transaction
 
+import typing
 from io import StringIO
 from datetime import datetime, date, timedelta
 from urllib3.util.retry import Retry
@@ -102,7 +103,7 @@ def get_future_weather_data():
         # Setup retries
         session = requests.Session()
         retries = Retry(total=3, backoff_factor=2, status_forcelist=[429, 500, 502, 503, 504])
-        session.mount('https://', HTTPAdapter(max_retries=retries))
+        session.mount('https://', HTTPAdapter(max_retries=typing.cast(int, retries)))
 
         response = session.get(api_url, timeout=30, verify=False)
         response.raise_for_status()
@@ -148,6 +149,14 @@ def get_future_weather_data():
         # Prepare objects for bulk create
         def safe_strip(value):
             return value.strip() if isinstance(value, str) else value
+            
+        def safe_int(val: typing.Any) -> typing.Optional[int]:
+            if val is None or pd.isna(val):
+                return None
+            try:
+                return int(float(val))
+            except (ValueError, TypeError):
+                return None
         
         objects_to_create = [
             HistoricalWeather(
@@ -176,7 +185,7 @@ def get_future_weather_data():
                 solarradiation=row.get('solarradiation'),
                 solarenergy=row.get('solarenergy'),
                 uvindex=row.get('uvindex'),
-                severerisk=int(row.get('severerisk')) if not pd.isna(row.get('severerisk')) else None,
+                severerisk=safe_int(row.get('severerisk')),
                 sunrise=row.get('sunrise'),
                 sunset=row.get('sunset'),
                 moonphase=row.get('moonphase'),
@@ -189,7 +198,7 @@ def get_future_weather_data():
         ]
 
         # Use atomic transaction to ensure DB integrity
-        with transaction.atomic():
+        with typing.cast(typing.ContextManager[None], transaction.atomic()):
             HistoricalWeather.objects.bulk_create(objects_to_create, batch_size=1000)
 
         logger.info(f"Inserted {len(objects_to_create)} future weather records.")
@@ -366,7 +375,7 @@ def train_dynamic_model(merged_data, feature_importance_threshold=0.01):
         min_samples_leaf=2, #1
         max_depth=25, #20
         min_samples_split=3, #2,
-        max_features='sqrt',
+        max_features=typing.cast(float, 'sqrt'),
         bootstrap=True,
         random_state=42,
         n_jobs=-1,
@@ -406,7 +415,7 @@ def train_dynamic_model(merged_data, feature_importance_threshold=0.01):
         min_samples_leaf=2,#1,
         max_depth=25,#20,
         min_samples_split=3,#2,
-        max_features='sqrt',
+        max_features=typing.cast(float, 'sqrt'),
         bootstrap=True,
         random_state=42,
         n_jobs=-1,
@@ -538,7 +547,7 @@ def predict_with_dynamic_model(future_weather, forecast_days, lags, line, sectio
             for window in [3, 5, 7, 14, 30, 60]:
                 if f'rolling_mean_{window}d' in important_features:
                     values = rolling_values[-window:]
-                    input_features[f'rolling_mean_{window}d'] = np.mean(values) if values else 0
+                    input_features[f'rolling_mean_{window}d'] = float(np.mean(values)) if values else 0.0
                 if f'rolling_std_{window}d' in important_features:
                     values = rolling_values[-window:]
                     input_features[f'rolling_std_{window}d'] = np.std(values) if len(values) > 1 else 0
@@ -567,14 +576,14 @@ def predict_with_dynamic_model(future_weather, forecast_days, lags, line, sectio
             # input_features = {feature: 0 for feature in important_features}
 
             # Use cyclic encoding for extrapolated dates
-            current_date = date_range[day]
-            input_features['month_sin'] = np.sin(2 * np.pi * current_date.month / 12)
-            input_features['month_cos'] = np.cos(2 * np.pi * current_date.month / 12)
-            input_features['day_of_week_sin'] = np.sin(2 * np.pi * current_date.dayofweek / 7)
-            input_features['day_of_week_cos'] = np.cos(2 * np.pi * current_date.dayofweek / 7)
-            input_features['is_weekend'] = int(current_date.dayofweek >= 5)
-            input_features['quarter'] = current_date.quarter
-            input_features['year'] = current_date.year                
+            current_date_ts = typing.cast(pd.Timestamp, date_range[day])
+            input_features['month_sin'] = np.sin(2 * np.pi * current_date_ts.month / 12)
+            input_features['month_cos'] = np.cos(2 * np.pi * current_date_ts.month / 12)
+            input_features['day_of_week_sin'] = np.sin(2 * np.pi * current_date_ts.dayofweek / 7)
+            input_features['day_of_week_cos'] = np.cos(2 * np.pi * current_date_ts.dayofweek / 7)
+            input_features['is_weekend'] = int(current_date_ts.dayofweek >= 5)
+            input_features['quarter'] = current_date_ts.quarter
+            input_features['year'] = current_date_ts.year                
                                 
         # Convert dictionary to list maintaining feature order
         input_features_list = [input_features[feature] for feature in important_features]
@@ -694,12 +703,13 @@ def consolidated_predictions(future_weather, merged_data, output_path=None):
 
         all_dataframes = []
         for days in forecast_days_list:
-            print(f"\nSaving {days}-day predictions...")
+            logger.info(f"\nSaving {days}-day predictions...")
             period_df = consolidated_df[consolidated_df['forecast_period'] == days].copy()
  
             
-            period_df['date'] = pd.to_datetime(period_df['datetime']).dt.date
-            period_df['day_of_week'] = pd.to_datetime(period_df['datetime']).dt.day_name()
+            datetime_series = typing.cast(pd.Series, pd.to_datetime(period_df['datetime']))
+            period_df['date'] = datetime_series.dt.date
+            period_df['day_of_week'] = datetime_series.dt.day_name()
 
             columns_order = [
                 'date', 'day_of_week', 'line', 'section',
@@ -744,7 +754,7 @@ def model_prediction():
         merged_data, df_next15_wf = prepare_training_data()        
         train_dynamic_model(merged_data)
         consolidated_df = consolidated_predictions(df_next15_wf, merged_data)
-        print("Completed Consolidated Predictions")
+        logger.info("Completed Consolidated Predictions")
         logger.info(f"Completed get_prediction_data\n")
         return consolidated_df
     except Exception as e:

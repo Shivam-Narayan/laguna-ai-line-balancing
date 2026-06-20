@@ -30,7 +30,7 @@ laguna-ai-line-balancing/             # Repository root
 ├── README-DEV.md                     # Developer guide
 ├── README.md                         # This file
 ├── docker-compose.yml                # Docker Compose multi-profile services
-└── docker-config.yml                 # Docker Compose overrides
+└── docker-compose.override.yml       # Local development overrides (e.g. hot-reloading)
 ```
 
 ---
@@ -79,6 +79,9 @@ docker compose --profile dev --profile scheduler up -d
 # Start production stack (db, redis, backend_prod, celery, nginx proxy)
 docker compose --profile prod up --build -d
 ```
+
+> [!WARNING]
+> **Production Deployment Note:** If you are running the `prod` profile, ensure that `docker-compose.override.yml` is **not present** in the directory! Docker Compose automatically merges override files, which will force your production container to run local development servers and override your production targets. Keep `docker-compose.override.yml` for local development only.
 
 #### Health Checks
 - Health endpoint: `GET http://localhost:8001/`
@@ -146,3 +149,4 @@ python manage.py manning_sheet_scheduler
   - `dev`: backend + db + redis + pgadmin
   - `scheduler`: optional scheduler service
   - `prod`: backend_prod + celery + nginx + db + redis
+- Do **not** deploy `docker-compose.override.yml` to production environments.

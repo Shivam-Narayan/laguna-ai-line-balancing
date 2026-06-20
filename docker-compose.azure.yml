@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  backend:
+    image: sshivam6495/laguna-ai-line-balancing-backend:latest
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py collectstatic --noinput &&
+             gunicorn backend_laguna.wsgi:application
+             --bind 0.0.0.0:8000
+             --workers 4
+             --worker-class sync
+             --worker-tmp-dir /dev/shm
+             --max-requests 1000
+             --max-requests-jitter 50
+             --timeout 120
+             --access-logfile -
+             --error-logfile -"
+    environment:
+      ENVIRONMENT: production
+      # These variables will be populated from Azure App Service Configuration (Application Settings)
+      SECRET_KEY: ${SECRET_KEY}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS}
+      DB_ENGINE: ${DB_ENGINE:-django.db.backends.postgresql}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: "5432"
+      REDIS_BACKEND: ${REDIS_BACKEND}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-noreply@laguna-clothing.com}
+      PRODUCTION_URL: ${PRODUCTION_URL}
+      SERVER_URL: ${SERVER_URL}
+    ports:
+      - "8000:8000"
+    restart: always
+
+  celery:
+    image: sshivam6495/laguna-ai-line-balancing-backend:latest
+    command: celery -A backend_laguna worker -l info
+    environment:
+      ENVIRONMENT: production
+      SECRET_KEY: ${SECRET_KEY}
+      DB_ENGINE: ${DB_ENGINE:-django.db.backends.postgresql}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: "5432"
+      REDIS_BACKEND: ${REDIS_BACKEND}
+    depends_on:
+      - backend
+    restart: always
+
+  scheduler:
+    image: sshivam6495/laguna-ai-line-balancing-backend:latest
+    command: >
+      sh -c "python manage.py absenteeism_scheduler &
+             python manage.py dataEngine_scheduler &
+             python manage.py manning_sheet_scheduler &
+             wait"
+    environment:
+      ENVIRONMENT: production
+      SECRET_KEY: ${SECRET_KEY}
+      DB_ENGINE: ${DB_ENGINE:-django.db.backends.postgresql}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: "5432"
+      REDIS_BACKEND: ${REDIS_BACKEND}
+    depends_on:
+      - backend
+    restart: always

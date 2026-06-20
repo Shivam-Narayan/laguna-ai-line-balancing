@@ -1,6 +1,7 @@
 from django.db import models
 
 class LocalHolidayCalendar(models.Model):
+    objects = models.Manager()
     date = models.DateField()
     month = models.IntegerField()
     year = models.IntegerField()
@@ -14,6 +15,7 @@ class LocalHolidayCalendar(models.Model):
     
         
 class HistoricalWeather(models.Model):
+    objects = models.Manager()
     name = models.CharField(max_length=255)
     datetime = models.DateField()
     tempmax = models.FloatField()
@@ -54,6 +56,7 @@ class HistoricalWeather(models.Model):
 
 
 class EmployeeMaster(models.Model):
+    objects = models.Manager()
     STATUS_CHOICES = [
         ('active', 'Active'),
         ('inactive', 'Inactive'),
@@ -74,6 +77,7 @@ class EmployeeMaster(models.Model):
 
 
 class AttendanceMaster(models.Model):
+    objects = models.Manager()
     employee_id = models.IntegerField()
     employee_name = models.CharField(max_length=255)
     line = models.CharField(max_length=50)
@@ -94,6 +98,7 @@ class AttendanceMaster(models.Model):
 
 
 class PayableWorkingDays(models.Model):
+    objects = models.Manager()
     date = models.DateField()
     month = models.IntegerField()
     year = models.IntegerField()

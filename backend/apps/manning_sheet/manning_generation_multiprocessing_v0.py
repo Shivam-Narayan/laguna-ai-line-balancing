@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 import os
 import django
 
@@ -202,14 +205,14 @@ def run_manning_allocation(PERIOD, manning_df, emp_fact_df, df_load_plan_transfo
     """
     start_time = time.time()
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[{timestamp}] Starting optimized manning allocation process...")
+    logger.info(f"[{timestamp}] Starting optimized manning allocation process...")
     
 
     # Determine optimal number of workers if not specified
     if not max_workers:
         max_workers = max(1, min(mp.cpu_count() - 1, 4))  # Use N-1 cores, max 4
     
-    print(f"Using {max_workers} worker processes on system with {mp.cpu_count()} logical CPUs")
+    logger.info(f"Using {max_workers} worker processes on system with {mp.cpu_count()} logical CPUs")
     
     results = {}
 
@@ -231,7 +234,7 @@ def run_manning_allocation(PERIOD, manning_df, emp_fact_df, df_load_plan_transfo
         
     try:
         if manning_df is not None:
-            print(f"Processing manning data for period {PERIOD}...")
+            logger.info(f"Processing manning data for period {PERIOD}...")
             df_name = f"manning_{suffix}_df"
             
             # Pre-process the dataframe
@@ -285,13 +288,13 @@ def run_manning_allocation(PERIOD, manning_df, emp_fact_df, df_load_plan_transfo
             unallocated_collection[df_name] = unallocated_employees
             all_processed_dfs.append(updated_manning_df)
 
-            print(f"Successfully processed period {PERIOD}:")
-            print(f"  - Created manning sheet with {len(updated_manning_df)} rows")
-            print()
+            logger.info(f"Successfully processed period {PERIOD}:")
+            logger.info(f"  - Created manning sheet with {len(updated_manning_df)} rows")
+            logger.info()
         else:
-            print(f"Warning: Dataframe for period {PERIOD} not found, skipping.")
+            logger.info(f"Warning: Dataframe for period {PERIOD} not found, skipping.")
     except Exception as e:
-        print(f"Error processing period {PERIOD}: {e}")
+        logger.info(f"Error processing period {PERIOD}: {e}")
     
     # Process unallocated data
     unallocated_results = process_unallocated_data(unallocated_collection, {"suffix": str(PERIOD), "period": PERIOD, "df": manning_df, "df_name": df_name})
@@ -311,16 +314,16 @@ def run_manning_allocation(PERIOD, manning_df, emp_fact_df, df_load_plan_transfo
                 skill_gap_results = analyze_skill_gaps(consolidated_df, results["all_unallocated_employees"])
                 results.update(skill_gap_results)
             
-            print(f"Successfully created consolidated manning dataframe with {len(consolidated_df)} total rows")
+            logger.info(f"Successfully created consolidated manning dataframe with {len(consolidated_df)} total rows")
         else:
-            print("No dataframes were processed successfully for consolidation")
+            logger.info("No dataframes were processed successfully for consolidation")
     except Exception as e:
-        print(f"Error creating consolidated dataframe: {e}")
+        logger.info(f"Error creating consolidated dataframe: {e}")
     
     end_time = time.time()
     elapsed_time = end_time - start_time
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[{timestamp}] Manning allocation process completed in {elapsed_time:.2f} seconds.")
+    logger.info(f"[{timestamp}] Manning allocation process completed in {elapsed_time:.2f} seconds.")
     
     return results
 
@@ -341,9 +344,9 @@ def process_manning_dataframe_parallel(manning_df, emp_fact_df, period, max_work
         Tuple of (updated_manning_df, unallocated_employees_list)
     """
     unique_dates = sorted(manning_df["PLANNED_DATES"].unique())
-    print(f"Processing {len(unique_dates)} unique dates in parallel")
+    logger.info(f"Processing {len(unique_dates)} unique dates in parallel")
     
-    print(f"Using {max_workers} worker processes")
+    logger.info(f"Using {max_workers} worker processes")
     
     # Create a partial function with fixed arguments
     process_date_partial = partial(
@@ -387,14 +390,14 @@ def process_date_wrapper(date, manning_df, emp_fact_df, period):
         # print(f"Completed date: {date.strftime('%Y-%m-%d')}")
         return date_df, unallocated_df
     except Exception as e:
-        print(f"Error processing date {date}: {e}")
+        logger.info(f"Error processing date {date}: {e}")
         return None, None
 
 
 
 def process_date(date, manning_df, emp_fact_df, period):
     """Process a single date's data with fixed capacity tracking"""
-    print(f"Processing date: {date}")
+    logger.info(f"Processing date: {date}")
     
     # Dictionary to track capacity used per employee
     employee_used_capacity = {}
@@ -710,13 +713,13 @@ def get_unallocated_employees(emp_fact_df, daily_orders, date, period):
 
 def process_unallocated_data(unallocated_collection, manning_dataframes):
     """Process unallocated employee data with optimizations"""
-    print("\nProcessing unallocated employee data...")
+    logger.info("\nProcessing unallocated employee data...")
     results = {}
     unallocated_all_periods = []
     df_name = manning_dataframes["df_name"]
 
     unallocated_dfs = unallocated_collection[manning_dataframes["df_name"]]
-    print(f"Processing unallocated data for {df_name}...")
+    logger.info(f"Processing unallocated data for {df_name}...")
 
     period = manning_dataframes["period"]
     
@@ -737,7 +740,7 @@ def process_unallocated_data(unallocated_collection, manning_dataframes):
         all_unallocated = pd.concat(unallocated_all_periods, ignore_index=True)
         results["all_unallocated_employees"] = all_unallocated
         
-        print(f"\nCreated consolidated unallocated employees dataframe with {len(all_unallocated)} total entries")
+        logger.info(f"\nCreated consolidated unallocated employees dataframe with {len(all_unallocated)} total entries")
         # print(f"Saved to: {consolidated_path}")
         
         # More efficient training opportunities calculation
@@ -756,7 +759,7 @@ def process_unallocated_data(unallocated_collection, manning_dataframes):
         
         results["training_opportunities"] = employee_cross_training
         
-        print(f"Created training opportunities report with {len(employee_cross_training)} entries")
+        logger.info(f"Created training opportunities report with {len(employee_cross_training)} entries")
         # print(f"Saved to: {training_path}")
     
     return results
@@ -764,7 +767,7 @@ def process_unallocated_data(unallocated_collection, manning_dataframes):
 def analyze_skill_gaps(consolidated_manning_df, all_unallocated_employees):
     """Analyze skill gaps with optimized operations"""
     results = {}
-    print("\nAnalyzing skill gaps...")
+    logger.info("\nAnalyzing skill gaps...")
     
     # Optimized boolean filtering
     shortages = consolidated_manning_df[consolidated_manning_df["SHORTAGE_FLAG"].str.contains("Shortage")]
@@ -780,7 +783,7 @@ def analyze_skill_gaps(consolidated_manning_df, all_unallocated_employees):
             .rename(columns={"PLANNED_QTY": "SHORTAGE_QTY"})
         )
         results["skill_shortages"] = shortage_by_code
-        print(f"Created skill shortages report with {len(shortage_by_code)} entries")
+        logger.info(f"Created skill shortages report with {len(shortage_by_code)} entries")
     return results
 
 

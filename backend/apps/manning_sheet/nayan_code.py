@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 import os
 import django
 
@@ -46,7 +49,7 @@ def run_manning_allocation(manning_dataframes_dict, emp_fact_df, output_dir="csv
     """
     # Add timestamp for logging
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[{timestamp}] Starting manning allocation process...")
+    logger.info(f"[{timestamp}] Starting manning allocation process...")
 
     # Dictionary to store all results
     results = {}
@@ -72,7 +75,7 @@ def run_manning_allocation(manning_dataframes_dict, emp_fact_df, output_dir="csv
         try:
             # Check if the dataframe exists
             if manning_df is not None:
-                print(f"Processing manning data for period {period}...")
+                logger.info(f"Processing manning data for period {period}...")
 
                 # Store the df_name for compatibility with original code
                 df_name = f"manning_{suffix}_df"
@@ -98,15 +101,15 @@ def run_manning_allocation(manning_dataframes_dict, emp_fact_df, output_dir="csv
                 # Add to our collection for consolidation
                 all_processed_dfs.append(updated_manning_df)
 
-                print(f"Successfully processed period {period}:")
-                print(f"  - Created manning sheet with {len(updated_manning_df)} rows")
-                print(f"  - Output saved to {output_path}")
-                print()
+                logger.info(f"Successfully processed period {period}:")
+                logger.info(f"  - Created manning sheet with {len(updated_manning_df)} rows")
+                logger.info(f"  - Output saved to {output_path}")
+                logger.info()
             else:
-                print(f"Warning: Dataframe for period {period} not found, skipping.")
+                logger.info(f"Warning: Dataframe for period {period} not found, skipping.")
 
         except Exception as e:
-            print(f"Error processing period {period}: {e}")
+            logger.info(f"Error processing period {period}: {e}")
 
     # Process unallocated employee data
     unallocated_results = process_unallocated_data(unallocated_collection, manning_dataframes, output_dir)
@@ -136,15 +139,15 @@ def run_manning_allocation(manning_dataframes_dict, emp_fact_df, output_dir="csv
                 skill_gap_results = analyze_skill_gaps(consolidated_df, results["all_unallocated_employees"], output_dir)
                 results.update(skill_gap_results)
 
-            print(f"Successfully created consolidated manning dataframe with {len(consolidated_df)} total rows")
-            print(f"Saved to: {consolidated_path}")
+            logger.info(f"Successfully created consolidated manning dataframe with {len(consolidated_df)} total rows")
+            logger.info(f"Saved to: {consolidated_path}")
         else:
-            print("No dataframes were processed successfully for consolidation")
+            logger.info("No dataframes were processed successfully for consolidation")
     except Exception as e:
-        print(f"Error creating consolidated dataframe: {e}")
+        logger.info(f"Error creating consolidated dataframe: {e}")
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[{timestamp}] Manning allocation process completed.")
+    logger.info(f"[{timestamp}] Manning allocation process completed.")
 
     return results
 
@@ -262,7 +265,7 @@ def process_manning_dataframe(manning_df, emp_fact_df, period):
     unallocated_employees_list = []
 
     for date in sorted(unique_dates):
-        print(f"Processing date: {date}")
+        logger.info(f"Processing date: {date}")
 
         # CRITICAL CHANGE: Track capacity used per employee (not per skill type)
         employee_used_capacity = {}
@@ -286,7 +289,7 @@ def process_manning_dataframe(manning_df, emp_fact_df, period):
         new_rows = []
 
         for (line, section, code), group_orders in grouped_orders:
-            print(f"Processing line={line}, section={section}, code={code}")
+            logger.info(f"Processing line={line}, section={section}, code={code}")
             group_rows = process_order_group(
                 line, section, code, group_orders, emp_fact_df,
                 employee_used_capacity, date, period
@@ -335,7 +338,7 @@ def process_order_group(line, section, code, group_orders, emp_fact_df, employee
     """
     # PHASE 1: Calculate total quantity and pre-allocate employees
     total_planned_qty = group_orders['PLANNED_QTY'].sum()
-    print(f"Total quantity for this group: {total_planned_qty}")
+    logger.info(f"Total quantity for this group: {total_planned_qty}")
 
     # New rows to return
     new_rows = []
@@ -442,7 +445,7 @@ def process_order_group(line, section, code, group_orders, emp_fact_df, employee
     # Check if we have a shortage after allocation planning
     if remaining_total_qty > 0:
         shortage_qty = remaining_total_qty
-        print(f"WARNING: Group shortage of {shortage_qty} units for {line}/{section}/{code}")
+        logger.info(f"WARNING: Group shortage of {shortage_qty} units for {line}/{section}/{code}")
 
     # PHASE 2: Distribute the allocations to individual orders
     # Sort orders by quantity (descending) to prioritize larger orders
@@ -639,7 +642,7 @@ def process_unallocated_data(unallocated_collection, manning_dataframes, output_
     dict
         Dictionary with processed unallocated data
     """
-    print("\nProcessing unallocated employee data...")
+    logger.info("\nProcessing unallocated employee data...")
 
     results = {}
     unallocated_all_periods = []
@@ -649,7 +652,7 @@ def process_unallocated_data(unallocated_collection, manning_dataframes, output_
         if not unallocated_dfs:
             continue
 
-        print(f"Processing unallocated data for {df_name}...")
+        logger.info(f"Processing unallocated data for {df_name}...")
 
         # Extract the period from the dataframe name
         period = None
@@ -671,7 +674,7 @@ def process_unallocated_data(unallocated_collection, manning_dataframes, output_
         output_path = os.path.join(output_dir, f"unallocated_employees_{period_suffix}.csv")
         combined_unallocated.to_csv(output_path, index=False)
 
-        print(f"Saved unallocated employees for {df_name} to {output_path}")
+        logger.info(f"Saved unallocated employees for {df_name} to {output_path}")
 
         # Store in results
         results[f"unallocated_{df_name}"] = combined_unallocated
@@ -690,8 +693,8 @@ def process_unallocated_data(unallocated_collection, manning_dataframes, output_
         # Store in results
         results["all_unallocated_employees"] = all_unallocated
 
-        print(f"\nCreated consolidated unallocated employees dataframe with {len(all_unallocated)} total entries")
-        print(f"Saved to: {consolidated_path}")
+        logger.info(f"\nCreated consolidated unallocated employees dataframe with {len(all_unallocated)} total entries")
+        logger.info(f"Saved to: {consolidated_path}")
 
         # Generate training opportunity report
         training_opportunities = all_unallocated.copy()
@@ -719,8 +722,8 @@ def process_unallocated_data(unallocated_collection, manning_dataframes, output_
         training_path = os.path.join(output_dir, "training_opportunities.csv")
         employee_cross_training.to_csv(training_path, index=False)
 
-        print(f"Created training opportunities report with {len(employee_cross_training)} entries")
-        print(f"Saved to: {training_path}")
+        logger.info(f"Created training opportunities report with {len(employee_cross_training)} entries")
+        logger.info(f"Saved to: {training_path}")
 
     return results
 
@@ -745,7 +748,7 @@ def analyze_skill_gaps(consolidated_manning_df, all_unallocated_employees, outpu
     """
     results = {}
 
-    print("\nAnalyzing skill gaps...")
+    logger.info("\nAnalyzing skill gaps...")
 
     # Find all shortage rows
     shortages = consolidated_manning_df[
@@ -771,7 +774,7 @@ def analyze_skill_gaps(consolidated_manning_df, all_unallocated_employees, outpu
         # Store in results
         results["skill_shortages"] = shortage_by_code
 
-        print(f"Created skill shortages report with {len(shortage_by_code)} entries")
-        print(f"Saved to: {shortage_path}")
+        logger.info(f"Created skill shortages report with {len(shortage_by_code)} entries")
+        logger.info(f"Saved to: {shortage_path}")
 
     return results

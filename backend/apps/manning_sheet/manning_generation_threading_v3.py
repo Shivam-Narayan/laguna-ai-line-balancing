@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 import os
 import django
 
@@ -281,7 +284,7 @@ def run_manning_allocation(PERIOD, manning_df, emp_fact_df_original, df_unique_s
     Main function to run the manning allocation process with multithreading support
     """
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[{timestamp}] Starting manning allocation process...")
+    logger.info(f"[{timestamp}] Starting manning allocation process...")
 
     truncate_table(UnallocatedEmployees)
 
@@ -298,7 +301,7 @@ def run_manning_allocation(PERIOD, manning_df, emp_fact_df_original, df_unique_s
 
     try:
         if manning_df is not None:
-            print(f"Processing manning data for period {PERIOD}...")
+            logger.info(f"Processing manning data for period {PERIOD}...")
 
             updated_manning_df, unallocated_employees = process_manning_dataframe(
                 manning_df,
@@ -316,10 +319,10 @@ def run_manning_allocation(PERIOD, manning_df, emp_fact_df_original, df_unique_s
             # Add to our collection for consolidation
             all_processed_dfs.append(updated_manning_df)
 
-            print(f"Successfully processed period {PERIOD}:")
-            print(f"  - Created manning sheet with {len(updated_manning_df)} rows")
+            logger.info(f"Successfully processed period {PERIOD}:")
+            logger.info(f"  - Created manning sheet with {len(updated_manning_df)} rows")
     except Exception as e:
-        print(f"Error processing period {PERIOD}: {e}")
+        logger.info(f"Error processing period {PERIOD}: {e}")
 
     # Process unallocated employee data
     unallocated_results = process_unallocated_data(unallocated_collection, {"suffix": str(PERIOD), "period": PERIOD, "df": manning_df, "df_name": df_name})
@@ -395,7 +398,7 @@ def run_manning_allocation(PERIOD, manning_df, emp_fact_df_original, df_unique_s
 
             chunked_data = [data_dicts[i:i + CHUNK_SIZE] for i in range(0, len(data_dicts), CHUNK_SIZE)]
 
-            print(f"Inserting {len(data_dicts)} unallocated records in {len(chunked_data)} chunks...")
+            logger.info(f"Inserting {len(data_dicts)} unallocated records in {len(chunked_data)} chunks...")
             with ThreadPoolExecutor(max_workers=10) as executor:
                 executor.map(insert_chunk, chunked_data)
 
@@ -406,14 +409,14 @@ def run_manning_allocation(PERIOD, manning_df, emp_fact_df_original, df_unique_s
                 skill_gap_results = analyze_skill_gaps(consolidated_df, results["all_unallocated_employees"])
                 results.update(skill_gap_results)
 
-            print(f"Successfully created consolidated manning dataframe with {len(consolidated_df)} total rows")
+            logger.info(f"Successfully created consolidated manning dataframe with {len(consolidated_df)} total rows")
         else:
-            print("No dataframes were processed successfully for consolidation")
+            logger.info("No dataframes were processed successfully for consolidation")
     except Exception as e:
         raise ValueError(f"Error creating consolidated dataframe: {e}")
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[{timestamp}] Manning allocation process completed.")
+    logger.info(f"[{timestamp}] Manning allocation process completed.")
 
     return results
 
@@ -479,7 +482,7 @@ def process_single_date_standalone(daily_orders, emp_fact_df, period):
 # Create a function that will receive serializable arguments
 def process_date_for_pool(args):
     date, filtered_df, emp_fact_df, period = args
-    print(f"Processing date: {date}")
+    logger.info(f"Processing date: {date}")
     
     # Process this date's data
     date_df, unallocated = process_single_date_standalone(
@@ -832,7 +835,7 @@ def process_unallocated_data(unallocated_collection, manning_dataframes):
     """
     Process unallocated employee data across all manning periods using threading
     """
-    print("\nProcessing unallocated employee data...")
+    logger.info("\nProcessing unallocated employee data...")
 
     results = {}
     unallocated_all_periods = []
@@ -840,7 +843,7 @@ def process_unallocated_data(unallocated_collection, manning_dataframes):
 
     unallocated_dfs = unallocated_collection[manning_dataframes["df_name"]]
 
-    print(f"Processing unallocated data for {df_name}...")
+    logger.info(f"Processing unallocated data for {df_name}...")
 
     period = manning_dataframes["period"]
 
@@ -856,7 +859,7 @@ def process_unallocated_data(unallocated_collection, manning_dataframes):
         all_unallocated = pd.concat(unallocated_all_periods, ignore_index=True)
         results["all_unallocated_employees"] = all_unallocated
 
-        print(f"\nCreated consolidated unallocated employees dataframe with {len(all_unallocated)} total entries")
+        logger.info(f"\nCreated consolidated unallocated employees dataframe with {len(all_unallocated)} total entries")
 
         # Ensure 'DATE' is a datetime and format to 'YYYY-MM-DD'
         all_unallocated['DATE'] = pd.to_datetime(all_unallocated['DATE'], errors='coerce').dt.strftime('%Y-%m-%d')
@@ -891,7 +894,7 @@ def process_unallocated_data(unallocated_collection, manning_dataframes):
 
         chunked_data = [data_dicts[i:i + CHUNK_SIZE] for i in range(0, len(data_dicts), CHUNK_SIZE)]
 
-        print(f"Inserting {len(data_dicts)} unallocated records in {len(chunked_data)} chunks...")
+        logger.info(f"Inserting {len(data_dicts)} unallocated records in {len(chunked_data)} chunks...")
         with ThreadPoolExecutor(max_workers=10) as executor:
             executor.map(insert_chunk, chunked_data)
 
@@ -909,7 +912,7 @@ def process_unallocated_data(unallocated_collection, manning_dataframes):
 
         results["training_opportunities"] = employee_cross_training
 
-        print(f"Created training opportunities report with {len(employee_cross_training)} entries")
+        logger.info(f"Created training opportunities report with {len(employee_cross_training)} entries")
 
     return results
 
@@ -934,7 +937,7 @@ def analyze_skill_gaps(consolidated_manning_df, all_unallocated_employees):
     Analyze skill gaps by comparing shortages with unallocated employees
     using multiprocessing for large DataFrames.
     """
-    print("\nAnalyzing skill gaps...")
+    logger.info("\nAnalyzing skill gaps...")
 
     results = {}
 
@@ -949,7 +952,7 @@ def analyze_skill_gaps(consolidated_manning_df, all_unallocated_employees):
         shortages = future_shortages.result()
         
         if not shortages.empty:
-            print(f"Found {len(shortages)} shortage rows. Aggregating...")
+            logger.info(f"Found {len(shortages)} shortage rows. Aggregating...")
             
             # Step 2: Submit task to aggregate shortage data
             future_aggregation = executor.submit(_group_and_aggregate, shortages)
@@ -957,7 +960,7 @@ def analyze_skill_gaps(consolidated_manning_df, all_unallocated_employees):
             
             # Store results
             results["skill_shortages"] = shortage_by_code
-            print(f"Created skill shortages report with {len(shortage_by_code)} entries")
+            logger.info(f"Created skill shortages report with {len(shortage_by_code)} entries")
         
     return results
 

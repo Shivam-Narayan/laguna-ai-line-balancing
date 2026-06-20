@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 import numpy as np
 import pandas as pd
 
@@ -214,7 +217,7 @@ def divide_qts_per_day(df_load_plan, final_df_new, holiday_dates, payable_dates)
     for week, week_group in df_load_plan.groupby('Week'):
         # Get the capacity per day for this week
         per_day_qty = week_to_capacity.get(week, DEFAULT_CAPACITY)  # Default to DEFAULT_CAPACITY if week not found
-        print(f"Processing Week {week} with daily capacity: {per_day_qty}")
+        logger.info(f"Processing Week {week} with daily capacity: {per_day_qty}")
         
         # Process each order in this week's group
         for _, row in week_group.iterrows():
@@ -294,35 +297,35 @@ def divide_qts_per_day(df_load_plan, final_df_new, holiday_dates, payable_dates)
             
             # Check if we couldn't schedule all of the quantity
             if qty_processed < total_planned: # New line
-                print(f"Warning: Could not schedule all quantity for order {row['OC NO']}. Scheduled: {qty_processed}/{total_planned}")
+                logger.info(f"Warning: Could not schedule all quantity for order {row['OC NO']}. Scheduled: {qty_processed}/{total_planned}")
     
     # Verify all quantities have been scheduled
     total_planned = df_load_plan['Planned Qty'].sum()
     total_scheduled = result_df['Planned Qty'].sum()
     
     if abs(total_planned - total_scheduled) > 0.001:  # Using small threshold to account for floating point errors
-        print(f"Warning: Not all quantities scheduled. Original: {total_planned}, Scheduled: {total_scheduled}")
-        print(f"Difference: {total_planned - total_scheduled}")
+        logger.info(f"Warning: Not all quantities scheduled. Original: {total_planned}, Scheduled: {total_scheduled}")
+        logger.info(f"Difference: {total_planned - total_scheduled}")
 
     # Verify QTY ORDER has been properly split
     total_qty_order_original = df_load_plan['QTY ORDER'].sum() # New line
     total_qty_order_scheduled = result_df['QTY ORDER'].sum() # New line
 
     if abs(total_qty_order_original - total_qty_order_scheduled) > 0.001: # New line
-        print(f"Warning: QTY ORDER totals don't match. Original: {total_qty_order_original}, Scheduled: {total_qty_order_scheduled}")
-        print(f"Difference: {total_qty_order_original - total_qty_order_scheduled}")
+        logger.info(f"Warning: QTY ORDER totals don't match. Original: {total_qty_order_original}, Scheduled: {total_qty_order_scheduled}")
+        logger.info(f"Difference: {total_qty_order_original - total_qty_order_scheduled}")
     
     # Print daily capacity usage
-    print("\nDaily capacity usage:")
+    logger.info("\nDaily capacity usage:")
     daily_usage = result_df.groupby(['Week', 'Planned_Dates'])['Planned Qty'].sum().reset_index()
     
     for week, week_group in daily_usage.groupby('Week'):
         capacity = week_to_capacity.get(week, DEFAULT_CAPACITY)
-        print(f"\nWeek {week} (Capacity/Day: {capacity}):")
+        logger.info(f"\nWeek {week} (Capacity/Day: {capacity}):")
         for _, row in week_group.iterrows():
             date = row['Planned_Dates']
             usage = row['Planned Qty']
-            print(f"  {date}: {usage:.1f} / {capacity}")    
+            logger.info(f"  {date}: {usage:.1f} / {capacity}")    
     return result_df
 
 

@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 import os
 import ast
 import pytz
@@ -203,7 +206,7 @@ def add_wip_backlog(planned_manning_df, wip_df):
 
     # If there are no common columns to join on, return the original dataframe
     if not join_columns:
-        print("Warning: No common columns found between manning and WIP dataframes")
+        logger.info("Warning: No common columns found between manning and WIP dataframes")
         return updated_manning
 
     # Convert join columns to a consistent type (string in this case)
@@ -249,10 +252,10 @@ def add_wip_backlog(planned_manning_df, wip_df):
                     updated_manning.loc[idx, 'target_90'] = new_allocated_capacity * 0.9
 
                     # Log the change for debugging
-                    print(f"Updated allocated capacity for idx {idx}: {row['original_planned_qty']} -> {new_total_qty}, "
+                    logger.info(f"Updated allocated capacity for idx {idx}: {row['original_planned_qty']} -> {new_total_qty}, "
                           f"Allocated: {updated_manning.loc[idx, 'allocated_capacity']} -> {new_allocated_capacity}")
 
-    print(f"Added backlog to {merged_df[merged_df['wip_qty'] > 0].shape[0]} operations")
+    logger.info(f"Added backlog to {merged_df[merged_df['wip_qty'] > 0].shape[0]} operations")
     return updated_manning
 
 def load_planned_allocation(allocation_date, wip_df=None):
@@ -448,8 +451,8 @@ def reallocate_work(affected_allocations, emp_fact_df, allocation_date, emp_type
     # Verify no over-allocation occurred
     over_allocated = emp_fact_df[emp_fact_df["remaining_capacity"] < 0]
     if not over_allocated.empty:
-        print("WARNING: Over-allocation detected during reallocation process!")
-        print(over_allocated[["employee_id", "employee_name", "remaining_capacity"]])
+        logger.info("WARNING: Over-allocation detected during reallocation process!")
+        logger.info(over_allocated[["employee_id", "employee_name", "remaining_capacity"]])
         # Fix any negative capacities by setting to zero
         emp_fact_df.loc[emp_fact_df["remaining_capacity"] < 0, "remaining_capacity"] = 0
 
@@ -536,7 +539,7 @@ def perform_dday_allocation(allocation_date, attendance_df, emp_fact_df, wip_df=
         current_absent = []
         current_present = []
         attendance_status_map = pd.Series(dtype='object')
-        print("Warning: No attendance data found for this date!")
+        logger.info("Warning: No attendance data found for this date!")
 
     # Handle capacity for absent and early departure employees
     emp_fact_df.loc[emp_fact_df['employee_id'].isin(current_absent), 'remaining_capacity'] = 0
@@ -699,7 +702,7 @@ def perform_dday_allocation(allocation_date, attendance_df, emp_fact_df, wip_df=
     # Check for any over-utilization
     over_allocated = emp_fact_df[emp_fact_df["remaining_capacity"] < 0]
     if not over_allocated.empty:
-        print(f"WARNING: {len(over_allocated)} employees have been over-allocated!")
+        logger.info(f"WARNING: {len(over_allocated)} employees have been over-allocated!")
         # print(over_allocated[["employee_id", "employee_name", "remaining_capacity"]])
         stats['over_allocated_employees'] = len(over_allocated)
     else:
@@ -748,7 +751,7 @@ def run_intraday_allocation(allocation_date, attendance_df, emp_fact_df, run_tim
     previous_manning = None
 
     for run_time in sorted(run_times):
-        print(f"\nPerforming allocation run at {run_time}")
+        logger.info(f"\nPerforming allocation run at {run_time}")
 
         # Perform allocation for this run
         manning, stats, tracking = perform_dday_allocation(
@@ -772,7 +775,7 @@ def run_intraday_allocation(allocation_date, attendance_df, emp_fact_df, run_tim
 
         # Generate report for this run
         report = generate_reallocation_report(stats, tracking)
-        print(report)
+        logger.info(report)
 
 
     return daily_results
@@ -831,7 +834,7 @@ def adjust_planned_quantities_with_wip(manning_df, wip_df):
 
     # If there are no common columns to join on, return the original dataframe
     if not existing_key_columns:
-        print("Warning: No common columns found between manning and WIP dataframes")
+        logger.info("Warning: No common columns found between manning and WIP dataframes")
         return updated_manning
 
     # Track original planned quantities if not already tracked
@@ -871,7 +874,7 @@ def adjust_planned_quantities_with_wip(manning_df, wip_df):
         # If multiple operations match, distribute WIP proportionally based on planned quantities
         if len(matching_operations) > 1:
             multi_match_count += 1
-            print(f"Found {len(matching_operations)} matching operations for: {wip_row[existing_key_columns].to_dict()}")
+            logger.info(f"Found {len(matching_operations)} matching operations for: {wip_row[existing_key_columns].to_dict()}")
 
             # Calculate total planned quantity across all matching operations
             total_planned_qty = matching_operations['PLANNED QTY'].sum()
@@ -896,9 +899,9 @@ def adjust_planned_quantities_with_wip(manning_df, wip_df):
                         updated_manning.loc[idx, 'TARGET@90%'] = new_planned_qty * 0.9
 
                     adjusted_count += 1
-                    print(f"  - Operation {idx}: Planned {operation_planned_qty} -> {new_planned_qty}, WIP share: {operation_wip_share:.2f} ({proportion*100:.1f}%)")
+                    logger.info(f"  - Operation {idx}: Planned {operation_planned_qty} -> {new_planned_qty}, WIP share: {operation_wip_share:.2f} ({proportion*100:.1f}%)")
             else:
-                print(f"  - Warning: Total planned quantity is zero for these operations, cannot distribute WIP")
+                logger.info(f"  - Warning: Total planned quantity is zero for these operations, cannot distribute WIP")
         else:
             # Single match case - simply subtract WIP from planned
             idx = matching_operations.index[0]
@@ -918,16 +921,16 @@ def adjust_planned_quantities_with_wip(manning_df, wip_df):
 
             adjusted_count += 1
 
-    print(f"Adjusted {adjusted_count} operations by subtracting WIP quantities from planned quantities")
+    logger.info(f"Adjusted {adjusted_count} operations by subtracting WIP quantities from planned quantities")
     if multi_match_count > 0:
-        print(f"Found {multi_match_count} cases where WIP quantities were distributed across multiple matching operations")
+        logger.info(f"Found {multi_match_count} cases where WIP quantities were distributed across multiple matching operations")
 
     return updated_manning
 
 
 
 def perform_end_of_day_allocation(allocation_date, wip_df=None):
-    print("Inside perform end of day allocation")
+    logger.info("Inside perform end of day allocation")
     """
     Special end-of-day allocation (after 5:30 PM)
     Loads the daily capacity manning sheet and adds WIP quantities for next day
@@ -943,14 +946,14 @@ def perform_end_of_day_allocation(allocation_date, wip_df=None):
     try:
         previous_manning_db = DDayData.objects.all().values()
         daily_manning = pd.DataFrame(list(previous_manning_db))
-        print(f"Loaded daily capacity manning sheet with {len(daily_manning)} records")
+        logger.info(f"Loaded daily capacity manning sheet with {len(daily_manning)} records")
     except Exception as e:
-        print(f"Error loading daily capacity manning sheet: {e}")
+        logger.info(f"Error loading daily capacity manning sheet: {e}")
         raise ValueError("Cannot perform end-of-day allocation without daily capacity manning sheet")
 
     # If no WIP data, return the sheet as-is
     if wip_df is None:
-        print("No WIP data provided for end-of-day allocation")
+        logger.info("No WIP data provided for end-of-day allocation")
         stats = {
             'run_timestamp': get_ist_time(),
             'allocation_date': allocation_date,
@@ -973,7 +976,7 @@ def perform_end_of_day_allocation(allocation_date, wip_df=None):
         'operations_with_backlog': len(updated_manning[updated_manning['backlog_flag'] == 'Backlog Included']),
     }
 
-    print(f"End-of-day manning sheet generated!")
+    logger.info(f"End-of-day manning sheet generated!")
 
     return updated_manning, stats, []
 
@@ -1088,7 +1091,7 @@ def perform_intraday_allocation(allocation_date, attendance_df, emp_fact_df, pre
         current_absent = []
         current_present = []
         attendance_status_map = pd.Series(dtype='object')
-        print("Warning: No updated attendance data found since morning run!")
+        logger.info("Warning: No updated attendance data found since morning run!")
 
     # Handle capacity for newly absent and early departure employees
     updated_emp_fact.loc[updated_emp_fact['employee_id'].isin(current_absent), 'remaining_capacity'] = 0
@@ -1234,7 +1237,7 @@ def perform_intraday_allocation(allocation_date, attendance_df, emp_fact_df, pre
     # Check for any over-utilization
     over_allocated = updated_emp_fact[updated_emp_fact["remaining_capacity"] < 0]
     if not over_allocated.empty:
-        print(f"WARNING: {len(over_allocated)} employees have been over-allocated!")
+        logger.info(f"WARNING: {len(over_allocated)} employees have been over-allocated!")
         # print(over_allocated[["employee_id", "employee_name", "remaining_capacity"]])
         stats['over_allocated_employees'] = len(over_allocated)
     else:
@@ -1282,11 +1285,11 @@ def run_intraday_allocation(base_path='csv_files',
     else:
         current_time = get_ist_time()
 
-    print(f"Running intraday allocation for date: {allocation_date.date()} at time: {current_time.time()}")
+    logger.info(f"Running intraday allocation for date: {allocation_date.date()} at time: {current_time.time()}")
 
     # Load data
     try:
-        print(f"Loading data from base path: {base_path}")
+        logger.info(f"Loading data from base path: {base_path}")
         attendance_df = pd.read_csv(f"{base_path}/Attendance_master.csv")
         Act_Employees = pd.read_csv(f"{base_path}/Active Employees.csv")
         emp_fact_df = pd.read_csv(f"{base_path}/Emp_Fact.csv")
@@ -1298,10 +1301,10 @@ def run_intraday_allocation(base_path='csv_files',
         # Read WIP data if it exists (optional)
         try:
             wip_df = pd.read_csv(f"{base_path}/WIP.csv")
-            print(f"Loaded WIP data with {len(wip_df)} records")
+            logger.info(f"Loaded WIP data with {len(wip_df)} records")
             has_wip_data = True
         except Exception as e:
-            print(f"No WIP data found or error loading WIP data: {e}")
+            logger.info(f"No WIP data found or error loading WIP data: {e}")
             wip_df = None
             has_wip_data = False
 
@@ -1312,7 +1315,7 @@ def run_intraday_allocation(base_path='csv_files',
         # Force specific mode if requested
         if mode:
             if mode.lower() == 'endofday':
-                print("Forcing end-of-day mode")
+                logger.info("Forcing end-of-day mode")
                 return perform_end_of_day_allocation(allocation_date, wip_df if has_wip_data else None)
             # For intraday mode, we continue with the normal flow
 
@@ -1325,7 +1328,7 @@ def run_intraday_allocation(base_path='csv_files',
         is_end_of_day = current_time >= end_of_day_time
 
         if is_end_of_day and not mode:
-            print(f"Time {current_time.time()} is after {END_OF_DAY_THRESHOLD}, running end-of-day allocation")
+            logger.info(f"Time {current_time.time()} is after {END_OF_DAY_THRESHOLD}, running end-of-day allocation")
             return perform_end_of_day_allocation(allocation_date, wip_df if has_wip_data else None)
 
         # Load the morning D-day file for this date
@@ -1336,7 +1339,7 @@ def run_intraday_allocation(base_path='csv_files',
             raise FileNotFoundError(f"Cannot find morning D-day file: {previous_manning_path}")
 
         previous_manning = pd.read_csv(previous_manning_path)
-        print(f"Loaded previous manning from: {previous_manning_path}")
+        logger.info(f"Loaded previous manning from: {previous_manning_path}")
 
         # Run intraday allocation
         manning, stats, tracking = perform_intraday_allocation(
@@ -1350,18 +1353,18 @@ def run_intraday_allocation(base_path='csv_files',
 
         # Generate report
         report = generate_reallocation_report(stats, tracking)
-        print(report)
+        logger.info(report)
 
         # Save the manning sheet with timestamp
         time_str = current_time.strftime('%Y%m%d_%H%M')
         output_path = f"{base_path}/intraday_manning_{time_str}.csv"
         manning.to_csv(output_path, index=False)
-        print(f"Intraday manning sheet saved to: {output_path}")
+        logger.info(f"Intraday manning sheet saved to: {output_path}")
 
         return manning, stats, tracking
 
     except Exception as e:
-        print(f"Error performing intraday allocation: {e}")
+        logger.info(f"Error performing intraday allocation: {e}")
         import traceback
         traceback.print_exc()
         return None, None, None
@@ -1436,7 +1439,7 @@ def perform_end_of_day_allocation_new(allocation_date, attendance_df, emp_fact_d
         planned_absent = []
         planned_present = []
         attendance_status_map = pd.Series(dtype='object')
-        print("Warning: No planned attendance data found for tomorrow!")
+        logger.info("Warning: No planned attendance data found for tomorrow!")
     
     # Prepare employee fact dataframe with full capacities for tomorrow
     updated_emp_fact = emp_fact_df.copy()
@@ -1574,7 +1577,7 @@ def perform_end_of_day_allocation_new(allocation_date, attendance_df, emp_fact_d
     # Check for any over-utilization
     over_allocated = updated_emp_fact[updated_emp_fact["remaining_capacity"] < 0]
     if not over_allocated.empty:
-        print(f"WARNING: {len(over_allocated)} employees have been over-allocated for tomorrow!")
+        logger.info(f"WARNING: {len(over_allocated)} employees have been over-allocated for tomorrow!")
         stats['over_allocated_employees'] = len(over_allocated)
     else:
         stats['over_allocated_employees'] = 0
@@ -1664,8 +1667,8 @@ def handle_startofday(allocation_date, attendance_df, emp_fact_df, wip_df, has_w
 
     over_allocated = emp_fact_df[emp_fact_df["remaining_capacity"] < 0]
     if not over_allocated.empty:
-        print(f"WARNING: {len(over_allocated)} employees have been over-allocated!")
-        print(over_allocated[["employee_id", "employee_name", "remaining_capacity"]])
+        logger.info(f"WARNING: {len(over_allocated)} employees have been over-allocated!")
+        logger.info(over_allocated[["employee_id", "employee_name", "remaining_capacity"]])
     return manning, stats, tracking
 
 
@@ -1691,7 +1694,7 @@ def handle_endofday(allocation_date, attendance_df, emp_fact_df, wip_df, has_wip
     next_day = current_date + timedelta(days=1)
     attendance_df_updated = fetch_and_transform_planned_leaves(current_date, next_day, attendance_df)
 
-    print(f"Time {current_time.time()} is after {END_OF_DAY_THRESHOLD}, running end-of-day allocation")
+    logger.info(f"Time {current_time.time()} is after {END_OF_DAY_THRESHOLD}, running end-of-day allocation")
 
     previous_manning = pd.DataFrame(list(
         DDayData.objects.all().values()

@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 import pandas as pd
 
 
@@ -163,7 +166,7 @@ def run_manning_allocation(manning_dataframes_dict, emp_fact_df, df_unique_smv=N
     """
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[{timestamp}] Starting manning allocation process...")
+    logger.info(f"[{timestamp}] Starting manning allocation process...")
     
     truncate_table(UnallocatedEmployees)
 
@@ -194,7 +197,7 @@ def run_manning_allocation(manning_dataframes_dict, emp_fact_df, df_unique_smv=N
         try:
             # Check if the dataframe exists
             if manning_df is not None:
-                print(f"Processing manning data for period {period}...")
+                logger.info(f"Processing manning data for period {period}...")
 
                 # Store the df_name for compatibility with original code
                 df_name = f"manning_{suffix}_df"
@@ -216,13 +219,13 @@ def run_manning_allocation(manning_dataframes_dict, emp_fact_df, df_unique_smv=N
                 # Add to our collection for consolidation
                 all_processed_dfs.append(updated_manning_df)
 
-                print(f"Successfully processed period {period}:")
-                print(f"  - Created manning sheet with {len(updated_manning_df)} rows")
+                logger.info(f"Successfully processed period {period}:")
+                logger.info(f"  - Created manning sheet with {len(updated_manning_df)} rows")
             else:
-                print(f"Warning: Dataframe for period {period} not found, skipping.")
+                logger.info(f"Warning: Dataframe for period {period} not found, skipping.")
 
         except Exception as e:
-            print(f"Error processing period {period}: {e}")
+            logger.info(f"Error processing period {period}: {e}")
 
     # Process unallocated employee data
     unallocated_results = process_unallocated_data(unallocated_collection, manning_dataframes)
@@ -295,7 +298,7 @@ def run_manning_allocation(manning_dataframes_dict, emp_fact_df, df_unique_smv=N
                 with transaction.atomic():
                     ManningSheetData.objects.bulk_create(model_instances)
                 
-                print(f"Inserted chunk {i//CHUNK_SIZE + 1}/{(len(data_dicts)-1)//CHUNK_SIZE + 1} with {len(chunk_dicts)} records")
+                logger.info(f"Inserted chunk {i//CHUNK_SIZE + 1}/{(len(data_dicts)-1)//CHUNK_SIZE + 1} with {len(chunk_dicts)} records")
 
             # Save consolidated dataframe
             results["consolidated_manning_df"] = consolidated_df
@@ -305,14 +308,14 @@ def run_manning_allocation(manning_dataframes_dict, emp_fact_df, df_unique_smv=N
                 skill_gap_results = analyze_skill_gaps(consolidated_df, results["all_unallocated_employees"])
                 results.update(skill_gap_results)
 
-            print(f"Successfully created consolidated manning dataframe with {len(consolidated_df)} total rows")
+            logger.info(f"Successfully created consolidated manning dataframe with {len(consolidated_df)} total rows")
         else:
-            print("No dataframes were processed successfully for consolidation")
+            logger.info("No dataframes were processed successfully for consolidation")
     except Exception as e:
         raise ValueError(f"Error creating consolidated dataframe: {e}")
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[{timestamp}] Manning allocation process completed.")
+    logger.info(f"[{timestamp}] Manning allocation process completed.")
 
     return results
 
@@ -751,7 +754,7 @@ def process_unallocated_data(unallocated_collection, manning_dataframes):
     dict
         Dictionary with processed unallocated data
     """
-    print("\nProcessing unallocated employee data...")
+    logger.info("\nProcessing unallocated employee data...")
 
     results = {}
     unallocated_all_periods = []
@@ -761,7 +764,7 @@ def process_unallocated_data(unallocated_collection, manning_dataframes):
         if not unallocated_dfs:
             continue
 
-        print(f"Processing unallocated data for {df_name}...")
+        logger.info(f"Processing unallocated data for {df_name}...")
 
         # Extract the period from the dataframe name
         period = None
@@ -791,7 +794,7 @@ def process_unallocated_data(unallocated_collection, manning_dataframes):
         # Store in results
         results["all_unallocated_employees"] = all_unallocated
 
-        print(f"\nCreated consolidated unallocated employees dataframe with {len(all_unallocated)} total entries")
+        logger.info(f"\nCreated consolidated unallocated employees dataframe with {len(all_unallocated)} total entries")
 
         # Prepare all data as a list of dictionaries first (faster than processing row by row)
         data_dicts = []
@@ -849,7 +852,7 @@ def process_unallocated_data(unallocated_collection, manning_dataframes):
         # Store in results
         results["training_opportunities"] = employee_cross_training
 
-        print(f"Created training opportunities report with {len(employee_cross_training)} entries")
+        logger.info(f"Created training opportunities report with {len(employee_cross_training)} entries")
 
     return results
 
@@ -873,7 +876,7 @@ def analyze_skill_gaps(consolidated_manning_df, all_unallocated_employees):
     """
     results = {}
 
-    print("\nAnalyzing skill gaps...")
+    logger.info("\nAnalyzing skill gaps...")
 
     # Find all shortage rows
     shortages = consolidated_manning_df[
@@ -895,7 +898,7 @@ def analyze_skill_gaps(consolidated_manning_df, all_unallocated_employees):
         # Store in results
         results["skill_shortages"] = shortage_by_code
 
-        print(f"Created skill shortages report with {len(shortage_by_code)} entries")
+        logger.info(f"Created skill shortages report with {len(shortage_by_code)} entries")
 
     return results
 
