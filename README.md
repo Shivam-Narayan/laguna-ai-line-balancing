@@ -70,14 +70,11 @@ You can manage and run the application services using the provided startup scrip
 
 #### B. Using Manual Docker Compose Commands
 ```bash
-# Start development stack (db, redis, pgadmin, backend in dev mode)
-docker compose --profile dev up --build -d
+# Start all application services and the monitoring stack at once
+docker compose up -d
 
-# Start development stack + background task scheduler
-docker compose --profile dev --profile scheduler up -d
-
-# Start production stack (db, redis, backend_prod, celery, nginx proxy)
-docker compose --profile prod up --build -d
+# Force rebuild if you changed Python packages or Dockerfiles
+docker compose up --build -d
 ```
 
 > [!TIP]
@@ -139,54 +136,77 @@ python manage.py manning_sheet_scheduler
 - **Dockerized Deployments**: Clean configurations separating development tools from production servers (Gunicorn + Celery + Nginx).
 - **Production-Ready**: Proper static/media/logs separation
 
+
+
 ## Important Notes
 
 - Django recognizes app labels (accounts, absenteeism, etc.) from INSTALLED_APPS
 - Database migrations are preserved and functional
 - All environment variables should be in `.env` (never commit this file)
 - Use `.env.example` as template for new environments
-- Docker profiles used in this project:
-  - `dev`: backend + db + redis + pgadmin
-  - `scheduler`: optional scheduler service
-  - `prod`: backend_prod + celery + nginx + db + redis
+- All containers are configured to start by default without requiring `--profile` flags.
 - Do **not** deploy `docker-compose.override.yml` to production environments.
 
 ---
 
 ## 🐳 Docker Command Cheat Sheet
 
-Because this project uses Docker Profiles (`--profile dev`), you must include the flag when managing your local environment!
+Because profiles have been removed from the `docker-compose.yml`, all containers start automatically!
 
 ### 🟢 1. Starting & Stopping
 * **Start everything in the background:**
-  `docker compose --profile dev up -d`
+  `docker compose up -d`
 * **Stop everything (keeps database data):**
-  `docker compose --profile dev down`
+  `docker compose down`
 * **Stop everything AND delete database data (Fresh start):**
-  `docker compose --profile dev down -v`
+  `docker compose down -v`
 * **Rebuild containers (Run after pip installs):**
-  `docker compose --profile dev up --build -d`
+  `docker compose up --build -d`
 
 ### 🔎 2. Viewing Logs
 * **View logs for all containers:**
-  `docker compose --profile dev logs -f`
+  `docker compose logs -f`
 * **View logs for JUST the backend:**
-  `docker compose --profile dev logs -f backend`
+  `docker compose logs -f backend`
 * **View logs for JUST the database:**
-  `docker compose --profile dev logs -f db`
+  `docker compose logs -f db`
 
 ### 💻 3. Running Commands Inside the Container
 * **Open a terminal/shell inside the backend:**
-  `docker compose --profile dev exec backend /bin/bash`
+  `docker compose exec backend /bin/bash`
 * **Run a Django command (like migrations):**
-  `docker compose --profile dev exec backend python manage.py migrate`
+  `docker compose exec backend python manage.py migrate`
 * **Create a Django Superuser:**
-  `docker compose --profile dev exec backend python manage.py createsuperuser`
+  `docker compose exec backend python manage.py createsuperuser`
 * **Open the Django interactive shell:**
-  `docker compose --profile dev exec backend python manage.py shell`
+  `docker compose exec backend python manage.py shell`
 
 ### 🧹 4. System Cleanup
 * **Remove unused containers, networks, and images:**
   `docker system prune`
 * **Remove absolutely EVERYTHING (deep clean):**
   `docker system prune -a --volumes`
+
+---
+
+## 📊 Monitoring (Grafana & Loki)
+
+Because the PLG stack is now integrated natively into Docker Compose, you can view all backend logs through a centralized dashboard.
+
+### 1. Access Grafana
+Navigate to `http://localhost:4000` and log in with the default credentials:
+- **Username:** `admin`
+- **Password:** `admin`
+
+### 2. Connect Loki (First-Time Setup)
+1. On the left sidebar, go to **Connections > Data Sources**.
+2. Click **Add new data source** and select **Loki**.
+3. Under the HTTP section, set the URL to: `http://loki:3100` (Docker automatically resolves this container name).
+4. Scroll to the bottom and click **Save & test**.
+
+### 3. Querying Logs
+1. Go to the **Explore** tab (Compass icon on the left sidebar).
+2. Ensure **Loki** is selected in the top-left dropdown.
+3. Use the "Label filters" button to filter your logs. For example, to view only Django requests, set the filter to:
+   `compose_service` `=` `backend`
+4. Click **Run query** to stream your logs in real-time!
