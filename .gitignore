@@ -10,3 +10,8 @@ exports/*
 csv_files/Planned_Leaves.csv
 csv_files/attendance.csv
 .env
+
+# IDE and Virtual Environments
+.vscode/
+.venv/
+pyrightconfig.json
