@@ -56,15 +56,7 @@ REM ── Load environment ─────────────────�
 call :load_env
 
 REM ── Set Compose Files ─────────────────────────────────────────────────────
-if "%COMMAND%"=="prod" (
-    set "COMPOSE_FILE=docker-compose.yml"
-) else (
-    if exist "docker-compose.dev.yml" (
-        set "COMPOSE_FILE=docker-compose.yml;docker-compose.dev.yml"
-    ) else (
-        set "COMPOSE_FILE=docker-compose.yml"
-    )
-)
+set "COMPOSE_FILE=docker-compose.yml"
 
 REM ── Route to command ──────────────────────────────────────────────────────
 if "%COMMAND%"=="all"             goto :cmd_all
@@ -268,11 +260,13 @@ if "%STAGED_MODE%"=="true" (
     %DC% --profile dev up -d backend
     timeout /t 5 /nobreak >nul
 
-    echo   Stage 3/3: Developer tools ^(pgadmin^)...
+    echo   Stage 3/3: Developer tools and Proxy ^(pgadmin, nginx^)...
     %DC% --profile dev up -d pgadmin
+    %DC% --profile prod up -d nginx
 ) else (
     echo [INFO] Starting dev services ^(fast mode^)...
     %DC% --profile dev up --force-recreate -d
+    %DC% --profile prod up -d nginx
 )
 
 echo [OK] All dev services started

@@ -1,18 +1,18 @@
 # Laguna-AI Backend
 AI line-balancing backend application.
 
-## Project Structure (Restructured)
+## Project Structure
 
 ```text
 laguna-ai-line-balancing/             # Repository root
-├── backend/                          # Lowercase backend code directory
+├── backend/                          # Backend code directory
 │   ├── apps/                         # All Django applications
 │   │   ├── absenteeism/              # Absenteeism prediction engine
 │   │   ├── accounts/                 # User authentication & management
 │   │   ├── data_engine/              # Data processing & employee management
 │   │   └── manning_sheet/            # Manning sheet & resource planning
 │   ├── backend_laguna/               # Django project configuration
-│   │   └── settings/                 # Environment settings (dev, prod)
+│   │   └── settings.py               # Environment-aware settings
 │   ├── core/                         # Shared utilities & configurations
 │   ├── data/                         # Data files (CSV, fixtures)
 │   ├── Dockerfile                    # Dockerfile for building backend images
@@ -21,16 +21,17 @@ laguna-ai-line-balancing/             # Repository root
 │   ├── run.py                        # Setup & migration runner
 │   ├── requirements.txt              # Python dependencies
 │   └── sonar-project.properties      # SonarQube configuration
-├── docs/                             # Documentation (e.g. Docker configuration guides)
-├── scripts/                          # Script files (e.g. start & env templates)
+├── docs/                             # Documentation
+├── scripts/                          # Startup scripts (start.bat, start.ps1, start.sh)
 ├── tests/                            # Directory for tests
 ├── .env.example                      # Environment variables template
 ├── .gitattributes                    # Git attributes configuration
 ├── .gitignore                        # Git ignore rules
+├── docker-compose.yml                # Unified Docker Compose (all environments)
+├── docker-compose.azure.yml          # Azure-specific Docker Compose
+├── nginx.conf                        # Nginx reverse proxy configuration
 ├── README-DEV.md                     # Developer guide
-├── README.md                         # This file
-├── docker-compose.yml                # Docker Compose multi-profile services
-└── docker-compose.override.yml       # Local development overrides (e.g. hot-reloading)
+└── README.md                         # This file
 ```
 
 ---
@@ -46,21 +47,24 @@ laguna-ai-line-balancing/             # Repository root
    - For development: `ENVIRONMENT=development`
    - For production: `ENVIRONMENT=production`
 
+> [!IMPORTANT]
+> The same `docker-compose.yml` is used for both development and production. The `ENVIRONMENT` variable in your `.env` file controls which mode Django runs in.
+
 ---
 
 ## Running the Application
 
 ### 1. Docker (Recommended)
-You can manage and run the application services using the provided startup scripts (recommended) or manual Docker Compose profile commands.
+You can manage and run the application services using the provided startup scripts (recommended) or manual Docker Compose commands.
 
 #### A. Using Startup Scripts
-* **Windows (PowerShell):**
-  ```powershell
-  .\scripts\start.ps1 -Dev
-  ```
 * **Windows (Command Prompt):**
   ```cmd
   scripts\start.bat --dev
+  ```
+* **Windows (PowerShell):**
+  ```powershell
+  .\scripts\start.ps1 -Dev
   ```
 * **Linux / macOS:**
   ```bash
@@ -68,30 +72,55 @@ You can manage and run the application services using the provided startup scrip
   ./scripts/start.sh
   ```
 
+##### Script Commands
+
+| Command | Description |
+|---|---|
+| `--dev` / `-Dev` | Start dev services (db + redis + backend + nginx + pgadmin) |
+| `--prod` / `-Prod` | Start production services (db + redis + backend + celery + nginx) |
+| `--build` / `-Build` | Rebuild Docker images and start services |
+| `--down` / `-Down` | Stop and remove all containers |
+| `--clean` / `-Clean` | Stop containers and remove volumes (**DATA LOSS!**) |
+| `--logs` / `-Logs` | Tail logs for all running containers |
+| `--status` / `-Status` | Show status of all containers |
+| `--local` / `-Local` | Start Django dev server locally (no Docker) |
+| `--migrate` / `-Migrate` | Run database migrations |
+| `--makemigrations` / `-MakeMigrations` | Create new migration files |
+| `--shell` / `-Shell` | Open Django interactive shell |
+| `--superuser` / `-Superuser` | Create a Django superuser |
+| `--test` / `-Test` | Run the test suite |
+| `--backup` / `-Backup` | Backup PostgreSQL database |
+| `--restore FILE` / `-Restore FILE` | Restore database from backup |
+| `-h` / `-Help` | Show help |
+
 #### B. Using Manual Docker Compose Commands
 ```bash
-# Start all application services and the monitoring stack at once
+# Start all application services
 docker compose up -d
 
 # Force rebuild if you changed Python packages or Dockerfiles
 docker compose up --build -d
 ```
 
-> [!TIP]
-> **Development Override:** The `docker-compose.dev.yml` file is automatically used by the startup scripts for development modes to provide hot-reloading and port mappings. It is safely ignored when starting production (`-Prod`) mode.
+#### Access Points (After Starting)
 
-#### Health Checks
-- Health endpoint: `GET http://localhost:8001/`
+| Service | URL |
+|---|---|
+| Backend API | http://localhost:8000 |
+| Swagger UI | http://localhost:8000/api/schema/swagger-ui/ |
+| Redoc | http://localhost:8000/api/schema/redoc/ |
+| Raw OpenAPI Schema | http://localhost:8000/api/schema/ |
+| pgAdmin (Database UI) | http://localhost:5050 |
+| Redis Commander | http://localhost:8082 |
+| Grafana (Monitoring) | http://localhost:4000 |
+
+#### Health Check
+- Endpoint: `GET http://localhost:8000/`
 - Success response: `{"message":"app is running successfully"}`
 
-#### Database UI (pgAdmin)
-- Access URL: `http://localhost:5050`
-- Default Credentials: `admin@laguna.com` / `admin123` (override using `PGADMIN_DEFAULT_EMAIL` and `PGADMIN_DEFAULT_PASSWORD` in `.env`).
-
-#### API Documentation (Swagger / OpenAPI)
-- **Interactive Swagger UI**: `http://localhost:8001/api/schema/swagger-ui/` (Allows you to view and test all endpoints directly)
-- **Redoc UI**: `http://localhost:8001/api/schema/redoc/` (Alternate clean static layout)
-- **Raw OpenAPI 3 Schema**: `http://localhost:8001/api/schema/`
+#### pgAdmin Credentials
+- **Email:** `admin@laguna.com` / **Password:** `admin123`
+- Override using `PGADMIN_DEFAULT_EMAIL` and `PGADMIN_DEFAULT_PASSWORD` in `.env`.
 
 ---
 
@@ -131,12 +160,10 @@ python manage.py manning_sheet_scheduler
 ---
 
 ## Key Features
-- **Modular Django Architecture**: All features are organized under separate apps in the `backend/apps/` directory. Each app follows a strict Domain-Driven Design pattern featuring modular `services/` that handle heavy business logic (Pandas/ETL/ML) and incredibly thin `views.py` endpoints for routing.
-- **Environment-Aware Settings**: Settings are split dynamically into `base.py`, `dev.py`, and `prod.py` configs under `backend/backend_laguna/settings/`.
-- **Dockerized Deployments**: Clean configurations separating development tools from production servers (Gunicorn + Celery + Nginx).
-- **Production-Ready**: Proper static/media/logs separation
-
-
+- **Modular Django Architecture**: All features are organized under separate apps in the `backend/apps/` directory. Each app follows a strict Domain-Driven Design pattern featuring modular `services/` that handle heavy business logic (Pandas/ETL/ML) and thin `views.py` endpoints for routing.
+- **Environment-Aware Settings**: A single `settings.py` dynamically adjusts behavior based on the `ENVIRONMENT` variable (development vs production).
+- **Unified Docker Compose**: One `docker-compose.yml` for all environments. The `.env` file controls the behavior — no need for separate dev/prod compose files.
+- **Production-Ready**: Gunicorn + Celery + Nginx with proper static/media/logs separation.
 
 ## Important Notes
 
@@ -144,14 +171,11 @@ python manage.py manning_sheet_scheduler
 - Database migrations are preserved and functional
 - All environment variables should be in `.env` (never commit this file)
 - Use `.env.example` as template for new environments
-- All containers are configured to start by default without requiring `--profile` flags.
-- Do **not** deploy `docker-compose.override.yml` to production environments.
+- All containers start automatically without requiring `--profile` flags
 
 ---
 
 ## 🐳 Docker Command Cheat Sheet
-
-Because profiles have been removed from the `docker-compose.yml`, all containers start automatically!
 
 ### 🟢 1. Starting & Stopping
 * **Start everything in the background:**
@@ -191,7 +215,7 @@ Because profiles have been removed from the `docker-compose.yml`, all containers
 
 ## 📊 Monitoring (Grafana & Loki)
 
-Because the PLG stack is now integrated natively into Docker Compose, you can view all backend logs through a centralized dashboard.
+The PLG stack (Promtail + Loki + Grafana) is integrated into Docker Compose for centralized log monitoring.
 
 ### 1. Access Grafana
 Navigate to `http://localhost:4000` and log in with the default credentials:

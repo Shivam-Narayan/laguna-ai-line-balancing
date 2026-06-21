@@ -168,17 +168,20 @@ function Activate-Venv {
 function Start-DevStaged {
     Write-Colour "[INFO] Starting dev services (staged sequence)..." Blue
 
-    Write-Colour "  Stage 1/3: Core infrastructure (db, redis)..." Cyan
+    Write-Colour "  Stage 1/4: Core infrastructure (db, redis)..." Cyan
     Invoke-DC "--profile dev up -d db redis"
     Write-Host "  Waiting for databases to be healthy..."
     Start-Sleep -Seconds 8
 
-    Write-Colour "  Stage 2/3: Backend application..." Cyan
+    Write-Colour "  Stage 2/4: Backend application..." Cyan
     Invoke-DC "--profile dev up -d backend"
     Start-Sleep -Seconds 5
 
-    Write-Colour "  Stage 3/3: Developer tools (pgadmin)..." Cyan
+    Write-Colour "  Stage 3/4: Developer tools (pgadmin)..." Cyan
     Invoke-DC "--profile dev up -d pgadmin"
+
+    Write-Colour "  Stage 4/4: Reverse proxy (nginx)..." Cyan
+    Invoke-DC "up -d nginx"
 
     Write-Colour "[OK] All dev services started" Green
 }
@@ -186,6 +189,7 @@ function Start-DevStaged {
 function Start-DevFast {
     Write-Colour "[INFO] Starting dev services (fast mode)..." Blue
     Invoke-DC "--profile dev up --force-recreate -d"
+    Invoke-DC "up -d nginx"
     Write-Colour "[OK] All dev services started" Green
 }
 
@@ -237,15 +241,7 @@ if ($Help) { Show-Help; exit 0 }
 Show-Banner
 Load-Env
 
-if ($Prod -and -not $Dev) {
-    $env:COMPOSE_FILE = "docker-compose.yml"
-} else {
-    if (Test-Path (Join-Path $ProjectRoot "docker-compose.dev.yml")) {
-        $env:COMPOSE_FILE = "docker-compose.yml;docker-compose.dev.yml"
-    } else {
-        $env:COMPOSE_FILE = "docker-compose.yml"
-    }
-}
+$env:COMPOSE_FILE = "docker-compose.yml"
 
 # ── Docker commands ─────────────────────────────────────────────────────────
 
@@ -255,11 +251,13 @@ if ($Dev) {
     Write-Host ""
     Invoke-DC "ps -a"
     Write-Host ""
-    $port = if ($env:BACKEND_PORT) { $env:BACKEND_PORT } else { "8001" }
+    $port = if ($env:BACKEND_PORT) { $env:BACKEND_PORT } else { "8000" }
     $pgport = if ($env:PGADMIN_PORT) { $env:PGADMIN_PORT } else { "5050" }
     Write-Colour "  Backend:  http://localhost:$port" Green
     Write-Colour "  Swagger:  http://localhost:$port/api/schema/swagger-ui/" Green
     Write-Colour "  pgAdmin:  http://localhost:$pgport" Green
+    Write-Colour "  Redis UI: http://localhost:8082" Green
+    Write-Colour "  Grafana:  http://localhost:4000" Green
     Write-Host ""
 }
 

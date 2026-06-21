@@ -248,15 +248,7 @@ done
 # Initialize environment
 initialize_env
 
-if [[ "$COMMAND" == "--prod" ]] || [[ "$*" == *"--prod"* ]]; then
-    export COMPOSE_FILE="docker-compose.yml"
-else
-    if [ -f "${PROJECT_ROOT}/docker-compose.dev.yml" ]; then
-        export COMPOSE_FILE="docker-compose.yml:docker-compose.dev.yml"
-    else
-        export COMPOSE_FILE="docker-compose.yml"
-    fi
-fi
+export COMPOSE_FILE="docker-compose.yml"
 
 # Handle --down command early (before other setup)
 if [ "$COMMAND" = "--down" ]; then
@@ -378,9 +370,10 @@ echo "Container status:"
 $DOCKER_COMPOSE_CMD --profile dev --profile prod ps -a
 echo ""
 echo "Access points:"
-echo "  Dev Backend:   http://localhost:${BACKEND_PORT:-8001}"
-echo "  Swagger UI:    http://localhost:${BACKEND_PORT:-8001}/api/schema/swagger-ui/"
-echo "  Redoc:         http://localhost:${BACKEND_PORT:-8001}/api/schema/redoc/"
-echo "  pgAdmin:       http://localhost:${PGADMIN_PORT:-5050}"
-echo "  Prod (nginx):  http://localhost"
+echo "  Backend:      http://localhost:${BACKEND_PORT:-8000}"
+echo "  Swagger UI:   http://localhost:${BACKEND_PORT:-8000}/api/schema/swagger-ui/"
+echo "  Redoc:        http://localhost:${BACKEND_PORT:-8000}/api/schema/redoc/"
+echo "  pgAdmin:      http://localhost:${PGADMIN_PORT:-5050}"
+echo "  Redis UI:     http://localhost:8082"
+echo "  Grafana:      http://localhost:4000"
 echo ""
