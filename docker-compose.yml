@@ -45,8 +45,6 @@ services:
       db:
         condition: service_healthy
     restart: unless-stopped
-    profiles:
-      - dev
 
   # Redis Commander (Redis UI)
   redis-commander:
@@ -59,8 +57,6 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
-    profiles:
-      - dev
 
   # Unified Backend Application (Production Configuration by default)
   backend:
@@ -109,9 +105,6 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
-    profiles:
-      - dev
-      - prod
 
   # Background Task Scheduler (Optional)
   scheduler:
@@ -140,8 +133,6 @@ services:
     volumes:
       - ./backend:/app
       - logs_volume:/app/logs
-    profiles:
-      - scheduler
 
   # Production Celery worker
   celery:
@@ -170,8 +161,6 @@ services:
     volumes:
       - logs_volume:/app/logs
     restart: unless-stopped
-    profiles:
-      - prod
 
   # Production Nginx reverse proxy
   nginx:
@@ -187,8 +176,38 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
-    profiles:
-      - prod
+
+  # Logging Aggregator (Loki)
+  loki:
+    image: grafana/loki:latest
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki_data:/tmp/loki
+    restart: unless-stopped
+
+  # Log Scraper (Promtail)
+  promtail:
+    image: grafana/promtail:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./promtail-config.yml:/etc/promtail/config.yml:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    restart: unless-stopped
+
+  # Visualization Dashboard (Grafana)
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "4000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - loki
+    restart: unless-stopped
 
 volumes:
   postgres_data:
@@ -203,3 +222,8 @@ volumes:
     driver: local
   pgadmin_data:
     driver: local
+  loki_data:
+    driver: local
+  grafana_data:
+    driver: local
+

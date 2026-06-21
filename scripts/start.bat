@@ -246,6 +246,7 @@ echo   Swagger:       http://localhost:%BACKEND_PORT%/api/schema/swagger-ui/
 echo   pgAdmin:       http://localhost:%PGADMIN_PORT%
 echo   Redis UI:      http://localhost:8082
 echo   Prod (nginx):  http://localhost
+echo   Grafana:       http://localhost:4000
 echo.
 goto :eof
 
@@ -282,6 +283,7 @@ echo   Backend:  http://localhost:%BACKEND_PORT%
 echo   Swagger:  http://localhost:%BACKEND_PORT%/api/schema/swagger-ui/
 echo   pgAdmin:  http://localhost:%PGADMIN_PORT%
 echo   Redis UI: http://localhost:8082
+echo   Grafana:  http://localhost:4000
 echo.
 goto :eof
 
@@ -316,6 +318,7 @@ if "%STAGED_MODE%"=="true" (
 echo [OK] All production services started
 
 echo   Application: http://localhost (via nginx)
+echo   Grafana:     http://localhost:4000
 echo.
 goto :eof
 

@@ -150,3 +150,43 @@ python manage.py manning_sheet_scheduler
   - `scheduler`: optional scheduler service
   - `prod`: backend_prod + celery + nginx + db + redis
 - Do **not** deploy `docker-compose.override.yml` to production environments.
+
+---
+
+## 🐳 Docker Command Cheat Sheet
+
+Because this project uses Docker Profiles (`--profile dev`), you must include the flag when managing your local environment!
+
+### 🟢 1. Starting & Stopping
+* **Start everything in the background:**
+  `docker compose --profile dev up -d`
+* **Stop everything (keeps database data):**
+  `docker compose --profile dev down`
+* **Stop everything AND delete database data (Fresh start):**
+  `docker compose --profile dev down -v`
+* **Rebuild containers (Run after pip installs):**
+  `docker compose --profile dev up --build -d`
+
+### 🔎 2. Viewing Logs
+* **View logs for all containers:**
+  `docker compose --profile dev logs -f`
+* **View logs for JUST the backend:**
+  `docker compose --profile dev logs -f backend`
+* **View logs for JUST the database:**
+  `docker compose --profile dev logs -f db`
+
+### 💻 3. Running Commands Inside the Container
+* **Open a terminal/shell inside the backend:**
+  `docker compose --profile dev exec backend /bin/bash`
+* **Run a Django command (like migrations):**
+  `docker compose --profile dev exec backend python manage.py migrate`
+* **Create a Django Superuser:**
+  `docker compose --profile dev exec backend python manage.py createsuperuser`
+* **Open the Django interactive shell:**
+  `docker compose --profile dev exec backend python manage.py shell`
+
+### 🧹 4. System Cleanup
+* **Remove unused containers, networks, and images:**
+  `docker system prune`
+* **Remove absolutely EVERYTHING (deep clean):**
+  `docker system prune -a --volumes`

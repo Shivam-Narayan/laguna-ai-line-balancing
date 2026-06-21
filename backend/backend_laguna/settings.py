@@ -334,4 +334,15 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': 'Interactive API documentation for the Laguna-AI Line Balancing backend application.',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
+    'SECURITY': [{'TokenAuth': []}],
+    'APPEND_COMPONENTS': {
+        'securitySchemes': {
+            'TokenAuth': {
+                'type': 'apiKey',
+                'in': 'header',
+                'name': 'Authorization',
+                'description': 'Enter your token in the format: Token <your_token>'
+            }
+        }
+    }
 }
