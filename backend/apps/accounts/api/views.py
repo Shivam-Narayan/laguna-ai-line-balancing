@@ -11,6 +11,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.http import FileResponse, HttpResponseNotFound, JsonResponse
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from drf_spectacular.utils import extend_schema
 
 from apps.accounts.models import MultiSessionToken
 from apps.accounts.authentication import MultiSessionTokenAuthentication
@@ -73,6 +74,7 @@ def home(request):
 
 
 # Register a new User function
+@extend_schema(request=RegisterUserSerializer)
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register_user(request):
