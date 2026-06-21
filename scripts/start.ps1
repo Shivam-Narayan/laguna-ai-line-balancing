@@ -34,9 +34,9 @@ function Write-Colour($Message, $Colour = "White") {
 }
 
 # ── Project paths ───────────────────────────────────────────────────────────
-$ProjectRoot  = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
-$BackendDir   = Join-Path $ProjectRoot "backend"
-$EnvFile      = Join-Path $ProjectRoot ".env"
+$ProjectRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
+$BackendDir = Join-Path $ProjectRoot "backend"
+$EnvFile = Join-Path $ProjectRoot ".env"
 
 # ── Banner ──────────────────────────────────────────────────────────────────
 function Show-Banner {
@@ -86,7 +86,7 @@ function Show-Help {
 }
 
 # ── Load .env ───────────────────────────────────────────────────────────────
-function Load-Env {
+function Import-Env {
     if (Test-Path $EnvFile) {
         Write-Colour "[INFO] Loading environment from $EnvFile" Blue
         Get-Content $EnvFile | ForEach-Object {
@@ -102,7 +102,7 @@ function Load-Env {
     elseif (Test-Path (Join-Path $ProjectRoot ".env.example")) {
         Write-Colour "[WARN] No .env file found. Copying .env.example -> .env" Yellow
         Copy-Item (Join-Path $ProjectRoot ".env.example") $EnvFile
-        Load-Env
+        Import-Env
     }
     else {
         Write-Colour "[WARN] No .env file found. Using defaults." Yellow
@@ -114,21 +114,23 @@ function Get-DockerCompose {
     try {
         docker compose version 2>&1 | Out-Null
         if ($LASTEXITCODE -eq 0) { return "docker compose" }
-    } catch {}
+    }
+    catch {}
 
     try {
         $null = Get-Command docker-compose -ErrorAction Stop
         return "docker-compose"
-    } catch {}
+    }
+    catch {}
 
     Write-Colour "[ERROR] Docker Compose is not installed." Red
     exit 1
 }
 
 function Invoke-DC {
-    param([string]$Args)
+    param([string]$CommandArgs)
     $dc = Get-DockerCompose
-    Invoke-Expression "$dc $Args"
+    Invoke-Expression "$dc $CommandArgs"
 }
 
 # ── Check prerequisites ────────────────────────────────────────────────────
@@ -151,12 +153,13 @@ function Assert-Python {
     Write-Colour "[OK] $ver" Green
 }
 
-function Activate-Venv {
+function Enable-Venv {
     $venvActivate = Join-Path $ProjectRoot ".venv\Scripts\Activate.ps1"
     if (Test-Path $venvActivate) {
         Write-Colour "[INFO] Activating virtual environment..." Blue
         & $venvActivate
-    } else {
+    }
+    else {
         Write-Colour "[WARN] No .venv found. Using system Python." Yellow
     }
 }
@@ -239,7 +242,7 @@ if (-not $anyCommand) {
 if ($Help) { Show-Help; exit 0 }
 
 Show-Banner
-Load-Env
+Import-Env
 
 $env:COMPOSE_FILE = "docker-compose.yml"
 
@@ -294,7 +297,8 @@ if ($Clean) {
     if ($confirm -eq "y") {
         Invoke-DC "--profile dev --profile prod --profile scheduler down -v"
         Write-Colour "[OK] Containers and volumes removed" Green
-    } else {
+    }
+    else {
         Write-Host "  Cancelled."
     }
 }
@@ -341,7 +345,7 @@ if ($Local) {
 }
 
 if ($Migrate) {
-    Assert-Python; Activate-Venv
+    Assert-Python; Enable-Venv
     Write-Colour "[INFO] Running database migrations..." Blue
     Push-Location $BackendDir
     python manage.py migrate
@@ -350,7 +354,7 @@ if ($Migrate) {
 }
 
 if ($MakeMigrations) {
-    Assert-Python; Activate-Venv
+    Assert-Python; Enable-Venv
     Write-Colour "[INFO] Creating migration files..." Blue
     Push-Location $BackendDir
     python manage.py makemigrations
@@ -359,24 +363,30 @@ if ($MakeMigrations) {
 }
 
 if ($Shell) {
-    Assert-Python; Activate-Venv
+    Assert-Python; Enable-Venv
     Push-Location $BackendDir
     python manage.py shell
     Pop-Location
 }
 
 if ($Superuser) {
-    Assert-Python; Activate-Venv
+    Assert-Python; Enable-Venv
     Push-Location $BackendDir
     python manage.py createsuperuser
     Pop-Location
 }
 
 if ($Test) {
-    Assert-Python; Activate-Venv
-    Write-Colour "[INFO] Running test suite..." Blue
-    Push-Location $BackendDir
-    python manage.py test
-    Pop-Location
-    Write-Colour "[OK] Tests complete" Green
+    Assert-Python; Enable-Venv
+    if ($Test) {
+        Assert-Python; Activate-Venv
+        if ( $Test) {
+            Assert-Python; Activate-Venv
+            Write-Colour "[INFO] Running test suite..." Blue
+            Push-Location $BackendDir
+            python manage.py test
+            Pop-Location
+            Write-Colour "[OK] Tests complete" Green
+        }
+    }
 }
