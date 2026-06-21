@@ -1,6 +1,6 @@
 # your_app/management/commands/run_all_schedulers.py
 from django.core.management.base import BaseCommand
-from ... import scheduler as dataEngine_scheduler
+from ... import scheduler as data_engine_scheduler
 from ...scheduler import start
 import time
 

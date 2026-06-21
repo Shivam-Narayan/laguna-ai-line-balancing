@@ -7,10 +7,10 @@ AI line-balancing backend application.
 laguna-ai-line-balancing/             # Repository root
 ├── backend/                          # Lowercase backend code directory
 │   ├── apps/                         # All Django applications
-│   │   ├── absenteeism/             # Absenteeism prediction engine
-│   │   ├── accounts/                # User authentication & management
-│   │   ├── dataEngine/              # Data processing & employee management
-│   │   └── manning_sheet/           # Manning sheet & resource planning
+│   │   ├── absenteeism/              # Absenteeism prediction engine
+│   │   ├── accounts/                 # User authentication & management
+│   │   ├── data_engine/              # Data processing & employee management
+│   │   └── manning_sheet/            # Manning sheet & resource planning
 │   ├── backend_laguna/               # Django project configuration
 │   │   └── settings/                 # Environment settings (dev, prod)
 │   ├── core/                         # Shared utilities & configurations
@@ -80,8 +80,8 @@ docker compose --profile dev --profile scheduler up -d
 docker compose --profile prod up --build -d
 ```
 
-> [!WARNING]
-> **Production Deployment Note:** If you are running the `prod` profile, ensure that `docker-compose.override.yml` is **not present** in the directory! Docker Compose automatically merges override files, which will force your production container to run local development servers and override your production targets. Keep `docker-compose.override.yml` for local development only.
+> [!TIP]
+> **Development Override:** The `docker-compose.dev.yml` file is automatically used by the startup scripts for development modes to provide hot-reloading and port mappings. It is safely ignored when starting production (`-Prod`) mode.
 
 #### Health Checks
 - Health endpoint: `GET http://localhost:8001/`
@@ -127,14 +127,14 @@ python manage.py runserver
 From the `backend/` directory:
 ```bash
 python manage.py absenteeism_scheduler
-python manage.py dataEngine_scheduler
+python manage.py data_engine_scheduler
 python manage.py manning_sheet_scheduler
 ```
 
 ---
 
 ## Key Features
-- **Modular Django Architecture**: All features are organized under separate apps in the `backend/apps/` directory.
+- **Modular Django Architecture**: All features are organized under separate apps in the `backend/apps/` directory. Each app follows a strict Domain-Driven Design pattern featuring modular `services/` that handle heavy business logic (Pandas/ETL/ML) and incredibly thin `views.py` endpoints for routing.
 - **Environment-Aware Settings**: Settings are split dynamically into `base.py`, `dev.py`, and `prod.py` configs under `backend/backend_laguna/settings/`.
 - **Dockerized Deployments**: Clean configurations separating development tools from production servers (Gunicorn + Celery + Nginx).
 - **Production-Ready**: Proper static/media/logs separation

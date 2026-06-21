@@ -19,7 +19,7 @@ from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from sendgrid.helpers.mail import Mail, Attachment, FileContent, FileName, FileType, Disposition
 
 from apps.absenteeism.models import AbsenteeismPrediction
-from apps.dataEngine.models import LocalHolidayCalendar, PayableWorkingDays
+from apps.data_engine.models import LocalHolidayCalendar, PayableWorkingDays
 
 logger = logging.getLogger('general')
 

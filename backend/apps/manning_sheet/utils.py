@@ -24,7 +24,7 @@ from openpyxl.utils import get_column_letter
 from django.db.models import Case, When, IntegerField, Sum, Value, Q
 
 from backend_laguna.utils import truncate_table
-from apps.dataEngine.models import AttendanceMaster
+from apps.data_engine.models import AttendanceMaster
 from .models import PushNotification, DDayData, EmployeesOnHold
 
 # Variables for OptaFloor APIS

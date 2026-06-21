@@ -151,7 +151,7 @@ start_services_staged() {
 
     # Stage 3: Backend Application (prod)
     echo "Stage 3: Starting prod backend (gunicorn)..."
-    $DOCKER_COMPOSE_CMD --profile prod up --force-recreate -d backend_prod
+    $DOCKER_COMPOSE_CMD --profile prod up --force-recreate -d backend
     sleep 5
 
     # Stage 4: Background Workers
@@ -247,6 +247,16 @@ done
 
 # Initialize environment
 initialize_env
+
+if [[ "$COMMAND" == "--prod" ]] || [[ "$*" == *"--prod"* ]]; then
+    export COMPOSE_FILE="docker-compose.yml"
+else
+    if [ -f "${PROJECT_ROOT}/docker-compose.dev.yml" ]; then
+        export COMPOSE_FILE="docker-compose.yml:docker-compose.dev.yml"
+    else
+        export COMPOSE_FILE="docker-compose.yml"
+    fi
+fi
 
 # Handle --down command early (before other setup)
 if [ "$COMMAND" = "--down" ]; then

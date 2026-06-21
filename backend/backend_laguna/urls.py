@@ -21,7 +21,7 @@ urlpatterns = [
 
     # Application includes (placed after Swagger routes)
     path('', include('apps.accounts.urls')),
-    path('data/', include('apps.dataEngine.urls')),
+    path('data/', include('apps.data_engine.urls')),
     path('absenteeism/', include('apps.absenteeism.urls')),
     path('manning-sheet/', include('apps.manning_sheet.urls')),
 ]

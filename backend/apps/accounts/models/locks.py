@@ -1,101 +1,8 @@
 import uuid
-
-from datetime import timedelta
-from django.conf import settings
 from django.utils import timezone
-from django.utils.timezone import now
 from django.db import models, transaction
-from django.core.validators import RegexValidator
 from django.core.exceptions import ValidationError
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
-
-
-class CustomUserManager(BaseUserManager):
-    def create_user(self, username, email, password=None, **extra_fields):
-        if not username:
-            raise ValueError('Username is required')
-        if not email:
-            raise ValueError('Email is required')
-        
-        email = self.normalize_email(email)
-        user = self.model(username=username, email=email, **extra_fields)
-        user.set_password(password)
-        user.save(using=self._db)
-        return user
-
-    def create_superuser(self, username, email, password=None, **extra_fields):
-        extra_fields.setdefault('is_staff', True)
-        extra_fields.setdefault('is_superuser', True)
-        return self.create_user(username, email, password, **extra_fields)
-
-class User(AbstractBaseUser, PermissionsMixin):
-    last_login = None #disabled this field
-    id = models.AutoField(primary_key=True)
-    username = models.CharField(max_length=150)
-    email = models.EmailField(unique=True, max_length=255)
-    location = models.CharField(max_length=50, default="", blank=True)
-    department = models.CharField(max_length=100, default="", blank=True)
-    status = models.BooleanField(default=True)
-    created_at = models.DateTimeField(default=timezone.now)
-    phonenumber = models.CharField(
-        max_length=10,
-        validators=[RegexValidator(
-            regex=r'^[6-9]\d{9}$',
-            message="Phone number must be a valid 10-digit number starting with 6-9."
-        )],
-        blank=True,
-    )
-    user_type = models.PositiveIntegerField(choices=[(0, 'Normal'), (1, 'Admin')], default=0)
-    latitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True) 
-    longitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
-    send_mail = models.BooleanField(default=False)
-    
-    objects = CustomUserManager()
-
-    USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['username', 'location', 'department', 'phonenumber', 'user_type']
-
-    def __str__(self):
-        return self.username
-    
-
-
-class PasswordResetToken(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='password_reset_tokens')
-    token = models.CharField(max_length=64, unique=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def is_expired(self):
-        """Check if the token is expired (valid for 10 minutes)."""
-        return now() > self.created_at + timedelta(minutes=10)
-
-
-def default_expiry():
-    return timezone.now() + timedelta(days=365)  # 1-year expiry
-    
-# Function to generate a unique token
-def generate_unique_token():
-    return uuid.uuid4().hex  
-
-# Custom Multi-Session Token Model
-class MultiSessionToken(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    key = models.CharField(max_length=40, unique=True, default=generate_unique_token)
-    created = models.DateTimeField(auto_now_add=True)
-    expiry = models.DateTimeField(default=default_expiry)  # 1-year expiry
-
-    def is_expired(self):
-        return timezone.now() > self.expiry
-
-    def refresh_token(self):
-        """Refresh token validity if expired"""
-        if self.is_expired():
-            self.key = generate_unique_token()
-            self.expiry = timezone.now() + timedelta(days=365)
-            self.save()
-
-    def __str__(self):
-        return f"{self.user.email} - {self.key}"
+from .user import User
 
 class EndpointLock(models.Model):
     """
@@ -209,4 +116,3 @@ class EndpointLock(models.Model):
         else:
             ip = request.META.get('REMOTE_ADDR')
         return ip
-

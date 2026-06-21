@@ -1,0 +1,241 @@
+import gzip
+import json
+import logging
+import pandas as pd
+import calendar, re, io, os
+
+from rest_framework import status
+from django.db import transaction
+from collections import defaultdict
+from django.http import HttpResponse
+from rest_framework.response import Response
+from django.utils.encoding import smart_bytes
+from datetime import date, timedelta, datetime
+from rest_framework.permissions import IsAuthenticated
+from django.db.models import Sum, Count, Q, Case, When, IntegerField
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
+
+from apps.accounts.models import User
+from ..prediction import model_prediction
+from backend_laguna.utils import truncate_table
+from apps.manning_sheet.views import NOTIFICATION_DISPLAY_TITLE
+from apps.manning_sheet.models import ManningSheetData, LoadingPlan
+from apps.accounts.authentication import MultiSessionTokenAuthentication
+from ..models import Absenteeism, PredictionData, AbsenteeismPrediction
+from apps.manning_sheet.utils import create_bulk_push_notifications, custom_round
+from apps.accounts.utils.response_handlers import error_response, success_response
+from apps.data_engine.models import LocalHolidayCalendar, EmployeeMaster, AttendanceMaster
+from ..absenteeism_percentage import calculate_line_percentages, get_working_days_around_date
+from ..utils import generate_csv, send_email, generate_prediction_data, convert_number, update_sections, merge_duplicates, is_allowed_working_day, sum_section_counts, normalize_sections, write_absenteeism_data_to_csv, export_absenteeism_predictions_excel
+
+logger = logging.getLogger('general')
+prediction_response = {}
+
+@api_view(['POST'])
+@authentication_classes([MultiSessionTokenAuthentication])
+@permission_classes([IsAuthenticated])
+def upload_absenteesim_data(request):
+    file = request.FILES.get('file')
+    month = request.POST.get('month')
+    year = request.POST.get('year')
+
+    if not month or not year:
+        return error_response(error= 'No month or year provided.', status=status.HTTP_400_BAD_REQUEST)
+
+    if not file:
+        return error_response(error= 'No file provided.', status=status.HTTP_400_BAD_REQUEST)
+
+    month_list = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    if month not in month_list:
+        return error_response(error=f'Month value required in this format {month_list}', status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        year = int(year)
+        # Read the uploaded file
+        if file.name.endswith('.csv'):
+            data = pd.read_csv(file, header=1)
+        elif file.name.endswith('.xlsx'):
+            data = pd.read_excel(file, header=1)
+        else:
+            return error_response(error= 'Unsupported file format.', status=status.HTTP_400_BAD_REQUEST)
+
+        # Rename columns for dates
+        month_number = list(calendar.month_abbr).index(month[:3])  # type: ignore
+        _, endDate = calendar.monthrange(year, month_number)
+        columns_to_rename = {i: f'{i:02d}-{month}-{year}' for i in range(1, endDate + 1)}
+        data = data.rename(columns=columns_to_rename)
+
+        # Melt the data
+        date_columns = [f'{day:02d}-{month}-{year}' for day in range(1, endDate + 1)]
+        melted_data = pd.melt(
+            data,
+            id_vars=['Empcode', 'Name', 'Department', 'DOJ', 'P', 'WO', 'H', 'L', 'Ab', 'DP', 'OT1'],
+            value_vars=date_columns,
+            var_name='Date',
+            value_name='Attendance'
+        )
+
+        # Convert 'DOJ' to YYYY-MM-DD format
+        melted_data['DOJ'] = pd.to_datetime(melted_data['DOJ'], format='%d-%b-%y', errors='coerce')
+        melted_data['DOJ'] = melted_data['DOJ'].where(melted_data['DOJ'].notnull(), None)
+
+        # Convert 'Date' to YYYY-MM-DD format
+        melted_data['Date'] = pd.to_datetime(melted_data['Date'], format='%d-%b-%Y', errors='coerce')
+        if melted_data['Date'].isnull().any():  # type: ignore
+            return error_response(error='Invalid date values found in the data.', status=status.HTTP_400_BAD_REQUEST)
+        
+        melted_data[['P', 'WO', 'H', 'L', 'Ab', 'DP', 'OT1']] = melted_data[['P', 'WO', 'H', 'L', 'Ab', 'DP', 'OT1']].fillna(0)
+
+
+        # Validate data before creating objects
+        absenteeism_objects = []
+        for _, row in melted_data.iterrows():
+            if pd.isnull(row['Empcode']) or row['Empcode'] == '':  # type: ignore
+                # Skip rows where 'Empcode' is empty or NaN
+                continue
+
+            try:
+                absenteeism_objects.append(Absenteeism(
+                    empcode=row['Empcode'],
+                    name=row['Name'],
+                    department=row['Department'],
+                    doj=row['DOJ'],  # Can be None
+                    date=row['Date'],  # Mandatory
+                    attendance=row['Attendance'],
+                    present_days=row['P'],
+                    weekly_offs=row['WO'],
+                    holidays=row['H'],
+                    leaves=row['L'],
+                    absent_days=row['Ab'],
+                    double_present=row['DP'],
+                    overtime_hours=row['OT1']
+                ))
+            except Exception as e:
+                logger.info(f"Error creating object for row: {row}, Error: {str(e)}")
+
+        # Save to database
+        if absenteeism_objects:
+            try:
+                Absenteeism.objects.bulk_create(absenteeism_objects)
+                return success_response(data= f'Data successfully uploaded {month} {year} and saved.', status=status.HTTP_201_CREATED)
+            except Exception as e:
+                logger.info(f"Error during bulk_create: {str(e)}")
+                return error_response(error=f"Error saving data to the database: {str(e)}", status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return error_response(error='No valid data to save. All rows had missing Empcode.', status=status.HTTP_400_BAD_REQUEST)
+
+    except Exception as e:
+        return error_response(error=f'Error processing the data: {str(e)}', status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@authentication_classes([MultiSessionTokenAuthentication])
+@permission_classes([IsAuthenticated])
+def absenteeism_data_preprocessing(request):
+    try:
+        # Filter records with "LINE" in the department
+        absenteeism_records = Absenteeism.objects.filter(department__icontains="LINE")
+
+        prediction_data_objects = []
+        batch_size = 200  # Set a batch size (adjust based on your DB performance)
+
+        truncate_table(PredictionData)
+
+        for record in absenteeism_records:
+            try:
+                match = re.match(r"(LINE\s*\d+)\s+(.*)", record.department)
+                if match:
+                    department = match.group(1).replace(" ", "")
+                    department = re.sub(r"LINE(\d+)", r"LINE \1", department)
+                    section = match.group(2)
+                    section = section.replace(" ", "")
+                else:
+                    continue
+
+                if record.attendance == 'A':
+                    prediction_data_objects.append(
+                        PredictionData(
+                            date=record.date,
+                            empcode=record.empcode,
+                            name=record.name,
+                            department=department,
+                            section=section,
+                            attendance=record.attendance
+                        )
+                    )
+
+                # When batch size is reached, insert data and clear the list
+                if len(prediction_data_objects) >= batch_size:
+                    with transaction.atomic():  # type: ignore
+                        PredictionData.objects.bulk_create(prediction_data_objects, batch_size=batch_size)
+                    prediction_data_objects.clear()  # Clear processed records
+
+            except Exception:
+                continue  # Skip problematic records silently
+
+        # Insert remaining records
+        if prediction_data_objects:
+            with transaction.atomic():  # type: ignore
+                PredictionData.objects.bulk_create(prediction_data_objects, batch_size=batch_size)
+
+        return success_response(
+            data="Records processed and saved successfully."
+        )
+
+    except Exception as e:
+        return error_response(
+            error=f"An unexpected error occurred: {str(e)}",
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+def upload_prediction_data(request):
+    try:
+        # Check if a file is uploaded
+        uploaded_file = request.FILES.get('file')
+        if not uploaded_file:
+            return error_response(error= 'No file provided', status=status.HTTP_400_BAD_REQUEST)
+
+        # Determine file type and read the data into a DataFrame
+        if uploaded_file.name.endswith('.csv'):
+            df = pd.read_csv(io.StringIO(uploaded_file.read().decode('utf-8')))
+        elif uploaded_file.name.endswith(('.xls', '.xlsx')):
+            df = pd.read_excel(uploaded_file)
+        else:
+            return error_response(error= 'Unsupported file format. Please upload a CSV or Excel file.', status=status.HTTP_400_BAD_REQUEST)
+
+
+        # Ensure required columns are present
+        required_columns = [
+            'date', 'Line', 'Section', 'Predicted_Absent_Count',
+            'historical_mean', 'historical_std', 'deviation_from_mean', 'datetime', 'forecast_period'
+        ]
+        if not all(col in df.columns for col in required_columns):
+            return error_response(error= 'Missing required columns in the Excel file', status=status.HTTP_400_BAD_REQUEST)
+
+        # Clear existing data in the table
+        AbsenteeismPrediction.objects.all().delete()
+
+        # Iterate through the rows of the DataFrame and add them to the database
+        records = []
+        for _, row in df.iterrows():
+            record = AbsenteeismPrediction(
+                datetime=row['datetime'],
+                predicted_absent_count=row['Predicted_Absent_Count'],
+                line=row['Line'],
+                section=row['Section'],
+                forecast_period=row['forecast_period'],
+                historical_mean=row['historical_mean'],
+                historical_std=row['historical_std'],
+                deviation_from_mean=row['deviation_from_mean']
+            )
+            records.append(record)
+
+        # Bulk create the records for efficiency
+        AbsenteeismPrediction.objects.bulk_create(records)
+
+        return success_response(message= 'Data uploaded successfully', status=status.HTTP_201_CREATED)
+
+    except Exception as e:
+        return error_response(error= str(e), status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -7,14 +7,12 @@ from django.conf import settings
 from rest_framework import status
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
-from math import radians, sin, cos, sqrt, atan2
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.http import FileResponse, HttpResponseNotFound, JsonResponse
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 
 from apps.accounts.models import MultiSessionToken
-from apps.accounts.utils.validators import validate_password
 from apps.accounts.authentication import MultiSessionTokenAuthentication
 from apps.accounts.utils.response_handlers import success_response, error_response
 from apps.accounts.api.serializers import (
@@ -25,6 +23,10 @@ from apps.accounts.api.serializers import (
     ResetPasswordSerializer,
 )
 
+# Services
+from apps.accounts.services.auth_service import authenticate_user, logout_user
+from apps.accounts.services.user_service import change_user_password, delete_user_account
+from apps.accounts.services.location_service import verify_geofence
 
 # Path to logs directory
 LOGS_DIR = os.path.join(settings.BASE_DIR, "logs")
@@ -35,28 +37,6 @@ User = get_user_model()
 class BaseProtectedView:
     authentication_classes = [MultiSessionTokenAuthentication]
     permission_classes = [IsAuthenticated]
-
-
-# Geofence definition
-GEOFENCE = {
-#     'latitude': 12.9729,  # Replace with the desired latitude for testing
-#     'longitude': 77.7189,  # Replace with the desired longitude for testing
-    'radius': 5000  # 1 km radius
-}
-
-
-# Calculate the distance between two lat/lon points (Haversine formula)
-def haversine_distance(lat1, lon1, lat2, lon2):
-    R = 6371000  # Earth radius in meters
-    # Convert degrees to radians
-    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
-
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
-
-    a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
-    c = 2 * atan2(sqrt(a), sqrt(1 - a))
-    return R * c  # Distance in meters
 
 
 # Check if the user is within the geofence based on their location
@@ -71,25 +51,14 @@ def check_geofence(request):
         except Exception:
             return error_response({'status': 'Invalid Latitude and Longitude values (Float type)'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if (current_lat is None) or (current_lon is None) or (not isinstance(current_lat, float)) or (not isinstance(current_lon, float)):
-            return error_response({'status': 'Required Latitude and Longitude values (Float type)'}, status=status.HTTP_404_NOT_FOUND)
-
         user = User.objects.get(id=request.user.id)
 
-        # Access latitude and longitude fields
-        user_lat = user.latitude
-        user_lon = user.longitude
+        is_within, message, status_code = verify_geofence(user, current_lat, current_lon)
 
-        if user_lat is None or user_lon is None:
-            return error_response({'status': 'User Latitude and Longitude values is empty'}, status=status.HTTP_404_NOT_FOUND)
-
-        # Calculate the distance from the geofence center
-        distance = haversine_distance(current_lat, current_lon, user_lat, user_lon)
-
-        if distance <= GEOFENCE['radius']:
-            return success_response({'status': 'You are within the geofence.', 'within_geofence': True})
+        if is_within:
+            return success_response({'status': message, 'within_geofence': True})
         else:
-            return error_response({'status': 'You are outside the geofence. Please be within the access range to continue.', 'within_geofence': False})
+            return error_response({'status': message, 'within_geofence': False}, status=status_code)
 
     return error_response({'status': 'Invalid request method.'}, status=400)
 
@@ -192,24 +161,11 @@ def update_user(request, user_id):
 @authentication_classes([MultiSessionTokenAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_user(request, user_id):
-    try:
-        user = User.objects.get(id=user_id)
-    except User.DoesNotExist:
-        return error_response(error="User not found", status=status.HTTP_404_NOT_FOUND)
-
-    # Attempting to delete the user
-    try:
-        user_details = {
-            'username': user.username,
-            'email': user.email,
-            'location': user.location,
-            'department': user.department,
-            'status': user.status,
-        }
-        user.delete()
-        return success_response(data=user_details, message=f"User with ID {user_id} deleted successfully", status=status.HTTP_200_OK)
-    except Exception as e:
-        return error_response(error=f"An error occurred while deleting the user: {str(e)}", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    user_details, error_msg, status_code = delete_user_account(user_id)
+    if error_msg:
+        return error_response(error=error_msg, status=status_code)
+    
+    return success_response(data=user_details, message=f"User with ID {user_id} deleted successfully", status=status_code)
 
 
 # Login functionality
@@ -219,82 +175,24 @@ def login(request):
     email = request.data.get('email')
     password = request.data.get('password')
 
-    # make sure convert uppercase to lowercase email
-    if email is not None:
-        email = email.lower()
+    user_details, token, error_msg, status_code = authenticate_user(email, password)
 
-    if not email and not password:
-        return error_response(
-            error="email address and password is required",
-            status=status.HTTP_400_BAD_REQUEST
-        )
+    if error_msg:
+        return error_response(error=error_msg, status=status_code)
 
-    if not email:
-        return error_response(
-            error="email address is required",
-            status=status.HTTP_400_BAD_REQUEST
-        )
+    response_data = {
+        'Authorization': token,
+        'user_details': user_details
+    }
 
-    if not password:
-        return error_response(
-            error="password is required",
-            status=status.HTTP_400_BAD_REQUEST
-        )
+    response = success_response(
+        data=response_data,
+        message="Login Successful",
+        status=status.HTTP_200_OK
+    )
 
-    try:
-        user = User.objects.get(email=email)
-    except User.DoesNotExist:
-        return error_response(
-            error='No user found with this email',
-            status=status.HTTP_404_NOT_FOUND
-        )
-
-    if not user.check_password(password):
-        return error_response(
-            error='Invalid email or password',
-            status=status.HTTP_401_UNAUTHORIZED
-        )
-
-    try:
-        token = MultiSessionToken.objects.create(user=user)
-
-        # redirect url based on the user_type
-        if user.user_type == 0:
-            redirect_url = '/home'
-        else:
-            redirect_url = '/user-management/users'
-
-        user_details = {
-            'id': user.id,
-            'username': user.username,
-            'email': user.email,
-            'location': user.location,
-            'department': user.department,
-            'status': user.status,
-            'user_type': user.user_type,
-            'redirect_url': redirect_url,
-        }
-
-        response_data = {
-                'Authorization': token.key,
-                'user_details': user_details
-            }
-
-        response = success_response(
-            data=response_data,
-            message="Login Successful",
-            status=status.HTTP_200_OK
-        )
-
-        response['Authorization'] = f"Token {token.key}"
-
-        return response
-
-    except Exception as e:
-        return error_response(
-            error=f'Error generating token : {str(e)}',
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+    response['Authorization'] = f"Token {token}"
+    return response
 
 
 @api_view(['GET'])
@@ -314,22 +212,10 @@ def protected_endpoint(request):
 def logout(request):
     try:
         email = request.data.get('email')
-
-        if not email:
-            return error_response(
-                error="email address is required",
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        email = email.lower()
-        if email != request.user.email:
-            return error_response(
-                error="Invalid email address provided.",
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Invalidating the token
-        MultiSessionToken.objects.filter(user=request.user).delete()
+        
+        error_msg, status_code = logout_user(request.user, email)
+        if error_msg:
+            return error_response(error=error_msg, status=status_code)
 
         return success_response(
             data=request.user.email,
@@ -390,51 +276,15 @@ def reset_password(request):
 @permission_classes([IsAuthenticated])
 def change_password(request):
     try:
-        # Validate input format
         current_password = request.data.get('current_password')
         new_password = request.data.get('new_password')
         confirm_password = request.data.get('confirm_password')
 
-        if not all([current_password, new_password, confirm_password]):
-            return error_response(
-                error="All fields are required: current_password, new_password, confirm_password",
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
         user = User.objects.get(id=request.user.id)
-
-        # Validate current password
-        if not user.check_password(current_password):
-            return error_response(
-                error="Current password is incorrect",
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        try:
-            validate_password(new_password)
-        except ValidationError as e:
-            return error_response(
-                error=str(e),
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Confirm password match
-        if new_password != confirm_password:
-            return error_response(
-                error="New password and confirm password do not match",
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Prevent reuse of old passwords
-        if user.check_password(new_password):
-            return error_response(
-                error="New password must be different from the previous passwords",
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Update password
-        user.set_password(new_password)
-        user.save()
+        
+        error_msg, status_code = change_user_password(user, current_password, new_password, confirm_password)
+        if error_msg:
+            return error_response(error=error_msg, status=status_code)
 
         return success_response(
             message="Password changed successfully",
@@ -473,4 +323,3 @@ def fetch_logs(request, log_filename):
         return HttpResponseNotFound("Log file not found")
 
     return FileResponse(open(log_path, "rb"), content_type="text/plain")
-

@@ -55,6 +55,17 @@ if "%COMMAND%"=="" (
 REM ── Load environment ──────────────────────────────────────────────────────
 call :load_env
 
+REM ── Set Compose Files ─────────────────────────────────────────────────────
+if "%COMMAND%"=="prod" (
+    set "COMPOSE_FILE=docker-compose.yml"
+) else (
+    if exist "docker-compose.dev.yml" (
+        set "COMPOSE_FILE=docker-compose.yml;docker-compose.dev.yml"
+    ) else (
+        set "COMPOSE_FILE=docker-compose.yml"
+    )
+)
+
 REM ── Route to command ──────────────────────────────────────────────────────
 if "%COMMAND%"=="all"             goto :cmd_all
 if "%COMMAND%"=="dev"             goto :cmd_dev

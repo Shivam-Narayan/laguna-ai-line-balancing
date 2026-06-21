@@ -18,7 +18,7 @@ from sklearn.utils.class_weight import compute_sample_weight
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 from .models import PredictionData
-from apps.dataEngine.models import HistoricalWeather, EmployeeMaster
+from apps.data_engine.models import HistoricalWeather, EmployeeMaster
 
 
 logger = logging.getLogger('general')

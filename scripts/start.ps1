@@ -197,7 +197,7 @@ function Start-ProdStaged {
     Start-Sleep -Seconds 10
 
     Write-Colour "  Stage 2/4: Backend application (gunicorn)..." Cyan
-    Invoke-DC "--profile prod up -d backend_prod"
+    Invoke-DC "--profile prod up -d backend"
     Start-Sleep -Seconds 8
 
     Write-Colour "  Stage 3/4: Background workers (celery)..." Cyan
@@ -236,6 +236,16 @@ if ($Help) { Show-Help; exit 0 }
 
 Show-Banner
 Load-Env
+
+if ($Prod -and -not $Dev) {
+    $env:COMPOSE_FILE = "docker-compose.yml"
+} else {
+    if (Test-Path (Join-Path $ProjectRoot "docker-compose.dev.yml")) {
+        $env:COMPOSE_FILE = "docker-compose.yml;docker-compose.dev.yml"
+    } else {
+        $env:COMPOSE_FILE = "docker-compose.yml"
+    }
+}
 
 # ── Docker commands ─────────────────────────────────────────────────────────
 

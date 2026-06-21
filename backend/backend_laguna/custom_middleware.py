@@ -4,7 +4,7 @@ from django.conf import settings
 from urllib.parse import urlparse
 from django.http import JsonResponse
 
-from apps.dataEngine.urls import dataEngine_endpoints
+from apps.data_engine.urls import data_engine_endpoints
 from apps.absenteeism.urls import absenteeism_endpoints
 from apps.manning_sheet.urls import manning_sheet_endpoints
 
@@ -43,7 +43,7 @@ class RequestFilterMiddleware:
                 return JsonResponse({'error': 'Request from disallowed origin'}, status=403)
             
          # Allow only specified routes
-        allowed_endpoints = accounts_endpoints + dataEngine_endpoints + absenteeism_endpoints + manning_sheet_endpoints
+        allowed_endpoints = accounts_endpoints + data_engine_endpoints + absenteeism_endpoints + manning_sheet_endpoints
         if not any(
             request.path == endpoint or (endpoint != '/' and request.path.startswith(endpoint))
             for endpoint in allowed_endpoints

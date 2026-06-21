@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('dataEngine', '0002_delete_attendancemaster'),
+        ('data_engine', '0002_delete_attendancemaster'),
     ]
 
     operations = [

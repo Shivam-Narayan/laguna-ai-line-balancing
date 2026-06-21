@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('dataEngine', '0008_delete_skilltable'),
+        ('data_engine', '0008_delete_skilltable'),
     ]
 
     operations = [

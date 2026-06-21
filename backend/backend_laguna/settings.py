@@ -53,7 +53,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'drf_spectacular',
-    'apps.dataEngine',
+    'apps.data_engine',
     'apps.absenteeism',
     'apps.manning_sheet',
 ]

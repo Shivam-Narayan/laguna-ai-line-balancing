@@ -26,8 +26,8 @@ def absenteeismScheduler():
 
 
 
-def dataEngineScheduler():
-    from apps.dataEngine.views import run_generate_employee_master
+def data_engineScheduler():
+    from apps.data_engine.views import run_generate_employee_master
     global scheduler_started
     if not scheduler_started:
         print("🔄 Starting APScheduler for DataEngine App...")

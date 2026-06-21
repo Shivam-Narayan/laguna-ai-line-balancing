@@ -6,7 +6,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('dataEngine', '0003_attendancemaster'),
+        ('data_engine', '0003_attendancemaster'),
     ]
 
     operations = [

@@ -14,6 +14,6 @@ urlpatterns = [
 ]
 
 
-dataEngine_endpoints = [
+data_engine_endpoints = [
     f"/data/{pattern.pattern}" for pattern in urlpatterns
 ]
