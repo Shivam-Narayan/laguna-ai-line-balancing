@@ -180,6 +180,7 @@ def login(request):
     user_details, token, error_msg, status_code = authenticate_user(email, password)
 
     if error_msg:
+        logger.warning(f"Failed login attempt for email: {email} - {error_msg}")
         return error_response(error=error_msg, status=status_code)
 
     response_data = {
@@ -192,6 +193,8 @@ def login(request):
         message="Login Successful",
         status=status.HTTP_200_OK
     )
+    
+    logger.info(f"User logged in successfully: {email}")
 
     response['Authorization'] = f"Token {token}"
     return response

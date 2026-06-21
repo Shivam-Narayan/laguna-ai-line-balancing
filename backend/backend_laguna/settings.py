@@ -251,6 +251,10 @@ LOGGING = {
         }
     },
     'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'detailed',
+        },
         'info_file': {
             'class': 'logging.handlers.TimedRotatingFileHandler',
             'filename': os.path.join(LOGGING_DIR, INFO_LOG_FILE_SUFFIX),
@@ -298,14 +302,18 @@ LOGGING = {
     },
     'loggers': {
         'general': {
-            'handlers': ['info_file', 'error_file'],
+            'handlers': ['info_file', 'error_file', 'console'],
             'level': LOG_LEVEL,
             'propagate': False,
         },
         'middleware': {
-            'handlers': ['info_middleware', 'error_middleware'],
+            'handlers': ['info_middleware', 'error_middleware', 'console'],
             'level': LOG_LEVEL,
             'propagate': False,
+        },
+        '': {
+            'handlers': ['console', 'info_file', 'error_file'],
+            'level': LOG_LEVEL,
         },
     },
 }
