@@ -2,6 +2,7 @@ from django.db import models
 from django.utils import timezone
 from django.core.validators import RegexValidator
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from apps.core.models import BaseModel
 
 class CustomUserManager(BaseUserManager):
     def create_user(self, username, email, password=None, **extra_fields):
@@ -21,16 +22,17 @@ class CustomUserManager(BaseUserManager):
         extra_fields.setdefault('is_superuser', True)
         return self.create_user(username, email, password, **extra_fields)
 
-class User(AbstractBaseUser, PermissionsMixin):
+class UserType(models.IntegerChoices):
+    NORMAL = 0, 'Normal'
+    ADMIN = 1, 'Admin'
+
+class User(AbstractBaseUser, PermissionsMixin, BaseModel):
     last_login = None #disabled this field
-    import uuid
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     username = models.CharField(max_length=150)
-    email = models.EmailField(unique=True, max_length=255)
+    email = models.EmailField(unique=True, max_length=255, db_index=True)
     location = models.CharField(max_length=50, default="", blank=True)
     department = models.CharField(max_length=100, default="", blank=True)
-    status = models.BooleanField(default=True)
-    created_at = models.DateTimeField(default=timezone.now)
+    status = models.BooleanField(default=True, db_index=True)
     phonenumber = models.CharField(
         max_length=10,
         validators=[RegexValidator(
@@ -39,10 +41,14 @@ class User(AbstractBaseUser, PermissionsMixin):
         )],
         blank=True,
     )
-    user_type = models.PositiveIntegerField(choices=[(0, 'Normal'), (1, 'Admin')], default=0)
+    user_type = models.PositiveIntegerField(choices=UserType.choices, default=UserType.NORMAL)
     latitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True) 
     longitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
     send_mail = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = 'accounts_user'
+        ordering = ['-created_at']
     
     objects = CustomUserManager()
 

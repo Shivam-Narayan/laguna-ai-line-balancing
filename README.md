@@ -114,8 +114,11 @@ docker compose up --build -d
 | Grafana (Monitoring) | http://localhost:4000 |
 
 #### API Documentation
-The backend follows strict **RESTful conventions** (plural nouns, kebab-case). 
+The backend follows strict **RESTful conventions** (plural nouns, kebab-case) and uses a custom `RequestFilterMiddleware` to enforce an endpoint allowlist. If you add a new endpoint, you MUST add it to the allowlist in `custom_middleware.py`.
+
 Because the API structure is dynamic, we do not hardcode the endpoint list in this README. Instead, you can view the live, interactive API documentation by visiting the **Swagger UI** (`http://localhost:8000/swagger/`). From there, you can explore all endpoints, view required payload structures, and even export the OpenAPI Schema directly into Postman.
+
+**Postman Import Tip:** If you export the YAML schema to import into Postman, Postman will auto-generate responses by default which can clutter the collection. To avoid this, open the `Laguna-AI Line Balancing API.yaml` file in a text editor and perform a Find/Replace to change `description: No response body` to `description: ""` before importing. When importing into Postman, select "Tags" under Folder Organization.
 
 #### Health Check
 - Endpoint: `GET http://localhost:8000/`

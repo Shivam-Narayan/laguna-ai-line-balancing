@@ -9,7 +9,7 @@ def authenticate_user(email, password):
         return None, None, None, "Email and password are required", 400
 
     try:
-        user = User.objects.get(email=email.lower())
+        user = User.objects.get(email=email.strip().lower())
     except User.DoesNotExist:
         return None, None, None, "No user found with this email", 404
 

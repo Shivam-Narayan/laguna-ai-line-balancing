@@ -6,19 +6,17 @@ from datetime import timedelta
 from apps.core.models import BaseModel
 from .user import User
 
+class LockType(models.TextChoices):
+    DATA_UPDATE = 'data_update', 'Data Update Endpoint'
+
 class EndpointLock(BaseModel):
     """
     Enhanced model to manage endpoint-level locks with user-specific restrictions
     """
-    LOCK_TYPES = (
-        ('data_update', 'Data Update Endpoint'),
-        # Add more lock types as needed
-    )
-
-    lock_type = models.CharField(max_length=50, choices=LOCK_TYPES)
-    locked_by = models.ForeignKey(User, on_delete=models.CASCADE)
-    locked_at = models.DateTimeField(auto_now_add=True)
-    is_active = models.BooleanField(default=True)
+    lock_type = models.CharField(max_length=50, choices=LockType.choices)
+    locked_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='endpoint_locks')
+    locked_at = models.DateTimeField(default=timezone.now)
+    is_active = models.BooleanField(default=True, db_index=True)
     
     # Add additional fields to track user session/origin
     session_id = models.UUIDField(unique=True, default=uuid.uuid4)

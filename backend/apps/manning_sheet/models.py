@@ -280,19 +280,17 @@ class EmployeesOnHold(BaseModel):
         return f"{self.date} - {self.line} - {self.section}"
 
 
+class NotificationType(models.TextChoices):
+    DDAY_8_50 = 'dday_8_50', 'D-Day 8:50 AM Allocation Notification'
+    DDAY_12_45 = 'dday_12_45', 'D-day 12:45 PM Allocation Data'
+    DDAY_5_30 = 'dday_5_30', 'D-Day 5:30 PM Allocation Notification'
+    MANNING_SHEET = 'manning_sheet', 'Manning Sheet Allocation Notification'
+    ABSENTEEISM = 'absenteeism_prediction', 'Absenteeism Prediction Data'
+
 class PushNotification(BaseModel):
-    NOTIFICATION_TYPES = (
-        ('dday_8_50', 'D-Day 8:50 AM Allocation Notification'),
-        ('dday_12_45', 'D-day 12:45 PM Allocation Data'),
-        ('dday_5_30', 'D-Day 5:30 PM Allocation Notification'),
-        ('manning_sheet', 'Manning Sheet Allocation Notification'),
-        ('absenteeism_prediction', 'Absenteeism Prediction Data'),
-    )
-    
-    notification_type = models.CharField(max_length=50, choices=NOTIFICATION_TYPES)
+    notification_type = models.CharField(max_length=50, choices=NotificationType.choices)
     title = models.CharField(max_length=255)
     message = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
     is_read = models.BooleanField(default=False)
     user = models.ForeignKey('accounts.User', on_delete=models.CASCADE, related_name='notifications')
     data = models.JSONField(null=True, blank=True)  # Additional data for the notification

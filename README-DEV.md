@@ -13,6 +13,19 @@ This document describes the development environment setup and best practices for
    ```
 3. Access the backend services at `http://localhost:8001`.
 
+## Backend Architecture & Standards
+
+### 1. API Routing & Middleware
+- **RESTful Conventions:** All endpoints must use plural nouns and kebab-case (e.g., `/api/users/`, `/api/data-engine/employees/`).
+- **Endpoint Allowlist:** For security, the backend employs a strict `RequestFilterMiddleware` (`backend/backend_laguna/custom_middleware.py`). **Any new endpoints MUST be explicitly added to the allowlist arrays within this middleware**, otherwise they will return a `404 Not Found`.
+
+### 2. Model Standards
+All Django models must strictly adhere to the following enterprise standards:
+- **BaseModel Inheritance:** All models must inherit from `apps.core.models.BaseModel`. This provides a standard UUID primary key (`id`), and automatically indexed audit timestamps (`created_at`, `updated_at`).
+- **Explicit Table Names:** Always explicitly define the table name using `db_table = 'appname_modelname'` inside the `Meta` class.
+- **Explicit Indexing:** Set `db_index=True` on fields that are frequently queried or filtered against (e.g., Foreign Keys, dates, emails, status flags).
+- **Modern Enum Choices:** Never use raw tuples for choices. Always use `models.TextChoices` or `models.IntegerChoices`.
+
 ## Version Management and Collaboration Guide
 
 ## Branching Strategy

@@ -56,19 +56,19 @@ class HistoricalWeather(BaseModel):
 
 
 
+class EmployeeStatus(models.TextChoices):
+    ACTIVE = 'active', 'Active'
+    INACTIVE = 'inactive', 'Inactive'
+
 class EmployeeMaster(BaseModel):
     objects = models.Manager()
-    STATUS_CHOICES = [
-        ('active', 'Active'),
-        ('inactive', 'Inactive'),
-    ]
-    emp_code = models.IntegerField(unique=True)
+    emp_code = models.IntegerField(unique=True, db_index=True)
     emp_name = models.CharField(max_length=100)
     date_of_joining = models.DateField()
     line = models.CharField(max_length=100, null=True, blank=True)
     section = models.CharField(max_length=100,null=True, blank=True)
     designation = models.CharField(max_length=100)
-    status = models.CharField(max_length=40, choices=STATUS_CHOICES, default='active')
+    status = models.CharField(max_length=40, choices=EmployeeStatus.choices, default=EmployeeStatus.ACTIVE)
     primary = models.CharField(max_length=200,null=True, blank=True)
     secondary = models.CharField(max_length=200,null=True, blank=True)
     
@@ -79,13 +79,13 @@ class EmployeeMaster(BaseModel):
 
 class AttendanceMaster(BaseModel):
     objects = models.Manager()
-    employee_id = models.IntegerField()
+    employee_id = models.IntegerField(db_index=True)
     employee_name = models.CharField(max_length=255)
     line = models.CharField(max_length=50)
     factory = models.CharField(max_length=50)
     floor = models.CharField(max_length=50)
     section = models.CharField(max_length=50)
-    attendance_date = models.DateField()
+    attendance_date = models.DateField(db_index=True)
     last_updated = models.TimeField()
     status = models.CharField(max_length=10)  # Assuming "P" stands for Present
     type = models.CharField(max_length=50)  # Assuming "Primary" is a category
