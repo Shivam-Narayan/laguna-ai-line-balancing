@@ -23,7 +23,8 @@ class CustomUserManager(BaseUserManager):
 
 class User(AbstractBaseUser, PermissionsMixin):
     last_login = None #disabled this field
-    id = models.AutoField(primary_key=True)
+    import uuid
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     username = models.CharField(max_length=150)
     email = models.EmailField(unique=True, max_length=255)
     location = models.CharField(max_length=50, default="", blank=True)

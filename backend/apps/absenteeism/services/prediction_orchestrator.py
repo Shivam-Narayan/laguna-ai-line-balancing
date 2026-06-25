@@ -20,7 +20,7 @@ from ..prediction import model_prediction
 from backend_laguna.utils import truncate_table
 from apps.manning_sheet.views import NOTIFICATION_DISPLAY_TITLE
 from apps.manning_sheet.models import ManningSheetData, LoadingPlan
-from apps.accounts.authentication import MultiSessionTokenAuthentication
+from apps.accounts.authentication import CookieJWTAuthentication
 from ..models import Absenteeism, PredictionData, AbsenteeismPrediction
 from apps.manning_sheet.utils import create_bulk_push_notifications, custom_round
 from apps.accounts.utils.response_handlers import error_response, success_response
@@ -482,7 +482,7 @@ def prepare_prediction_data(line_no, forecast_period, summation=False):
 
 
 @api_view(['GET'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def get_absenteeism_forecast(request):
     try:
@@ -592,7 +592,7 @@ def get_absenteeism_forecast(request):
 
 
 @api_view(['POST'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])        
 def absenteeism_prediction(request):
     if request.method == 'POST':  
@@ -602,7 +602,7 @@ def absenteeism_prediction(request):
 
 
 @api_view(['GET', 'POST'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def absenteeism_prediction_data(request):
     try:

@@ -1,6 +1,7 @@
 from django.db import models
+from apps.core.models import BaseModel
 
-class StyleOB(models.Model):
+class StyleOB(BaseModel):
     style = models.CharField(max_length=255)
     section = models.CharField(max_length=255)
     op_seq = models.IntegerField()
@@ -17,7 +18,7 @@ class StyleOB(models.Model):
     def __str__(self):
         return self.style
     
-class LoadingPlan(models.Model):
+class LoadingPlan(BaseModel):
     oc_no = models.CharField(max_length=255)
     order_no = models.CharField(max_length=255, default='NaN')
     cfm_date = models.DateField(null=True, blank=True)
@@ -47,7 +48,7 @@ class LoadingPlan(models.Model):
     def __str__(self):
         return f"{self.oc_no} - {self.order_no}"
 
-class EMPFact(models.Model):
+class EMPFact(BaseModel):
     employee_id = models.IntegerField()
     employee_name = models.CharField(max_length=255)
     line = models.CharField(max_length=255)
@@ -70,7 +71,7 @@ class EMPFact(models.Model):
     def __str__(self):
         return self.employee_name
     
-class ManningSheetData(models.Model):
+class ManningSheetData(BaseModel):
     oc_no = models.CharField(max_length=255)
     order_no = models.CharField(max_length=255)
     buyer = models.CharField(max_length=255)
@@ -119,8 +120,7 @@ class ManningSheetData(models.Model):
         return f"{self.order_no} - {self.style} - {self.line}"
 
 
-class DDayData(models.Model):
-    id = models.AutoField(primary_key=True)
+class DDayData(BaseModel):
     oc_no = models.CharField(max_length=255)
     order_no = models.CharField(max_length=255)
     buyer = models.CharField(max_length=255)
@@ -180,7 +180,7 @@ class DDayData(models.Model):
         return f"{self.order_no} - {self.operation}"
     
     
-class ManningGeneralInfo(models.Model):
+class ManningGeneralInfo(BaseModel):
     style = models.CharField(max_length=255)
     line = models.CharField(max_length=50)
     section = models.CharField(max_length=100)
@@ -207,7 +207,7 @@ class ManningGeneralInfo(models.Model):
         return f"{self.style} - {self.line} - {self.code}"
 
 
-class WIPData(models.Model):
+class WIPData(BaseModel):
     oc_no = models.CharField(max_length=255)
     order_no = models.CharField(max_length=255)
     buyer = models.CharField(max_length=255)
@@ -228,7 +228,7 @@ class WIPData(models.Model):
     
 
 
-class SkillShortages(models.Model):
+class SkillShortages(BaseModel):
     line = models.CharField(max_length=255, null=True, blank=True)
     code = models.CharField(max_length=255, null=True, blank=True)
     period = models.IntegerField(null=True, blank=True)
@@ -242,7 +242,7 @@ class SkillShortages(models.Model):
     
 
 
-class UnallocatedEmployees(models.Model):
+class UnallocatedEmployees(BaseModel):
     date = models.DateField()
     employee_id = models.IntegerField(null=True, blank=True)
     employee_name = models.CharField(max_length=255, null=True, blank=True)
@@ -266,7 +266,7 @@ class UnallocatedEmployees(models.Model):
         return f"{self.employee_id} - {self.employee_name}"
 
 
-class EmployeesOnHold(models.Model):
+class EmployeesOnHold(BaseModel):
     date = models.DateField()
     line = models.CharField(max_length=255, null=True, blank=True)
     section = models.CharField(max_length=255, null=True, blank=True)
@@ -280,7 +280,7 @@ class EmployeesOnHold(models.Model):
         return f"{self.date} - {self.line} - {self.section}"
 
 
-class PushNotification(models.Model):
+class PushNotification(BaseModel):
     NOTIFICATION_TYPES = (
         ('dday_8_50', 'D-Day 8:50 AM Allocation Notification'),
         ('dday_12_45', 'D-day 12:45 PM Allocation Data'),
@@ -307,7 +307,7 @@ class PushNotification(models.Model):
 
 
 
-class ActiveEmployees(models.Model):
+class ActiveEmployees(BaseModel):
     employee_id = models.IntegerField(null=True, blank=True)
     employee_name = models.CharField(max_length=255, null=True, blank=True)
     line = models.CharField(max_length=255, null=True, blank=True)

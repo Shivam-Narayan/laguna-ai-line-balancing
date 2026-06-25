@@ -2,9 +2,11 @@ import uuid
 from django.utils import timezone
 from django.db import models, transaction
 from django.core.exceptions import ValidationError
+from datetime import timedelta
+from apps.core.models import BaseModel
 from .user import User
 
-class EndpointLock(models.Model):
+class EndpointLock(BaseModel):
     """
     Enhanced model to manage endpoint-level locks with user-specific restrictions
     """

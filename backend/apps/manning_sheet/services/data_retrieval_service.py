@@ -25,7 +25,7 @@ from datetime import datetime, timedelta, date, time
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 
-from apps.accounts.authentication import MultiSessionTokenAuthentication
+from apps.accounts.authentication import CookieJWTAuthentication
 from apps.accounts.utils.response_handlers import error_response, success_response
 
 from backend_laguna.utils import truncate_table
@@ -69,7 +69,7 @@ class Round(Func):
     output_field = FloatField()
 
 @api_view(['GET', 'POST'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated]) 
 def get_manning_data(request):
     try:
@@ -625,7 +625,7 @@ def get_dday_data():
 
 
 @api_view(['GET'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def get_dday_manning_data(request):
     try:
@@ -795,7 +795,7 @@ def get_dday_actual_vs_planned_data(line_no, today, section=None, operation=None
 
 
 @api_view(['GET'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def get_attendance_data(request):
     """
@@ -836,7 +836,7 @@ def get_attendance_data(request):
 
 
 @api_view(['GET', 'POST'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def get_unallocated_employees(request):
     try:
@@ -895,7 +895,7 @@ def get_unallocated_employees(request):
 
 
 @api_view(['GET', 'POST'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def get_unallocated_employees_dday(request):
     try:

@@ -58,18 +58,15 @@ class RequestFilterMiddleware:
 # List of accounts app endpoints
 accounts_endpoints = [
     '/',  # home/health
-    '/user-management/create/',
-    '/user-management/users/',
-    '/user-management/users/update/',
-    '/user-management/users/delete/',
-    '/location-validator/',
-    '/login/',
-    '/logout/',
-    '/request-reset-password/',
-    '/reset-password/',
-    '/change-password/',
-    '/protected/',
-    '/fetch_logs/',
+    '/users/',
+    '/locations/validate/',
+    '/auth/login/',
+    '/auth/logout/',
+    '/auth/password/reset/request/',
+    '/auth/password/reset/confirm/',
+    '/auth/password/change/',
+    '/test/protected/',
+    '/logs/',
     # API documentation & admin endpoints
     '/admin/',
     '/api/schema/',

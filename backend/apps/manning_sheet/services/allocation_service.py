@@ -25,7 +25,7 @@ from datetime import datetime, timedelta, date, time
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 
-from apps.accounts.authentication import MultiSessionTokenAuthentication
+from apps.accounts.authentication import CookieJWTAuthentication
 from apps.accounts.utils.response_handlers import error_response, success_response
 
 from backend_laguna.utils import truncate_table
@@ -69,7 +69,7 @@ class Round(Func):
     output_field = FloatField()
 
 @api_view(['POST'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def update_allocated_employees(request):
     try:
@@ -85,7 +85,7 @@ def update_allocated_employees(request):
 
 
 @api_view(['POST'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def update_employee_on_hold_individual(request):
     try:
@@ -130,7 +130,7 @@ def update_employee_on_hold_individual(request):
 
 
 @api_view(['POST'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def update_employee_on_hold(request):
     try:
@@ -189,7 +189,7 @@ def update_employee_on_hold(request):
 
 
 @api_view(['POST'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def update_allocated_capacity(request):
     try:

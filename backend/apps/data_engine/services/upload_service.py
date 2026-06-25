@@ -14,7 +14,7 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 from ..serializers import CalendarSerializer
 from apps.manning_sheet.models import ActiveEmployees, EMPFact
 from apps.absenteeism.utils import send_email, convert_to_excel_data, is_allowed_working_day
-from apps.accounts.authentication import MultiSessionTokenAuthentication
+from apps.accounts.authentication import CookieJWTAuthentication
 from apps.accounts.utils.response_handlers import success_response, error_response
 from ..models import LocalHolidayCalendar, HistoricalWeather, EmployeeMaster, AttendanceMaster, PayableWorkingDays
 from backend_laguna.utils import truncate_table
@@ -148,7 +148,7 @@ def upload_historical_weather_data(request):
 
 
 @api_view(['POST'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def upload_attendance_file(request):
     if request.method == 'POST':
@@ -215,7 +215,7 @@ def upload_attendance_file(request):
 
 
 @api_view(['POST'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def add_local_holiday_calender(request):
     try:
@@ -261,7 +261,7 @@ def add_local_holiday_calender(request):
 
 
 @api_view(['POST'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def add_payable_working_days(request):
     try:

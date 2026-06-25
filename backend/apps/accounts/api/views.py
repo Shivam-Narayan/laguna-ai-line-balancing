@@ -11,10 +11,11 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.http import FileResponse, HttpResponseNotFound, JsonResponse
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import serializers
 
 from apps.accounts.models import MultiSessionToken
-from apps.accounts.authentication import MultiSessionTokenAuthentication
+from apps.accounts.authentication import CookieJWTAuthentication
 from apps.accounts.utils.response_handlers import success_response, error_response
 from apps.accounts.api.serializers import (
     UserSerializer,
@@ -36,13 +37,13 @@ User = get_user_model()
 
 
 class BaseProtectedView:
-    authentication_classes = [MultiSessionTokenAuthentication]
+    authentication_classes = [CookieJWTAuthentication]
     permission_classes = [IsAuthenticated]
 
 
 # Check if the user is within the geofence based on their location
 @api_view(['POST'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def check_geofence(request):
     if request.method == 'POST':
@@ -76,6 +77,7 @@ def home(request):
 # Register a new User function
 @extend_schema(request=RegisterUserSerializer)
 @api_view(['POST'])
+@authentication_classes([])
 @permission_classes([AllowAny])
 def register_user(request):
     try:
@@ -83,6 +85,7 @@ def register_user(request):
         if serializer.is_valid():
             user = serializer.save()
             user_details = {
+                'id': user.id,
                 'username': user.username,
                 'email': user.email,
                 'location': user.location,
@@ -102,7 +105,7 @@ def register_user(request):
 
 # get all the user from db
 @api_view(['GET'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def get_all_users(request):
     try:
@@ -115,7 +118,7 @@ def get_all_users(request):
 
 # get the user from db by user_id
 @api_view(['GET'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def get_user_by_id(request, user_id):
     try:
@@ -127,7 +130,7 @@ def get_user_by_id(request, user_id):
 
 
 @api_view(['PUT'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def update_user(request, user_id):
     try:
@@ -160,7 +163,7 @@ def update_user(request, user_id):
 
 # delete the user by user_id
 @api_view(['DELETE'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_user(request, user_id):
     user_details, error_msg, status_code = delete_user_account(user_id)
@@ -171,20 +174,30 @@ def delete_user(request, user_id):
 
 
 # Login functionality
+@extend_schema(
+    request=inline_serializer(
+        name="LoginRequest",
+        fields={
+            "email": serializers.EmailField(),
+            "password": serializers.CharField()
+        }
+    )
+)
 @api_view(['POST'])
+@authentication_classes([])
 @permission_classes([AllowAny])
 def login(request):
     email = request.data.get('email')
     password = request.data.get('password')
 
-    user_details, token, error_msg, status_code = authenticate_user(email, password)
+    user_details, access_token, refresh_token, error_msg, status_code = authenticate_user(email, password)
 
     if error_msg:
         logger.warning(f"Failed login attempt for email: {email} - {error_msg}")
         return error_response(error=error_msg, status=status_code)
 
     response_data = {
-        'Authorization': token,
+        'Authorization': access_token,
         'user_details': user_details
     }
 
@@ -196,12 +209,28 @@ def login(request):
     
     logger.info(f"User logged in successfully: {email}")
 
-    response['Authorization'] = f"Token {token}"
+    response.set_cookie(
+        key='access_token',
+        value=access_token,
+        httponly=True,  # Cannot be accessed via JS, highly secure
+        samesite='Lax',
+        secure=False    # Set to True in production (HTTPS)
+    )
+    
+    response.set_cookie(
+        key='refresh_token',
+        value=refresh_token,
+        httponly=True,
+        samesite='Lax',
+        secure=False
+    )
+
+    response['Authorization'] = f"Bearer {access_token}"
     return response
 
 
 @api_view(['GET'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def protected_endpoint(request):
     return success_response(
@@ -210,32 +239,57 @@ def protected_endpoint(request):
          status=status.HTTP_200_OK
     )
 
+@extend_schema(request=None)
+@api_view(['GET', 'POST'])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def debug_headers(request):
+    return success_response(
+        data={
+            "headers": dict(request.headers),
+            "body": request.data
+        },
+        message="Debug info",
+        status=status.HTTP_200_OK
+    )
 
+@extend_schema(
+    request=None,
+    responses={200: inline_serializer(name="LogoutResponse", fields={"message": serializers.CharField()})}
+)
 @api_view(['POST'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def logout(request):
     try:
-        email = request.data.get('email')
-        
-        error_msg, status_code = logout_user(request.user, email)
-        if error_msg:
-            return error_response(error=error_msg, status=status_code)
+        refresh_token = request.COOKIES.get('refresh_token')
+        if refresh_token:
+            from rest_framework_simplejwt.tokens import RefreshToken
+            try:
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+            except Exception as e:
+                logger.error(f"Failed to blacklist token: {e}")
 
-        return success_response(
-            data=request.user.email,
+        response = success_response(
+            data=None,
             message="User logged out successfully.",
             status=status.HTTP_200_OK
         )
+        response.delete_cookie('access_token')
+        response.delete_cookie('refresh_token')
+        return response
 
     except Exception as e:
+        logger.exception("An error occurred during logout")
         return error_response(
-            error=f"An error occurred while processing your request. Please try again later. Error: {str(e)}",
+            error="An unexpected error occurred. Please try again later.",
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
 
 @api_view(['POST'])
+@authentication_classes([])
 @permission_classes([AllowAny])
 def request_password_reset(request):
     serializer = RequestPasswordResetSerializer(data=request.data, context={'request': request})
@@ -260,6 +314,7 @@ def request_password_reset(request):
 
 
 @api_view(['POST'])
+@authentication_classes([])
 @permission_classes([AllowAny])
 def reset_password(request):
     serializer = ResetPasswordSerializer(data=request.data)
@@ -277,7 +332,7 @@ def reset_password(request):
 
 
 @api_view(['POST'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def change_password(request):
     try:
@@ -309,7 +364,7 @@ def change_password(request):
 
 
 @api_view(["GET", "POST"])
-@authentication_classes([MultiSessionTokenAuthentication])  # Add authentication if required
+@authentication_classes([CookieJWTAuthentication])  # Add authentication if required
 @permission_classes([IsAuthenticated])  # Remove if you want it public
 def fetch_logs(request, log_filename):
     """

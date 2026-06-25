@@ -1,7 +1,8 @@
 from django.db import models
+from apps.core.models import BaseModel
 
 
-class Absenteeism(models.Model):
+class Absenteeism(BaseModel):
     objects = models.Manager()
     date = models.DateField(verbose_name="Date", db_index=True)
     empcode = models.CharField(max_length=20, verbose_name="Employee Code", db_index=True)
@@ -26,7 +27,7 @@ class Absenteeism(models.Model):
     def __str__(self):
         return f"{self.name} ({self.empcode}) - {self.date}"
     
-class PredictionData(models.Model):
+class PredictionData(BaseModel):
     objects = models.Manager()
     date = models.DateField(verbose_name="Date")
     empcode = models.CharField(max_length=20, verbose_name="Employee Code")
@@ -42,7 +43,7 @@ class PredictionData(models.Model):
     def __str__(self):
         return f"{self.name} ({self.empcode}) - {self.date}"
     
-class AbsenteeismPrediction(models.Model):
+class AbsenteeismPrediction(BaseModel):
     objects = models.Manager()
     datetime = models.DateField()
     day_of_week = models.CharField(max_length=25, default='NA')

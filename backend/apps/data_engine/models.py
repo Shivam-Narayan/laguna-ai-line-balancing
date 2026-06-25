@@ -1,6 +1,7 @@
 from django.db import models
+from apps.core.models import BaseModel
 
-class LocalHolidayCalendar(models.Model):
+class LocalHolidayCalendar(BaseModel):
     objects = models.Manager()
     date = models.DateField()
     month = models.IntegerField()
@@ -14,7 +15,7 @@ class LocalHolidayCalendar(models.Model):
         db_table = 'local_holiday_calendar'
     
         
-class HistoricalWeather(models.Model):
+class HistoricalWeather(BaseModel):
     objects = models.Manager()
     name = models.CharField(max_length=255)
     datetime = models.DateField()
@@ -55,13 +56,13 @@ class HistoricalWeather(models.Model):
 
 
 
-class EmployeeMaster(models.Model):
+class EmployeeMaster(BaseModel):
     objects = models.Manager()
     STATUS_CHOICES = [
         ('active', 'Active'),
         ('inactive', 'Inactive'),
     ]
-    emp_code = models.IntegerField(primary_key=True)
+    emp_code = models.IntegerField(unique=True)
     emp_name = models.CharField(max_length=100)
     date_of_joining = models.DateField()
     line = models.CharField(max_length=100, null=True, blank=True)
@@ -76,7 +77,7 @@ class EmployeeMaster(models.Model):
 
 
 
-class AttendanceMaster(models.Model):
+class AttendanceMaster(BaseModel):
     objects = models.Manager()
     employee_id = models.IntegerField()
     employee_name = models.CharField(max_length=255)
@@ -97,7 +98,7 @@ class AttendanceMaster(models.Model):
         return f"{self.employee_name} - {self.attendance_date}"
 
 
-class PayableWorkingDays(models.Model):
+class PayableWorkingDays(BaseModel):
     objects = models.Manager()
     date = models.DateField()
     month = models.IntegerField()

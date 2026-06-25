@@ -25,7 +25,7 @@ from datetime import datetime, timedelta, date, time
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 
-from apps.accounts.authentication import MultiSessionTokenAuthentication
+from apps.accounts.authentication import CookieJWTAuthentication
 from apps.accounts.utils.response_handlers import error_response, success_response
 
 from backend_laguna.utils import truncate_table
@@ -69,7 +69,7 @@ class Round(Func):
     output_field = FloatField()
 
 @api_view(['POST'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated]) 
 def manning_sheet_generation(request):
     try:
@@ -726,7 +726,7 @@ def manning_sheet_generation(request):
 
 
 @api_view(['GET'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def generate_emp_fact(request):
     try:
@@ -811,7 +811,7 @@ def run_generate_emp_fact():
 
 
 @api_view(['POST'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated]) 
 def manning_allocation(request):
     try:
@@ -954,7 +954,7 @@ def run_manning_generation(viaAPI, PERIOD):
 
 
 @api_view(['POST'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def generate_dday_manning_data(request):
     try:
@@ -1327,7 +1327,7 @@ def run_dday_generation(viaAPI):
 
 
 @api_view(['GET'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def generate_style_ob(request):
     try:

@@ -25,7 +25,7 @@ from datetime import datetime, timedelta, date, time
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 
-from apps.accounts.authentication import MultiSessionTokenAuthentication
+from apps.accounts.authentication import CookieJWTAuthentication
 from apps.accounts.utils.response_handlers import error_response, success_response
 
 from backend_laguna.utils import truncate_table
@@ -69,7 +69,7 @@ class Round(Func):
     output_field = FloatField()
 
 @api_view(['POST'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def styleob_file_upload(request):
     if request.method == 'POST':
@@ -132,7 +132,7 @@ def styleob_file_upload(request):
 
 
 @api_view(['POST'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def loading_plan_file_upload(request):
     if request.method == 'POST':
@@ -210,7 +210,7 @@ def loading_plan_file_upload(request):
 
 
 @api_view(['POST'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def loading_plan_file_upload_old(request):
     if request.method == 'POST':
@@ -658,7 +658,7 @@ def loading_plan_file_upload_old(request):
 
 
 @api_view(['POST'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def emp_fact_file_upload(request):
     if request.method == 'POST':
@@ -701,7 +701,7 @@ def emp_fact_file_upload(request):
 
 
 @api_view(['POST'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def wip_file_upload(request):
     if request.method == 'POST':
@@ -740,7 +740,7 @@ def wip_file_upload(request):
 
 
 @api_view(['GET'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def fetch_emp_attendance_rockhr(request):
     try:
@@ -750,7 +750,7 @@ def fetch_emp_attendance_rockhr(request):
 
 
 @api_view(['GET'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def fetch_emp_details_rockhr(request):
     try:
@@ -1062,7 +1062,7 @@ def fetch_and_transform_empdetails():
 
 
 @api_view(['GET'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def fetch_wip_data_api(request):
     try:
@@ -1129,7 +1129,7 @@ def run_fetch_wip_data(viaAPI):
 
 
 @api_view(['POST'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def uploading_planned_leaves(request):
     try:
@@ -1165,7 +1165,7 @@ def uploading_planned_leaves(request):
 
 
 @api_view(['POST'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def upload_wip_data(request):
     file = request.FILES.get('file')
@@ -1215,7 +1215,7 @@ def upload_wip_data(request):
 
 
 @api_view(['GET'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def add_bulk_wip_data(request):
     """

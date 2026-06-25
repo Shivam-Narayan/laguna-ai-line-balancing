@@ -1,25 +1,23 @@
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.exceptions import AuthenticationFailed
-from rest_framework.authentication import TokenAuthentication
 
-from .models import MultiSessionToken
-
-class MultiSessionTokenAuthentication(TokenAuthentication):
-    model = MultiSessionToken  # Using the custom model
-
+class CookieJWTAuthentication(JWTAuthentication):
     def authenticate(self, request):
-        token_key = request.headers.get('Authorization', '').split(' ')[-1]  # Extract token from headers
+        # 1. First attempt to extract the token from the HttpOnly cookie
+        raw_token = request.COOKIES.get('access_token')
 
-        if not token_key:
-            return None
+        # 2. If it's not in the cookie, fallback to the standard Authorization header
+        if not raw_token:
+            header = self.get_header(request)
+            if header is None:
+                return None
+            raw_token = self.get_raw_token(header)
+            if raw_token is None:
+                return None
 
+        # 3. Validate the token and return the user
         try:
-            token = MultiSessionToken.objects.get(key=token_key)
-
-            # Check if token has expired
-            if token.is_expired():
-                token.refresh_token()  # Refresh token if expired
-
-            return (token.user, token)
-
-        except MultiSessionToken.DoesNotExist:
-            raise AuthenticationFailed('Invalid token')
+            validated_token = self.get_validated_token(raw_token)
+            return self.get_user(validated_token), validated_token
+        except Exception as e:
+            raise AuthenticationFailed(f"Invalid token: {str(e)}")

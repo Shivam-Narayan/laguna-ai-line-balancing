@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'apps.accounts',
     'rest_framework',
     'rest_framework.authtoken',
+    'rest_framework_simplejwt.token_blacklist',
     'drf_spectacular',
     'apps.data_engine',
     'apps.absenteeism',
@@ -175,7 +176,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'apps.accounts.authentication.MultiSessionTokenAuthentication',
+        'apps.accounts.authentication.CookieJWTAuthentication',
     ],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
@@ -347,10 +348,22 @@ SPECTACULAR_SETTINGS = {
         'securitySchemes': {
             'TokenAuth': {
                 'type': 'apiKey',
-                'in': 'header',
-                'name': 'Authorization',
-                'description': 'Enter your token in the format: Token <your_token>'
+                'in': 'cookie',
+                'name': 'access_token',
+                'description': 'Token is automatically extracted from cookies.'
             }
         }
     }
+}
+
+
+
+from datetime import timedelta
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=365),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
 }

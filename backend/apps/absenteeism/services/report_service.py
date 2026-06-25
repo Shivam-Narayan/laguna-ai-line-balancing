@@ -20,7 +20,7 @@ from ..prediction import model_prediction
 from backend_laguna.utils import truncate_table
 from apps.manning_sheet.views import NOTIFICATION_DISPLAY_TITLE
 from apps.manning_sheet.models import ManningSheetData, LoadingPlan
-from apps.accounts.authentication import MultiSessionTokenAuthentication
+from apps.accounts.authentication import CookieJWTAuthentication
 from ..models import Absenteeism, PredictionData, AbsenteeismPrediction
 from apps.manning_sheet.utils import create_bulk_push_notifications, custom_round
 from apps.accounts.utils.response_handlers import error_response, success_response
@@ -32,7 +32,7 @@ logger = logging.getLogger('general')
 prediction_response = {}
 
 @api_view(['GET'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def get_today_absenteeism_report(request):
     try:

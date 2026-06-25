@@ -686,7 +686,7 @@ def order_split_analysis(new_df):
     total_orders = new_df[order_column].nunique()
 
     split_ids = new_df['Split_ID'].dropna()
-    row_ids = [int(split_id.split('_')[0]) for split_id in split_ids if '_' in split_id]
+    row_ids = [split_id.split('_')[0] for split_id in split_ids if '_' in split_id]
     unique_row_ids = set(row_ids)
 
     split_counts = {}

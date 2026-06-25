@@ -25,7 +25,7 @@ from datetime import datetime, timedelta, date, time
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 
-from apps.accounts.authentication import MultiSessionTokenAuthentication
+from apps.accounts.authentication import CookieJWTAuthentication
 from apps.accounts.utils.response_handlers import error_response, success_response
 
 from backend_laguna.utils import truncate_table
@@ -69,7 +69,7 @@ class Round(Func):
     output_field = FloatField()
 
 @api_view(['POST'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def download_manning_data_by_section(request):
     line_no = request.query_params.get('line', ' ').strip()
@@ -259,7 +259,7 @@ def download_manning_data_by_section(request):
 
 
 @api_view(['POST'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def download_manning_attendance_data(request):
     """
@@ -378,7 +378,7 @@ def download_manning_attendance_data(request):
 
 
 @api_view(['POST'])
-@authentication_classes([MultiSessionTokenAuthentication])
+@authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def download_notification_file(request):
     """
@@ -412,7 +412,7 @@ def download_notification_file(request):
         # Create base filter dictionary
         base_filter = {
             'user': request.user,
-            'id': int(notification_id)
+            'id': notification_id
         }
         
         # Get notification object using the filter dictionary

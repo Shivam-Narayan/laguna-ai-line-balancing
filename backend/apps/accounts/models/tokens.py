@@ -1,12 +1,13 @@
 import uuid
 from datetime import timedelta
 from django.conf import settings
+from apps.core.models import BaseModel
 from django.utils import timezone
 from django.utils.timezone import now
 from django.db import models
 from .user import User
 
-class PasswordResetToken(models.Model):
+class PasswordResetToken(BaseModel):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='password_reset_tokens')
     token = models.CharField(max_length=64, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -24,7 +25,7 @@ def generate_unique_token():
     return uuid.uuid4().hex  
 
 # Custom Multi-Session Token Model
-class MultiSessionToken(models.Model):
+class MultiSessionToken(BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     key = models.CharField(max_length=40, unique=True, default=generate_unique_token)
     created = models.DateTimeField(auto_now_add=True)
