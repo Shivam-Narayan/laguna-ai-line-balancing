@@ -28,7 +28,6 @@ laguna-ai-line-balancing/             # Repository root
 ├── .gitattributes                    # Git attributes configuration
 ├── .gitignore                        # Git ignore rules
 ├── docker-compose.yml                # Unified Docker Compose (all environments)
-├── docker-compose.azure.yml          # Azure-specific Docker Compose
 ├── nginx.conf                        # Nginx reverse proxy configuration
 ├── README-DEV.md                     # Developer guide
 └── README.md                         # This file

@@ -63,8 +63,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-      target: prod
-    command: ["sh", "-c", "python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn backend_laguna.wsgi:application --bind 0.0.0.0:8000 --workers 4 --worker-class sync --worker-tmp-dir /dev/shm --max-requests 1000 --max-requests-jitter 50 --timeout 120 --access-logfile - --error-logfile -"]
+      target: dev
+    command: ["sh", "-c", "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"]
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-development}
       SECRET_KEY: ${SECRET_KEY}
@@ -84,6 +84,7 @@ services:
     expose:
       - "8000"
     volumes:
+      - ./backend:/app
       - static_volume:/app/static_files
       - media_volume:/app/media
       - logs_volume:/app/logs
