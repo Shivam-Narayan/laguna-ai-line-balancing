@@ -106,12 +106,16 @@ docker compose up --build -d
 | Service | URL |
 |---|---|
 | Backend API | http://localhost:8000 |
-| Swagger UI | http://localhost:8000/api/schema/swagger-ui/ |
+| Swagger UI | http://localhost:8000/swagger/ |
 | Redoc | http://localhost:8000/api/schema/redoc/ |
 | Raw OpenAPI Schema | http://localhost:8000/api/schema/ |
 | pgAdmin (Database UI) | http://localhost:5050 |
 | Redis Commander | http://localhost:8082 |
 | Grafana (Monitoring) | http://localhost:4000 |
+
+#### API Documentation
+The backend follows strict **RESTful conventions** (plural nouns, kebab-case). 
+Because the API structure is dynamic, we do not hardcode the endpoint list in this README. Instead, you can view the live, interactive API documentation by visiting the **Swagger UI** (`http://localhost:8000/swagger/`). From there, you can explore all endpoints, view required payload structures, and even export the OpenAPI Schema directly into Postman.
 
 #### Health Check
 - Endpoint: `GET http://localhost:8000/`
