@@ -198,6 +198,18 @@ services:
       - loki
     restart: unless-stopped
 
+  # Frontend Web App
+  app:
+    build:
+      context: ../laguna-ai-line-balancing-app
+      dockerfile: Dockerfile
+    container_name: laguna-ai-line-balancing-app
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
 volumes:
   postgres_data:
     driver: local
