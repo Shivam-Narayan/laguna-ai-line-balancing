@@ -1,7 +1,8 @@
 **/__pycache__
 db.sqlite3
 # **/migrations
-absenteeism/models/dynamic_absenteeism_model.pkl
+*.pkl
+backend/absenteeism/models/dynamic_absenteeism_model.pkl
 web.config
 logs/error.log
 logs/info.log
