@@ -37,6 +37,28 @@ laguna-ai-line-balancing/             # Repository root
 
 ---
 
+## Prerequisites
+
+Before starting, clone **both** repositories side-by-side in the same parent directory:
+
+```bash
+# Clone both repos into the same parent folder
+git clone https://github.com/Shivam-Narayan/laguna-ai-line-balancing.git
+git clone https://github.com/Shivam-Narayan/laguna-ai-line-balancing-app.git
+```
+
+Your folder structure should look like:
+```text
+parent-folder/
+├── laguna-ai-line-balancing/       # Backend (this repo)
+└── laguna-ai-line-balancing-app/    # Frontend (React app)
+```
+
+> [!IMPORTANT]
+> The `docker-compose.yml` references the frontend app at `../laguna-ai-line-balancing-app`. Both repos **must** be cloned as siblings, otherwise the frontend container will fail to build.
+
+---
+
 ## Environment Setup
 
 1. Copy `.env.example` to `.env` in the repository root:
@@ -47,6 +69,9 @@ laguna-ai-line-balancing/             # Repository root
 3. Set the environment type:
    - For development: `ENVIRONMENT=development`
    - For production: `ENVIRONMENT=production`
+
+> [!NOTE]
+> When running with Docker, the `DB_HOST` is automatically overridden to `db` (the Docker service name) by `docker-compose.yml`. You do **not** need to change `DB_HOST` in your `.env` file for Docker usage.
 
 > [!IMPORTANT]
 > The same `docker-compose.yml` is used for both development and production. The `ENVIRONMENT` variable in your `.env` file controls which mode Django runs in.
@@ -165,6 +190,54 @@ python manage.py absenteeism_scheduler
 python manage.py data_engine_scheduler
 python manage.py manning_sheet_scheduler
 ```
+
+---
+
+## Initial Data Population (First-Time Setup)
+
+After starting the application for the first time, the database will be empty. The Manning Sheet and Absenteeism Prediction features require data to function. Follow these steps to populate the database:
+
+> [!IMPORTANT]
+> All POST endpoints below require authentication. Log in through the frontend UI first, or use an API client (Postman) with valid JWT credentials.
+
+### Step 1: Populate Active Employees
+Fetch the real employee roster from the HR system:
+```bash
+# Via curl (or use Postman)
+curl -X POST http://localhost:8000/manning-sheet/employees/rockhr/
+```
+Alternatively, upload a CSV file:
+```bash
+curl -X POST http://localhost:8000/manning-sheet/employees/upload/ \
+  -F "file=@active_employees.csv"
+```
+
+### Step 2: Generate Employee Facts (EMP Facts)
+This fetches Skill Matrix and Operations data from the Optafloor API and cross-references it with Active Employees:
+```bash
+curl -X POST http://localhost:8000/manning-sheet/emp-facts/generate/
+```
+
+### Step 3: Fetch Attendance Data
+Pull today's attendance from the RockHR system:
+```bash
+curl -X POST http://localhost:8000/manning-sheet/attendance/rockhr/
+```
+
+### Step 4: Generate Absenteeism Predictions
+Train the ML model and generate predictions:
+```bash
+curl -X POST http://localhost:8000/absenteeism/predictions/generate/
+```
+
+### Step 5: Generate Manning Sheet
+Once Steps 1-3 are complete, generate the D-Day Manning Sheet:
+```bash
+curl -X POST http://localhost:8000/manning-sheet/manning-sheets/d-day/generate/
+```
+
+> [!NOTE]
+> After the initial setup, the **scheduler service** (`docker-compose.yml` → `scheduler`) automatically runs these data fetches and predictions on a recurring schedule. You only need to do this manually for the very first run.
 
 ---
 
