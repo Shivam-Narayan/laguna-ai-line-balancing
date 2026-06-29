@@ -18,7 +18,7 @@ class LocalHolidayCalendar(BaseModel):
 class HistoricalWeather(BaseModel):
     objects = models.Manager()
     name = models.CharField(max_length=255)
-    datetime = models.DateField()
+    datetime = models.DateField(db_index=True)
     tempmax = models.FloatField()
     tempmin = models.FloatField()
     temp = models.FloatField()

@@ -1,4 +1,4 @@
-import os
+﻿import os
 import gzip
 import pytz
 import json
@@ -114,7 +114,7 @@ def styleob_file_upload(request):
                     color="BLACK",
                     machine_type=row['machine_type'],
                     machinist=row['machinist']
-                ) for _, row in df_Style_OB.iterrows()
+                ) for row in df_Style_OB.to_dict('records')
             ]
             
             # Delete all old entries before inserting new data
@@ -191,7 +191,7 @@ def loading_plan_file_upload(request):
                     raw_oc_no=row['raw_oc_no'],
                     raw_style=row['raw_style'],
                     raw_fabric_article=row['raw_fabric_article']
-                ) for _, row in df_load_plan_combined.iterrows()
+                ) for row in df_load_plan_combined.to_dict('records')
             ]
 
             with transaction.atomic():
@@ -370,7 +370,7 @@ def loading_plan_file_upload_old(request):
                 return False
 
             # Iterate through each row to generate dates and distribute planned quantity
-            for _, row in df_load_plan.iterrows():
+            for row in df_load_plan.to_dict('records'):
                 start_date = row['Date_Start']
                 end_date = row['Date_End']
 
@@ -529,7 +529,7 @@ def loading_plan_file_upload_old(request):
                     # Manual grouping approach
                     grouped_data = {}
 
-                    for _, row in new_plan.iterrows():
+                    for row in new_plan.to_dict('records'):
                         # Create a key from the grouping columns
                         key_parts = []
                         for col in existing_columns:
@@ -607,7 +607,7 @@ def loading_plan_file_upload_old(request):
                     sheet_name=row['sheet_name'], line=row['Line'], week=row['Week'], planned_qty=row['Planned Qty'],
                     date_start=row['Date_Start'] if pd.notna(row['Date_Start']) else None, date_end=row['Date_End'] if pd.notna(row['Date_End']) else None,
                     planned_dates=row['Planned Dates'] if pd.notna(row['Planned Dates']) else None
-                ) for _, row in new_plan.iterrows()
+                ) for row in new_plan.to_dict('records')
             ]
 
             with transaction.atomic():
@@ -687,7 +687,7 @@ def emp_fact_file_upload(request):
                     average_capacity=int(row['AVERAGE CAPACITY']),
                     machine=row['MACHINE'],
                     status=row['STATUS']
-                ) for _, row in df_emp_fact.iterrows()
+                ) for row in df_emp_fact.to_dict('records')
             ]
             
             EMPFact.objects.all().delete()
@@ -726,7 +726,7 @@ def wip_file_upload(request):
                     operation=row['OPERATION'],
                     code=row['CODE'],
                     wip_qty=row['WIP  QTY'],
-                ) for _, row in df_wip_data.iterrows()
+                ) for row in df_wip_data.to_dict('records')
             ]
             
             WIPData.objects.all().delete()
@@ -887,7 +887,7 @@ def fetch_and_transform_emp_attendance(run_type=None):
         # Prepare all data as a list of dictionaries first (faster than processing row by row)
         data_dicts = []
         # Convert DataFrame to list of dicts (much faster than row iteration)
-        for _, row in merged_df.iterrows():
+        for row in merged_df.to_dict('records'):
             data_dict = {
                 'attendance_date': row['attendance_date'],
                 'employee_id': row['employee_id'],
@@ -919,7 +919,7 @@ def fetch_and_transform_emp_attendance(run_type=None):
 
         if run_type is not None and run_type == "noon":
             raw_data = []
-            for _, row in merged_df.iterrows():
+            for row in merged_df.to_dict('records'):
                 if row['status_x'] == 'A':
                     raw_data.append({
                         'date': row['attendance_date'],
@@ -1035,7 +1035,7 @@ def fetch_and_transform_empdetails():
         # Prepare all data as a list of dictionaries first (faster than processing row by row)
         data_dicts = []
         # Convert DataFrame to list of dicts (much faster than row iteration)
-        for _, row in df.iterrows():
+        for row in df.to_dict('records'):
             data_dict = {
                 'employee_id': row['employee_id'],
                 'employee_name': row['employee_name'],
@@ -1160,7 +1160,7 @@ def uploading_planned_leaves(request):
 
         # Apply the expansion
         expanded_rows = []
-        for _, row in df_filtered.iterrows():
+        for row in df_filtered.to_dict('records'):
             expanded_rows.extend(expand_date_ranges(row))
 
         # Create final DataFrame
@@ -1207,7 +1207,7 @@ def upload_wip_data(request):
                 operation=row['operation'],
                 code=row['code'], 
                 wip_qty=row['wip_qty']
-            ) for _, row in df_wip_data.iterrows()
+            ) for row in df_wip_data.to_dict('records')
         ]
 
         with transaction.atomic():
@@ -1888,7 +1888,7 @@ def insert_consolidated_df(consolidated_df):
             ManningSheetData.objects.bulk_create(instances)
 
     # Step 1: Convert DataFrame rows to list of dicts (sequentially to preserve row order)
-    data_dicts = [row_to_dict(row) for _, row in consolidated_df.iterrows()]
+    data_dicts = [row_to_dict(row) for row in consolidated_df.to_dict('records')]
 
     # Step 2: Split into chunks for memory efficiency
     CHUNK_SIZE = 500  # define this globally or change as needed
@@ -1933,7 +1933,7 @@ def insert_all_unallocated_employees(all_unallocated_employees, df_active_employ
 
     # Use ThreadPoolExecutor to convert rows to dicts
     with ThreadPoolExecutor(max_workers=10) as executor:
-        data_dicts = list(executor.map(row_to_dict, [row for _, row in merged_df.iterrows()]))
+        data_dicts = list(executor.map(row_to_dict, [row for row in merged_df.to_dict('records')]))
 
     # Transform unallocated employees to on hold
     transform_unallocated_to_on_hold_from_dict(data_dicts)
@@ -1980,7 +1980,7 @@ def upload_active_employees(request):
             df.fillna('', inplace=True)
             
             data_dicts = []
-            for _, row in df.iterrows():
+            for row in df.to_dict('records'):
                 data_dict = {
                     'employee_id': str(int(row['employee_id'])),
                     'employee_name': str(row.get('employee_name', '')),
@@ -2015,7 +2015,7 @@ def upload_active_employees(request):
                 return error_response(error="All employee IDs were invalid or missing. Please ensure Employee IDs contain numbers.", status=status.HTTP_400_BAD_REQUEST)
 
             data_dicts = []
-            for _, row in df.iterrows():
+            for row in df.to_dict('records'):
                 data_dict = {
                     'employee_id': str(int(row['Emp No'])),
                     'employee_name': row.get('Employee name', ''),

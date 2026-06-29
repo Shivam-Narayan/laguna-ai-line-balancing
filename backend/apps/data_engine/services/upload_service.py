@@ -92,7 +92,7 @@ def upload_historical_weather_data(request):
 
             # Iterate over the rows and save data to the database
             objects_to_create = []
-            for _, row in data.iterrows():
+            for row in data.to_dict('records'):
                 # Define a helper function to safely strip strings
                 def safe_strip(value):
                     if isinstance(value, str):  # Only strip if it's a string
@@ -199,7 +199,7 @@ def upload_attendance_file(request):
                     status=row['status'],
                     type=row['type'],
                     early_departure=row['early_departure']
-                ) for _, row in df.iterrows()
+                ) for row in df.to_dict('records')
             ]
 
             AttendanceMaster.objects.all().delete()
@@ -250,7 +250,7 @@ def add_local_holiday_calender(request):
                 week=int(row['week']),
                 event=row['event'],
                 leave_type=row.get('leave_type', 'full')
-            ) for _, row in holiday_df.iterrows()
+            ) for row in holiday_df.to_dict('records')
         ]
         truncate_table(LocalHolidayCalendar)
         LocalHolidayCalendar.objects.bulk_create(records)
@@ -300,7 +300,7 @@ def add_payable_working_days(request):
                 year=int(row['year']),
                 day=int(row['day']),
                 week=int(row['week']),
-            ) for _, row in holiday_df.iterrows()
+            ) for row in holiday_df.to_dict('records')
         ]
         truncate_table(PayableWorkingDays)
         PayableWorkingDays.objects.bulk_create(records)

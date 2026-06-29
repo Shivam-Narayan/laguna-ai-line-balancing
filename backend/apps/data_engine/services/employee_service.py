@@ -192,7 +192,7 @@ def run_generate_employee_master():
                 status=row['status'] if row['status'] in ['active', 'inactive'] else 'active',
                 primary=row['primary'],
                 secondary=row['secondary']
-            ) for _, row in df_employee_master.iterrows()
+            ) for row in df_employee_master.to_dict('records')
         ]
         truncate_table(EmployeeMaster)
         EmployeeMaster.objects.bulk_create(records)
