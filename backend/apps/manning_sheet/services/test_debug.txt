@@ -1,0 +1,3 @@
+data_dicts len: 1000
+DB count: 1000
+{'status': 'success', 'message': 'Employee Master data is generated successfully.'}
