@@ -111,29 +111,29 @@ def upload_absenteesim_data(request):
 
         # Validate data before creating objects
         absenteeism_objects = []
-        for _, row in melted_data.iterrows():
-            if pd.isnull(row['Empcode']) or row['Empcode'] == '':  # type: ignore
+        for row in melted_data.itertuples(index=False):
+            if pd.isnull(row.Empcode) or str(row.Empcode).strip() == '':
                 # Skip rows where 'Empcode' is empty or NaN
                 continue
 
             try:
                 absenteeism_objects.append(Absenteeism(
-                    empcode=row['Empcode'],
-                    name=row['Name'],
-                    department=row['Department'],
-                    doj=row['DOJ'],  # Can be None
-                    date=row['Date'],  # Mandatory
-                    attendance=row['Attendance'],
-                    present_days=row['P'],
-                    weekly_offs=row['WO'],
-                    holidays=row['H'],
-                    leaves=row['L'],
-                    absent_days=row['Ab'],
-                    double_present=row['DP'],
-                    overtime_hours=row['OT1']
+                    empcode=row.Empcode,
+                    name=row.Name,
+                    department=row.Department,
+                    doj=row.DOJ if pd.notnull(row.DOJ) else None,
+                    date=row.Date,
+                    attendance=row.Attendance,
+                    present_days=row.P,
+                    weekly_offs=row.WO,
+                    holidays=row.H,
+                    leaves=row.L,
+                    absent_days=row.Ab,
+                    double_present=row.DP,
+                    overtime_hours=row.OT1
                 ))
             except Exception as e:
-                logger.info(f"Error creating object for row: {row}, Error: {str(e)}")
+                logger.info(f"Error creating object for row: {row.Empcode}, Error: {str(e)}")
 
         # Save to database
         if absenteeism_objects:
@@ -164,20 +164,23 @@ def upload_absenteesim_data(request):
 
 def process_absenteeism_data():
     try:
-        absenteeism_records = Absenteeism.objects.filter(department__icontains="LINE")
+        # Use iterator to prevent loading the entire table into memory at once
+        absenteeism_records = Absenteeism.objects.filter(department__icontains="LINE").iterator(chunk_size=5000)
         prediction_data_objects = []
-        batch_size = 200
+        batch_size = 1000
 
         truncate_table(PredictionData)
+        
+        # Pre-compile regex for massive speedup in the loop
+        dept_pattern = re.compile(r"(LINE\s*\d+)\s+(.*)")
 
         for record in absenteeism_records:
             try:
-                match = re.match(r"(LINE\s*\d+)\s+(.*)", record.department)
+                match = dept_pattern.match(record.department)
                 if match:
                     department = match.group(1).replace(" ", "")
                     department = re.sub(r"LINE(\d+)", r"LINE \1", department)
-                    section = match.group(2)
-                    section = section.replace(" ", "")
+                    section = match.group(2).replace(" ", "")
                 else:
                     continue
 
@@ -194,16 +197,14 @@ def process_absenteeism_data():
                     )
 
                 if len(prediction_data_objects) >= batch_size:
-                    with transaction.atomic():
-                        PredictionData.objects.bulk_create(prediction_data_objects, batch_size=batch_size)
+                    PredictionData.objects.bulk_create(prediction_data_objects, batch_size=batch_size)
                     prediction_data_objects.clear()
 
             except Exception:
                 continue
 
         if prediction_data_objects:
-            with transaction.atomic():
-                PredictionData.objects.bulk_create(prediction_data_objects, batch_size=batch_size)
+            PredictionData.objects.bulk_create(prediction_data_objects, batch_size=batch_size)
 
         return True, "Records processed and saved successfully."
     except Exception as e:

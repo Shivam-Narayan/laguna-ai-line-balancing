@@ -126,12 +126,19 @@ def calculate_line_percentages(data_for_date, emp_counts, target_line='ALL'):
         
     line_percentages = []
     
+    # Use iterator for QuerySets to save memory
+    if hasattr(data_for_date, 'iterator'):
+        data_for_date = data_for_date.iterator(chunk_size=2000)
+    
+    # Pre-compile regex for speed
+    line_pattern = re.compile(r'(LINE\s*\d+)', re.IGNORECASE)
+    
     # Group data by line
     line_groups = {}
     for record in data_for_date:
         # Extract line from department field
         dept = record.department or ""
-        line_match = re.search(r'(LINE\s*\d+)', dept, re.IGNORECASE)
+        line_match = line_pattern.search(dept)
         line_name = line_match.group(1).upper() if line_match else "UNKNOWN"
         
         if line_name not in line_groups:

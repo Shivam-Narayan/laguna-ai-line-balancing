@@ -85,15 +85,9 @@ def run_absenteeism_prediction(viaAPI):
             (consolidated_df['datetime'] <= consolidated_df['limit_date'])
         ]
         
-        # **Step 1: Batch delete old records**
-        batch_size = 5000  # Adjust as needed
-        while True:
-            ids_to_delete = list(AbsenteeismPrediction.objects.values_list('id', flat=True)[:batch_size])
-            if not ids_to_delete:
-                break
-            AbsenteeismPrediction.objects.filter(id__in=ids_to_delete).delete()
-
+        # **Step 1: Instantly wipe old records**
         truncate_table(AbsenteeismPrediction)
+
         # Step 2: Prepare batch insertion
         batch_size = 1000
         prediction_data_objects = []

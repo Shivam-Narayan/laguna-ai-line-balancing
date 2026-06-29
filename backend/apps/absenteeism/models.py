@@ -7,7 +7,7 @@ class Absenteeism(BaseModel):
     date = models.DateField(verbose_name="Date", db_index=True)
     empcode = models.CharField(max_length=20, verbose_name="Employee Code", db_index=True)
     name = models.CharField(blank=True, null=True, max_length=100, verbose_name="Employee Name")
-    department = models.CharField(blank=True, null=True, max_length=100, verbose_name="Department")
+    department = models.CharField(blank=True, null=True, max_length=100, verbose_name="Department", db_index=True)
     doj = models.DateField(null=True, verbose_name="Date of Joining")
     attendance = models.CharField(max_length=30, default='A')
     present_days = models.IntegerField(null=True, default=0, verbose_name="Present Days")
@@ -32,8 +32,8 @@ class PredictionData(BaseModel):
     date = models.DateField(verbose_name="Date")
     empcode = models.CharField(max_length=20, verbose_name="Employee Code")
     name = models.CharField(max_length=100, verbose_name="Employee Name")
-    department = models.CharField(max_length=100, verbose_name="Department")
-    section = models.CharField(max_length=100, null=True, verbose_name="Section")
+    department = models.CharField(max_length=100, verbose_name="Department", db_index=True)
+    section = models.CharField(max_length=100, null=True, verbose_name="Section", db_index=True)
     attendance = models.CharField(max_length=30, default='A')
     
 
