@@ -53,16 +53,38 @@ def upload_absenteesim_data(request):
         year = int(year)
         # Read the uploaded file
         if file.name.endswith('.csv'):
-            data = pd.read_csv(file, header=1)
+            try:
+                data = pd.read_csv(file, header=1)
+                # If the header doesn't contain expected columns, try header=0
+                if 'Empcode' not in data.columns:
+                    file.seek(0)
+                    data = pd.read_csv(file, header=0)
+            except Exception:
+                # Fallback if the file has only 1 line
+                file.seek(0)
+                data = pd.read_csv(file, header=0)
         elif file.name.endswith('.xlsx'):
-            data = pd.read_excel(file, header=1)
+            try:
+                data = pd.read_excel(file, header=1)
+                if 'Empcode' not in data.columns:
+                    file.seek(0)
+                    data = pd.read_excel(file, header=0)
+            except Exception:
+                file.seek(0)
+                data = pd.read_excel(file, header=0)
         else:
             return error_response(error= 'Unsupported file format.', status=status.HTTP_400_BAD_REQUEST)
 
         # Rename columns for dates
         month_number = list(calendar.month_abbr).index(month[:3])  # type: ignore
         _, endDate = calendar.monthrange(year, month_number)
+        
+        # Include both integer and string keys for robust renaming
         columns_to_rename = {i: f'{i:02d}-{month}-{year}' for i in range(1, endDate + 1)}
+        columns_to_rename.update({str(i): f'{i:02d}-{month}-{year}' for i in range(1, endDate + 1)})
+        # Also handle potential float parsing like '1.0'
+        columns_to_rename.update({f'{i}.0': f'{i:02d}-{month}-{year}' for i in range(1, endDate + 1)})
+        
         data = data.rename(columns=columns_to_rename)
 
         # Melt the data
@@ -116,28 +138,35 @@ def upload_absenteesim_data(request):
         # Save to database
         if absenteeism_objects:
             try:
+                # Delete existing records for the same month and year to prevent duplicate key constraint violations
+                Absenteeism.objects.filter(date__year=year, date__month=month_number).delete()
+                
                 Absenteeism.objects.bulk_create(absenteeism_objects)
+                
+                # Automatically preprocess the data so it's ready for forecasts
+                try:
+                    process_absenteeism_data()
+                except Exception as e:
+                    logger.info(f"Error during preprocessing after upload: {str(e)}")
+                    
                 return success_response(data= f'Data successfully uploaded {month} {year} and saved.', status=status.HTTP_201_CREATED)
             except Exception as e:
                 logger.info(f"Error during bulk_create: {str(e)}")
                 return error_response(error=f"Error saving data to the database: {str(e)}", status=status.HTTP_400_BAD_REQUEST)
         else:
+            if melted_data.empty:
+                return error_response(error='No valid data to save. The uploaded file contains no data rows.', status=status.HTTP_400_BAD_REQUEST)
             return error_response(error='No valid data to save. All rows had missing Empcode.', status=status.HTTP_400_BAD_REQUEST)
 
     except Exception as e:
         return error_response(error=f'Error processing the data: {str(e)}', status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def absenteeism_data_preprocessing(request):
+def process_absenteeism_data():
     try:
-        # Filter records with "LINE" in the department
         absenteeism_records = Absenteeism.objects.filter(department__icontains="LINE")
-
         prediction_data_objects = []
-        batch_size = 200  # Set a batch size (adjust based on your DB performance)
+        batch_size = 200
 
         truncate_table(PredictionData)
 
@@ -164,29 +193,31 @@ def absenteeism_data_preprocessing(request):
                         )
                     )
 
-                # When batch size is reached, insert data and clear the list
                 if len(prediction_data_objects) >= batch_size:
-                    with transaction.atomic():  # type: ignore
+                    with transaction.atomic():
                         PredictionData.objects.bulk_create(prediction_data_objects, batch_size=batch_size)
-                    prediction_data_objects.clear()  # Clear processed records
+                    prediction_data_objects.clear()
 
             except Exception:
-                continue  # Skip problematic records silently
+                continue
 
-        # Insert remaining records
         if prediction_data_objects:
-            with transaction.atomic():  # type: ignore
+            with transaction.atomic():
                 PredictionData.objects.bulk_create(prediction_data_objects, batch_size=batch_size)
 
-        return success_response(
-            data="Records processed and saved successfully."
-        )
-
+        return True, "Records processed and saved successfully."
     except Exception as e:
-        return error_response(
-            error=f"An unexpected error occurred: {str(e)}",
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+        return False, f"An unexpected error occurred: {str(e)}"
+
+@api_view(['POST'])
+@authentication_classes([CookieJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def absenteeism_data_preprocessing(request):
+    success, msg = process_absenteeism_data()
+    if success:
+        return success_response(data=msg)
+    else:
+        return error_response(error=msg, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['POST'])

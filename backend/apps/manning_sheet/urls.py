@@ -31,6 +31,7 @@ urlpatterns = [
     path('wips/upload/', views.upload_wip_data, name='upload_wip_data'),
 
     path('wips/bulk/', views.add_bulk_wip_data, name='add_bulk_wip_data'),
+    path('employees/upload/', views.upload_active_employees, name='upload_active_employees'),
 ]
 
 

@@ -804,7 +804,7 @@ def get_attendance_data(request):
     """
     try:
         # Get and validate line parameter
-        line_no = request.query_params.get('line', '').strip().title()
+        line_no = request.query_params.get('line', 'all').strip().title()
         
         if not line_no:
             return error_response(error='"line" is required.', status=status.HTTP_400_BAD_REQUEST)
@@ -899,8 +899,14 @@ def get_unallocated_employees(request):
 @permission_classes([IsAuthenticated])
 def get_unallocated_employees_dday(request):
     try:
+        import os
         line_no = request.query_params.get('line', 'all').strip()
-        df_unallocated_employees = pd.read_csv('exports/unallocated_report_dday.csv')
+        
+        file_path = 'exports/unallocated_report_dday.csv'
+        if not os.path.exists(file_path):
+            return error_response(error="D-Day unallocated report has not been generated yet. Please run D-Day generation first.", status=status.HTTP_404_NOT_FOUND)
+            
+        df_unallocated_employees = pd.read_csv(file_path)
         df_unallocated_employees = df_unallocated_employees[(df_unallocated_employees['reason'] != 'Employee Absent') & (df_unallocated_employees['type'] == 'Primary')]
 
         file_name = f"Unallocated_Employees_DDay"

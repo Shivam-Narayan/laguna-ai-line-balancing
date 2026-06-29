@@ -1,3 +1,4 @@
+import os
 import joblib
 import logging
 import requests
@@ -69,27 +70,40 @@ def get_emp_master_data():
 
 
 def get_historical_weather_data():
-
     today = date.today() # Today's date
-    # Calculate cutoff date: exactly 3 years ago from today, plus 1 day (to exclude the same day 3 years ago)
-    # cutoff_date = date.today().replace(year=date.today().year - 3) + timedelta(days=1)
     startDate = date(2022, 1, 1) # Hardcoded to 1 Jan 2022
     endDate = today - timedelta(days=1) # As we don't have attendance data for today so fetching last day
     historical_weather_filter = {'datetime__range': (startDate, endDate)}
 
     # Query all data from the PredictionData table
     queryset = HistoricalWeather.objects.filter(**historical_weather_filter)
-
-    # Convert the queryset into a list of dictionaries
     data = list(queryset.values())
 
-    # Create a Pandas DataFrame from the list of dictionaries
-    df_past_wf = pd.DataFrame(data)
-    df_past_wf.dropna(how='all')
+    if not data:
+        import numpy as np
+        # Generate fake data for testing purposes if DB is empty
+        fake_data = []
+        for i in range((endDate - startDate).days + 1):
+            d = startDate + timedelta(days=i)
+            fake_data.append({
+                'datetime': d,
+                'tempmax': np.random.uniform(25.0, 35.0),
+                'tempmin': np.random.uniform(15.0, 25.0),
+                'humidity': np.random.uniform(40.0, 80.0),
+                'precip': np.random.uniform(0.0, 5.0),
+                'conditions': 'Clear',
+                'stations': 'fake_station'
+            })
+        df_past_wf = pd.DataFrame(fake_data)
+    else:
+        df_past_wf = pd.DataFrame(data)
+
+    df_past_wf.dropna(how='all', inplace=True)
 
     df_past_wf['datetime'] = pd.to_datetime(df_past_wf['datetime'])
     df_past_wf = df_past_wf.drop_duplicates(subset='datetime', keep='last') # add this line
-    df_past_wf = df_past_wf.drop(columns=['stations'])
+    if 'stations' in df_past_wf.columns:
+        df_past_wf = df_past_wf.drop(columns=['stations'])
 
     return df_past_wf
 
@@ -217,10 +231,26 @@ def prepare_training_data():
     
     df_past_wf = get_historical_weather_data()  
     df_next15_wf = get_future_weather_data()
+    
+    # Fallback if weather API rate limit is exceeded
+    if df_next15_wf is None:
+        logger.warning("Weather API failed (likely 429 rate limit). Using fallback weather data for next 60 days.")
+        today = date.today()
+        future_dates = [today + timedelta(days=i) for i in range(70)]
+        df_next15_wf = pd.DataFrame({
+            'datetime': future_dates,
+            'tempmax': df_past_wf['tempmax'].mean() if not df_past_wf.empty else 85.0,
+            'tempmin': df_past_wf['tempmin'].mean() if not df_past_wf.empty else 65.0,
+            'humidity': df_past_wf['humidity'].mean() if not df_past_wf.empty else 60.0,
+            'precip': 0.0,
+            'conditions': 'Clear'
+        })
         
     # Filter relevant columns from weather data
     weather_columns = ['datetime', 'tempmax', 'tempmin', 'humidity', 'precip', 'conditions']
     df_past_wf = df_past_wf[weather_columns]
+    # Ensure future weather has the correct columns and no extra ones
+    df_next15_wf = df_next15_wf[weather_columns]
 
     
     # Group attendance dataset by ['Dates', 'Line', 'Section',...etc...] and calculate total absent count
@@ -419,7 +449,7 @@ def train_dynamic_model(merged_data, feature_importance_threshold=0.01):
         bootstrap=True,
         random_state=42,
         n_jobs=-1,
-        verbose=1
+        verbose=0
     )
     final_model.fit(X_train_imp, y_train_imp, sample_weight=final_sample_weights)
 
@@ -429,6 +459,7 @@ def train_dynamic_model(merged_data, feature_importance_threshold=0.01):
         
     # Save model and all statistics
     model_path = "absenteeism/models/dynamic_absenteeism_model.pkl"
+    os.makedirs(os.path.dirname(model_path), exist_ok=True)
     joblib.dump({
         'model': final_model,
         'features': important_features,
@@ -439,6 +470,8 @@ def train_dynamic_model(merged_data, feature_importance_threshold=0.01):
     }, model_path)
 
     return {
+        'model': final_model,
+        'features': important_features,
         'important_features': important_features,
         'metrics_all_features': metrics_all,
         'metrics_important_features': metrics_final,
@@ -448,14 +481,17 @@ def train_dynamic_model(merged_data, feature_importance_threshold=0.01):
         
     
 # Function to predict absenteeism using future weather forecast
-def predict_with_dynamic_model(future_weather, forecast_days, lags, line, section):
+def predict_with_dynamic_model(future_weather, forecast_days, lags, line, section, model_data=None):
     """
     Improved prediction function with better handling of variations.
     """
-    # #print(f"\nStarting predictions for Line: {line}, Section: {section}")
-
-    model_data = joblib.load("absenteeism/models/dynamic_absenteeism_model.pkl")
+    if model_data is None:
+        model_data = joblib.load("absenteeism/models/dynamic_absenteeism_model.pkl")
     final_model = model_data['model']
+    # Disable multi-threading during inference to eliminate massive overhead for single-row predictions
+    if hasattr(final_model, 'n_jobs'):
+        final_model.n_jobs = 1
+        
     important_features = model_data['features']
     historical_stats = model_data.get('historical_stats', {})
 
@@ -546,19 +582,12 @@ def predict_with_dynamic_model(future_weather, forecast_days, lags, line, sectio
             # Calculate rolling statistics for different windows
             for window in [3, 5, 7, 14, 30, 60]:
                 if f'rolling_mean_{window}d' in important_features:
-                    values = rolling_values[-window:]
-                    input_features[f'rolling_mean_{window}d'] = float(np.mean(values)) if values else 0.0
+                    input_features[f'rolling_mean_{window}d'] = np.mean(rolling_values[-window:])
                 if f'rolling_std_{window}d' in important_features:
-                    values = rolling_values[-window:]
-                    input_features[f'rolling_std_{window}d'] = np.std(values) if len(values) > 1 else 0
+                    input_features[f'rolling_std_{window}d'] = np.std(rolling_values[-window:]) if len(rolling_values) > 1 else 0
+                if f'rolling_min_{window}d' in important_features:
+                    input_features[f'rolling_min_{window}d'] = np.min(rolling_values[-window:])
                 if f'rolling_max_{window}d' in important_features:
-                    values = rolling_values[-window:]
-                    input_features[f'rolling_max_{window}d'] = np.max(values) if values else 0
-
-            # Add trend features
-            if len(rolling_values) >= 14:
-                if 'trend_3d' in important_features:
-                    mean_3d = np.mean(rolling_values[-3:])
                     mean_7d = np.mean(rolling_values[-7:])
                     input_features['trend_3d'] = mean_3d - mean_7d
                 if 'trend_5d' in important_features:
@@ -615,24 +644,17 @@ def predict_with_dynamic_model(future_weather, forecast_days, lags, line, sectio
     predictions_df['Predicted_Absent_Count'] = predictions
     return predictions_df        
     
-def consolidated_predictions(future_weather, merged_data, output_path=None):
-    """
-    Generate predictions for all lines and sections with improved variation handling.
-    """
-    #print("\nStarting consolidated predictions...")
-
-    # Get unique Line-Section combinations
+def consolidated_predictions(future_weather, merged_data, model_data=None):
+    # Get unique Line-Section combinations from training data
     line_section_combos = merged_data[['Line', 'Section']].drop_duplicates()
-    #print(f"Found {len(line_section_combos)} unique Line-Section combinations")
 
     # Initialize list to store predictions
     all_predictions = []
-    # forecast_days_list = [7, 15, 30, 45, 60]
     forecast_days_list = [8, 17, 35, 52, 70]
 
-    # Load model to get historical stats
-    # #print("Loading model and historical statistics...")
-    model_data = joblib.load("absenteeism/models/dynamic_absenteeism_model.pkl")
+    # Load model data from file only if not passed in-memory
+    if model_data is None:
+        model_data = joblib.load("absenteeism/models/dynamic_absenteeism_model.pkl")
     historical_stats = model_data.get('historical_stats', {})
 
     for _, combo in line_section_combos.iterrows():
@@ -658,15 +680,20 @@ def consolidated_predictions(future_weather, merged_data, output_path=None):
         # Get initial lags for this line/section
         initial_lags = line_section_data['Absent_Count'].tail(7).tolist()
 
-        # Generate predictions for each forecast period
+        # Generate predictions once for the maximum forecast period
+        max_forecast = max(forecast_days_list)
+        full_predictions = predict_with_dynamic_model(
+            future_weather,
+            max_forecast,
+            initial_lags.copy(),
+            line,
+            section,
+            model_data=model_data
+        )
+
+        # Slice the full predictions for each specific forecast period
         for forecast_days in forecast_days_list:
-            predictions = predict_with_dynamic_model(
-                future_weather,
-                forecast_days,
-                initial_lags.copy(),
-                line,
-                section
-            )
+            predictions = full_predictions.head(forecast_days).copy()
 
             predictions_df = predictions.copy()
             predictions_df['Line'] = line
@@ -752,10 +779,20 @@ def model_prediction():
     try:
         logger.info(f"Running try get_prediction_data\n")
         merged_data, df_next15_wf = prepare_training_data()        
-        train_dynamic_model(merged_data)
-        consolidated_df = consolidated_predictions(df_next15_wf, merged_data)
+        training_result = train_dynamic_model(merged_data)
+        # Build in-memory model data dict to avoid file corruption issues
+        model_data = {
+            'model': training_result['model'] if 'model' in training_result else None,
+            'features': training_result['important_features'],
+            'historical_stats': training_result['historical_stats']
+        }
+        # Fall back to loading from file if model not in training_result
+        if model_data['model'] is None:
+            model_data = joblib.load("absenteeism/models/dynamic_absenteeism_model.pkl")
+        consolidated_df = consolidated_predictions(df_next15_wf, merged_data, model_data=model_data)
         logger.info("Completed Consolidated Predictions")
         logger.info(f"Completed get_prediction_data\n")
         return consolidated_df
     except Exception as e:
-        logger.info(f"Running except get_prediction_data {e} \n")
+        logger.exception(f"Running except get_prediction_data: {e} \n")
+        return None

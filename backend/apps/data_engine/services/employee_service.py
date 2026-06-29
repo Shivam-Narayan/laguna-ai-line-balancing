@@ -161,6 +161,8 @@ def run_generate_employee_master():
         df_grouped["line"] = df_grouped["line"].str.title()
         df_grouped["section"] = df_grouped["section"].str.title()
 
+        df_grouped.fillna("", inplace=True)
+
         # Group and aggregate primary & secondary operations
         df_employee_master = df_grouped.groupby(
             ["emp_code", "name", "line", "designation", "section", "status"],

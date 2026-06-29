@@ -39,7 +39,7 @@ ENV PYTHONPATH=/app/apps:/app
 COPY . .
 
 # Create necessary directories
-RUN mkdir -p /app/logs /app/media /app/static_files
+RUN mkdir -p /app/logs /app/media /app/static_files /app/csv_files
 
 # Collect static files (optional, for production)
 # RUN python manage.py collectstatic --noinput

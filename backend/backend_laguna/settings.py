@@ -27,7 +27,11 @@ PRODUCTION_URL = os.getenv('PRODUCTION_URL')
 SERVER_URL = os.getenv('SERVER_URL')
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-qkfz4kr257o+r7^5d$+vvr4zbvr@7+_1mq8^y0qzql0c&h*eg0')
+SECRET_KEY = os.getenv('SECRET_KEY')
+if IS_PRODUCTION and not SECRET_KEY:
+    raise ValueError("SECRET_KEY environment variable is required in production!")
+elif not IS_PRODUCTION and not SECRET_KEY:
+    SECRET_KEY = 'django-insecure-qkfz4kr257o+r7^5d$+vvr4zbvr@7+_1mq8^y0qzql0c&h*eg0'
 
 # Debug
 DEBUG = not IS_PRODUCTION
@@ -37,7 +41,7 @@ if IS_PRODUCTION:
     allowed_hosts_env = os.getenv("ALLOWED_HOSTS", "")
     ALLOWED_HOSTS = allowed_hosts_env.split(",") if allowed_hosts_env else ['127.0.0.1']
 else:
-    ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '*']
+    ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 
 # Application definition
 INSTALLED_APPS = [
@@ -73,16 +77,20 @@ MIDDLEWARE = [
 ]
 
 # CORS settings
+CORS_ALLOW_CREDENTIALS = True
+
 if IS_PRODUCTION:
     CORS_ALLOWED_ORIGINS = [
         "https://yuktiai.laguna-clothing.com",
         "https://ascendumai.azurewebsites.net",
     ]
 else:
-    CORS_ALLOW_ALL_ORIGINS = True
+    CORS_ALLOW_ALL_ORIGINS = False
     CORS_ALLOWED_ORIGINS = [
         "http://localhost:3000",
         "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
         "http://laguna.eastus.cloudapp.azure.com:8000",
         "http://lagunadev-dpg8epc6d7e0h2h7.centralindia-01.azurewebsites.net",
         "http://lagunaai.azurewebsites.net",
@@ -90,6 +98,10 @@ else:
         "http://ascpocs.eastus.cloudapp.azure.com:5173",
         "http://ascendumai.azurewebsites.net",
         "https://ascendumai.azurewebsites.net"
+    ]
+    CORS_ALLOWED_ORIGIN_REGEXES = [
+        r"^http://localhost:\d+$",
+        r"^http://127\.0\.0\.1:\d+$",
     ]
 
 CORS_ALLOW_METHODS = [

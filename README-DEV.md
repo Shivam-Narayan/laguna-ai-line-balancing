@@ -9,9 +9,9 @@ This document describes the development environment setup and best practices for
    ```
 2. Start the development environment with Docker:
    ```bash
-   docker-compose --profile dev up -d
+   docker compose up -d
    ```
-3. Access the backend services at `http://localhost:8001`.
+3. Access the backend services at `http://localhost:8000`.
 
 ## Backend Architecture & Standards
 

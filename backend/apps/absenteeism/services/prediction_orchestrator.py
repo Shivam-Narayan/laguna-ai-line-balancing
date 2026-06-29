@@ -58,8 +58,11 @@ def run_absenteeism_prediction(viaAPI):
 
         consolidated_df = model_prediction()
         
+        if consolidated_df is None:
+            return error_response(error='Prediction generation failed. Ensure there is enough historical attendance and weather data.', status=status.HTTP_400_BAD_REQUEST)
+
         # Convert 'datetime' column to date format
-        consolidated_df['datetime'] = pd.to_datetime(consolidated_df['datetime']).dt.date  # type: ignore
+        consolidated_df['datetime'] = pd.to_datetime(consolidated_df['datetime']).dt.date
 
         # Define max allowed dates for each forecast period
         forecast_limits = {
@@ -70,18 +73,16 @@ def run_absenteeism_prediction(viaAPI):
             60: today + timedelta(days=60),
         }
 
-        # # Apply filtering
-        # consolidated_df = consolidated_df[
-        #     consolidated_df.apply(lambda row: row['datetime'] <= forecast_limits.get(row['forecast_period'], today), axis=1)
-        # ]
+        # Convert forecast_period to int to ensure dictionary matching
+        consolidated_df['forecast_period'] = consolidated_df['forecast_period'].astype(int)
+        
+        # Map limit dates to a new column for vectorized comparison
+        consolidated_df['limit_date'] = consolidated_df['forecast_period'].map(forecast_limits)
 
-        # And ensure the filtering includes today
-        consolidated_df = consolidated_df[  # type: ignore
-            consolidated_df.apply(  # type: ignore
-                lambda row: (row['datetime'] >= today) & 
-                        (row['datetime'] <= forecast_limits.get(row['forecast_period'], today)), 
-                axis=1
-            )
+        # Vectorized filtering for dates between today and the limit_date
+        consolidated_df = consolidated_df[
+            (consolidated_df['datetime'] >= today) & 
+            (consolidated_df['datetime'] <= consolidated_df['limit_date'])
         ]
         
         # **Step 1: Batch delete old records**
@@ -149,7 +150,7 @@ def prepare_prediction_data(line_no, forecast_period, summation=False):
 
         valid_lines = [f"line {i}" for i in range(1, 11)] + ['all']
         if line_no_lower not in valid_lines:
-            return None, None, error_response(error='Invalid line number.', status=status.HTTP_400_BAD_REQUEST)
+            return error_response(error='Invalid line number.', status=status.HTTP_400_BAD_REQUEST)
 
         today = date.today()
         filter_date = today + timedelta(days=forecast_period)
@@ -160,7 +161,7 @@ def prepare_prediction_data(line_no, forecast_period, summation=False):
 
         total_emp_count = EmployeeMaster.objects.filter(employee_filter).count()
         if total_emp_count == 0:
-            return None, None, error_response(error='No employees found.', status=status.HTTP_404_NOT_FOUND)
+            return error_response(error='No employees found.', status=status.HTTP_404_NOT_FOUND)
 
         absenteeism_filter = {'forecast_period': forecast_period}
         loading_plan_filter = {'planned_dates': filter_date}
@@ -205,7 +206,7 @@ def prepare_prediction_data(line_no, forecast_period, summation=False):
             return error_response(error=f'No data found for {filter_date} as it is {reason}', status=status.HTTP_400_BAD_REQUEST)
 
         if not prediction_qs.exists():
-            return None, None, error_response(error='No predictions found.', status=status.HTTP_404_NOT_FOUND)
+            return error_response(error='No predictions found.', status=status.HTTP_404_NOT_FOUND)
 
         manning_sheet_qs = ManningSheetData.objects.filter(**manning_sheet_filter)  # type: ignore
         manning_sheet_target = (
@@ -305,10 +306,13 @@ def prepare_prediction_data(line_no, forecast_period, summation=False):
         }
 
         # Calculate absenteeism percentage by section
-        absenteeism_percentage_by_section = {
-            item['section']: round((item['count'] / section_emp_count[item['section']] * 100), 1) if total_emp_count else 0
-            for item in gap_summary_normalized
-        }
+        absenteeism_percentage_by_section = {}
+        for item in gap_summary_normalized:
+            sec_count = section_emp_count.get(item['section'], 0)
+            if sec_count > 0:
+                absenteeism_percentage_by_section[item['section']] = round((item['count'] / sec_count * 100), 1)
+            else:
+                absenteeism_percentage_by_section[item['section']] = 0
 
         total_operators_gap = merge_duplicates(gap_summary_normalized)
         total_sum = sum(item['count'] for item in total_operators_gap)
@@ -351,9 +355,9 @@ def prepare_prediction_data(line_no, forecast_period, summation=False):
                 response_data = prepare_prediction_data(individual_line, forecast_period, summation=True)
                 response_data = response_data.data
                 
-                # If the response is valid, extract the prediction data
-                if isinstance(response_data, tuple):
-                    continue  # Skip invalid responses
+                # If the response is an error, skip it
+                if response_data.get('status') == 'error':
+                    continue
                 
                 if 'data' in response_data and 'Target data' in response_data['data']:
                     prediction_data = response_data['data']['Target data'][0]['predicted_production']
@@ -400,10 +404,16 @@ def prepare_prediction_data(line_no, forecast_period, summation=False):
         # Reference order
         section_order = ['Assembly', 'Back', 'Collar', 'Cuff', 'Front', 'Sleeve']
 
-        # Sort the lists using the section order
-        total_operators = sorted(total_operators, key=lambda x: section_order.index(x['section']))
-        total_operators_supply = sorted(total_operators_supply, key=lambda x: section_order.index(x['section']))
-        total_operators_gap = sorted(total_operators_gap, key=lambda x: section_order.index(x['section']))
+        # Sort the lists using the section order safely
+        def safe_index(section):
+            try:
+                return section_order.index(section)
+            except ValueError:
+                return len(section_order)
+
+        total_operators = sorted(total_operators, key=lambda x: safe_index(x['section']))
+        total_operators_supply = sorted(total_operators_supply, key=lambda x: safe_index(x['section']))
+        total_operators_gap = sorted(total_operators_gap, key=lambda x: safe_index(x['section']))
 
 
         # Added required machinists count and actual machinists count as a CR
@@ -596,8 +606,15 @@ def get_absenteeism_forecast(request):
 @permission_classes([IsAuthenticated])        
 def absenteeism_prediction(request):
     if request.method == 'POST':  
+        import threading
         viaAPI = True
-        return run_absenteeism_prediction(viaAPI)
+        # Run the heavy ML process in the background to prevent 504 Gateway Time-out
+        thread = threading.Thread(target=run_absenteeism_prediction, args=(viaAPI,))
+        thread.start()
+        
+        return success_response(
+            message='Prediction generation has started in the background. It will take a few minutes to complete.'
+        )
     return error_response(error='Invalid request method.', status=405)
 
 

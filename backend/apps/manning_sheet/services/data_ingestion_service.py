@@ -861,6 +861,7 @@ def fetch_and_transform_emp_attendance(run_type=None):
         df_active_employees.rename(columns={'employee_id': 'Emp No', 'employee_name': 'Employee name', 'line': 'Line', 'section': 'Section', 'designation': 'Designation'}, inplace=True)
         
         # Convert both columns to integer type (safe conversion)
+        df_attendance['employee_id'] = df_attendance['employee_id'].astype(str).str.replace(r'\D', '', regex=True)
         df_attendance['employee_id'] = pd.to_numeric(df_attendance['employee_id'], errors='coerce').astype('Int64')
         df_active_employees['Emp No'] = pd.to_numeric(df_active_employees['Emp No'], errors='coerce').astype('Int64')
 
@@ -870,8 +871,14 @@ def fetch_and_transform_emp_attendance(run_type=None):
         # Now safe to merge
         merged_df = pd.merge(df_attendance_filtered, df_active_employees, left_on='employee_id', right_on='Emp No', how='left')
         updated_df = merged_df[['attendance_date', 'employee_id', 'employee_name', 'ATTD_STATUS', 'INTIME', 'OUTTIME', 'status_x']]
-        updated_df.rename(columns={'status_x': 'status'}, inplace=True)
-        updated_df = updated_df.applymap(lambda x: x.upper() if isinstance(x, str) else x)
+        updated_df = updated_df.rename(columns={'status_x': 'status'})
+        
+        # Use map instead of applymap to avoid warnings
+        if hasattr(updated_df, 'map'):
+            updated_df = updated_df.map(lambda x: x.upper() if isinstance(x, str) else x)
+        else:
+            updated_df = updated_df.applymap(lambda x: x.upper() if isinstance(x, str) else x)
+            
         updated_df.to_csv("csv_files/attendance.csv", index=False)
 
 
@@ -1942,3 +1949,115 @@ def insert_all_unallocated_employees(all_unallocated_employees, df_active_employ
     logger.info(f"Inserting {len(data_dicts)} unallocated records in {len(chunked_data)} chunks...")
     with ThreadPoolExecutor(max_workers=10) as executor:
         executor.map(insert_chunk, chunked_data)
+
+
+@api_view(['POST'])
+@authentication_classes([CookieJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def upload_active_employees(request):
+    try:
+        file = request.FILES.get('file')
+        if not file:
+            return error_response(error="No file uploaded", status=status.HTTP_400_BAD_REQUEST)
+
+        df = pd.read_csv(file)
+
+        # Check if it's the frontend template format
+        if 'employee_id' in df.columns and 'employee_name' in df.columns:
+            if df.empty:
+                return error_response(error="The uploaded template contains no employee rows.", status=status.HTTP_400_BAD_REQUEST)
+
+            if 'machinist' in df.columns:
+                df['machinist'] = df['machinist'].astype(str).str.lower().map({'true': True, 'false': False, '1': True, '0': False}).fillna(False)
+            
+            # Extract only digits from employee IDs (e.g. EMP001 -> 1)
+            df['employee_id'] = df['employee_id'].astype(str).str.replace(r'\D', '', regex=True)
+            df['employee_id'] = pd.to_numeric(df['employee_id'], errors='coerce')
+            df.dropna(subset=['employee_id'], inplace=True)
+            if df.empty:
+                return error_response(error="All employee IDs were invalid or missing. Please ensure Employee IDs contain numbers.", status=status.HTTP_400_BAD_REQUEST)
+                
+            df.fillna('', inplace=True)
+            
+            data_dicts = []
+            for _, row in df.iterrows():
+                data_dict = {
+                    'employee_id': str(int(row['employee_id'])),
+                    'employee_name': str(row.get('employee_name', '')),
+                    'line': str(row.get('line', '')),
+                    'section': str(row.get('section', '')),
+                    'designation': str(row.get('designation', '')),
+                    'machinist': bool(row.get('machinist', False)),
+                    'service_years': row.get('service_years', 0.0),
+                    'status': str(row.get('status', 'active')),
+                    'gender': str(row.get('gender', 'Male'))
+                }
+                data_dicts.append(data_dict)
+                
+        # Fallback to the legacy Active_Employees.csv format
+        elif 'Emp No' in df.columns and 'Employee name' in df.columns:
+            if df.empty:
+                return error_response(error="The uploaded CSV contains no employee rows.", status=status.HTTP_400_BAD_REQUEST)
+
+            if 'Department' in df.columns:
+                df["Department"] = df["Department"].fillna("").astype(str)
+                df[["Line", "Section"]] = df["Department"].str.extract(r"(?i)^(line \d+)\s*(.*)$", expand=True)
+                df["Line"] = df["Line"].str.upper()
+            else:
+                df["Line"] = ""
+                df["Section"] = ""
+
+            # Extract only digits from legacy Emp No
+            df["Emp No"] = df["Emp No"].astype(str).str.replace(r'\D', '', regex=True)
+            df["Emp No"] = pd.to_numeric(df["Emp No"], errors="coerce")
+            df.dropna(subset=["Emp No"], inplace=True)
+            if df.empty:
+                return error_response(error="All employee IDs were invalid or missing. Please ensure Employee IDs contain numbers.", status=status.HTTP_400_BAD_REQUEST)
+
+            data_dicts = []
+            for _, row in df.iterrows():
+                data_dict = {
+                    'employee_id': str(int(row['Emp No'])),
+                    'employee_name': row.get('Employee name', ''),
+                    'line': row.get('Line', ''),
+                    'section': row.get('Section', ''),
+                    'designation': row.get('Designation', ''),
+                    'machinist': str(row.get('Designation', '')).lower() == 'machinist',
+                    'service_years': 0.0,
+                    'status': 'active',
+                    'gender': 'Male'
+                }
+                data_dicts.append(data_dict)
+        else:
+            return error_response(error="Missing required columns in CSV. Make sure you use the template format.", status=status.HTTP_400_BAD_REQUEST)
+
+        truncate_table(ActiveEmployees)
+
+        for i in range(0, len(data_dicts), CHUNK_SIZE):
+            chunk_dicts = data_dicts[i:i + CHUNK_SIZE]
+            model_instances = [ActiveEmployees(**d) for d in chunk_dicts]
+            with transaction.atomic():
+                ActiveEmployees.objects.bulk_create(model_instances)
+                
+        # Automatically generate the Employee Master table so the UI updates immediately
+        try:
+            from apps.data_engine.services.employee_service import run_generate_employee_master
+            result = run_generate_employee_master()
+            import os
+            with open(os.path.join(os.path.dirname(__file__), "test_debug.txt"), "w") as f:
+                f.write(f"data_dicts len: {len(data_dicts)}\n")
+                f.write(f"DB count: {ActiveEmployees.objects.count()}\n")
+                if hasattr(result, 'data'):
+                    f.write(str(result.data))
+                else:
+                    f.write(str(result))
+        except Exception as e:
+            import os
+            with open(os.path.join(os.path.dirname(__file__), "test_debug.txt"), "w") as f:
+                f.write(f"Exception: {e}")
+            logger.error(f"Failed to generate Employee Master after upload: {e}")
+
+        return success_response(message="Active Employees data uploaded successfully", status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return error_response(error=f"Failed to process Active Employees upload: {str(e)}", status=status.HTTP_400_BAD_REQUEST)

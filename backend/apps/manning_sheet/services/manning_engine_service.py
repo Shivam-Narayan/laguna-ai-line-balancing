@@ -28,6 +28,8 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 from apps.accounts.authentication import CookieJWTAuthentication
 from apps.accounts.utils.response_handlers import error_response, success_response
 
+from .data_ingestion_service import fetch_and_transform_emp_attendance
+
 from backend_laguna.utils import truncate_table
 from ..loading_plan_optimization import process_df
 from ..loading_plan import redistribute_production_plan
@@ -760,6 +762,7 @@ def run_generate_emp_fact():
 
         # Convert Emp No and EMPLOYEE ID to numeric
         df_active_employees["Emp No"] = pd.to_numeric(df_active_employees["Emp No"], errors="coerce")
+        df_skill_matrix["employeeId"] = df_skill_matrix["employeeId"].astype(str).str.replace(r'\D', '', regex=True)
         df_skill_matrix["employeeId"] = pd.to_numeric(df_skill_matrix["employeeId"], errors="coerce")
 
         df_skill_matrix = df_skill_matrix[
@@ -1008,6 +1011,12 @@ def run_dday_generation(viaAPI):
             Act_Employees = pd.DataFrame(list(Act_Employees_queryset))
             wip_df = pd.DataFrame(list(wip_queryset))
             
+            if emp_fact_df.empty or Act_Employees.empty:
+                return error_response(error="Cannot generate Manning Sheet because Employee Fact or Active Employees data is missing.", status=status.HTTP_400_BAD_REQUEST)
+                
+            if attendance_df.empty:
+                return error_response(error="Cannot generate Manning Sheet because Attendance data for the specified date is missing.", status=status.HTTP_400_BAD_REQUEST)
+
             emp_fact_df = emp_fact_df[emp_fact_df["employee_id"].isin(Act_Employees["emp_code"])]
             emp_fact_df = emp_fact_df[emp_fact_df["type"].isin(["Primary", "Secondary"])]
 

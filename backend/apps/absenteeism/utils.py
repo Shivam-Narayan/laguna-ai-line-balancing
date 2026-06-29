@@ -377,19 +377,25 @@ def merge_duplicates(lst, key="section", value="count"):
 def is_allowed_working_day(date_obj):
 
     # Get all payable working days from the database for the date range
-    payable_dates = PayableWorkingDays.objects.all().values()
-    payable_dates_df = pd.DataFrame.from_records(payable_dates)
-    payable_dates_df['date'] = pd.to_datetime(payable_dates_df['date']).dt.date
-    payable_dates = set(payable_dates_df['date'])
+    payable_dates_qs = list(PayableWorkingDays.objects.all().values())
+    payable_dates = set()
+    if payable_dates_qs:
+        payable_dates_df = pd.DataFrame(payable_dates_qs)
+        if 'date' in payable_dates_df.columns:
+            payable_dates_df['date'] = pd.to_datetime(payable_dates_df['date']).dt.date
+            payable_dates = set(payable_dates_df['date'])
 
     if date_obj in payable_dates:
         return True, "Allowed working day"
 
     # Load the LocalHolidayCalendar data from the database
-    queryset_local_holiday_calender = LocalHolidayCalendar.objects.all().values()
-    local_holiday_calender_df = pd.DataFrame.from_records(queryset_local_holiday_calender)
-    local_holiday_calender_df['date'] = pd.to_datetime(local_holiday_calender_df['date']).dt.date
-    holiday_dates = set(local_holiday_calender_df['date'])
+    holiday_qs = list(LocalHolidayCalendar.objects.all().values())
+    holiday_dates = set()
+    if holiday_qs:
+        local_holiday_calender_df = pd.DataFrame(holiday_qs)
+        if 'date' in local_holiday_calender_df.columns:
+            local_holiday_calender_df['date'] = pd.to_datetime(local_holiday_calender_df['date']).dt.date
+            holiday_dates = set(local_holiday_calender_df['date'])
 
     if date_obj in holiday_dates:
         return False, "Local Holiday"

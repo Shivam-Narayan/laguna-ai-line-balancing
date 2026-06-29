@@ -209,20 +209,23 @@ def login(request):
     
     logger.info(f"User logged in successfully: {email}")
 
+    cookie_samesite = 'None' if settings.IS_PRODUCTION else 'Lax'
+    cookie_secure = settings.IS_PRODUCTION
+
     response.set_cookie(
         key='access_token',
         value=access_token,
         httponly=True,  # Cannot be accessed via JS, highly secure
-        samesite='Lax',
-        secure=False    # Set to True in production (HTTPS)
+        samesite=cookie_samesite,
+        secure=cookie_secure    # True in production (HTTPS)
     )
     
     response.set_cookie(
         key='refresh_token',
         value=refresh_token,
         httponly=True,
-        samesite='Lax',
-        secure=False
+        samesite=cookie_samesite,
+        secure=cookie_secure
     )
 
     response['Authorization'] = f"Bearer {access_token}"

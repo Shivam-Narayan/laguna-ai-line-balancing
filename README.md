@@ -9,11 +9,12 @@ laguna-ai-line-balancing/             # Repository root
 │   ├── apps/                         # All Django applications
 │   │   ├── absenteeism/              # Absenteeism prediction engine
 │   │   ├── accounts/                 # User authentication & management
+│   │   ├── core/                     # Shared base models & utilities
 │   │   ├── data_engine/              # Data processing & employee management
 │   │   └── manning_sheet/            # Manning sheet & resource planning
 │   ├── backend_laguna/               # Django project configuration
 │   │   └── settings.py               # Environment-aware settings
-│   ├── core/                         # Shared utilities & configurations
+│   ├── csv_files/                    # Auto-generated CSV exports
 │   ├── data/                         # Data files (CSV, fixtures)
 │   ├── Dockerfile                    # Dockerfile for building backend images
 │   ├── .dockerignore                 # Docker ignore file
@@ -29,6 +30,7 @@ laguna-ai-line-balancing/             # Repository root
 ├── .gitignore                        # Git ignore rules
 ├── docker-compose.yml                # Unified Docker Compose (all environments)
 ├── nginx.conf                        # Nginx reverse proxy configuration
+├── promtail-config.yml               # Promtail log scraper configuration
 ├── README-DEV.md                     # Developer guide
 └── README.md                         # This file
 ```
@@ -106,6 +108,7 @@ docker compose up --build -d
 | Service | URL |
 |---|---|
 | Backend API | http://localhost:8000 |
+| Frontend App | http://localhost:5173 |
 | Swagger UI | http://localhost:8000/swagger/ |
 | Redoc | http://localhost:8000/api/schema/redoc/ |
 | Raw OpenAPI Schema | http://localhost:8000/api/schema/ |
