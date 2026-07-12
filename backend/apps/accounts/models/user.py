@@ -27,7 +27,7 @@ class UserType(models.IntegerChoices):
     ADMIN = 1, 'Admin'
 
 class User(AbstractBaseUser, PermissionsMixin, BaseModel):
-    last_login = None #disabled this field
+    last_login = None  # Intentionally disabled — we do not track last login
     username = models.CharField(max_length=150)
     email = models.EmailField(unique=True, max_length=255, db_index=True)
     location = models.CharField(max_length=50, default="", blank=True)
@@ -41,7 +41,7 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
         )],
         blank=True,
     )
-    user_type = models.PositiveIntegerField(choices=UserType.choices, default=UserType.NORMAL)
+    user_type = models.IntegerField(choices=UserType.choices, default=UserType.NORMAL)
     latitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True) 
     longitude = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
     send_mail = models.BooleanField(default=False)

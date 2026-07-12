@@ -14,7 +14,7 @@ from datetime import datetime
 
 
 from .models import ManningGeneralInfo
-from backend_laguna.utils import truncate_table
+from config.utils import truncate_table
 
 # Define Factory & Floor Mapping
 factory_floor_mapping = {

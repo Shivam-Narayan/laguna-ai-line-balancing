@@ -1,12 +1,18 @@
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 
+
 class CookieJWTAuthentication(JWTAuthentication):
+    """
+    Custom JWT authentication that reads the token from an HttpOnly cookie first,
+    then falls back to the standard Authorization header.
+    """
+
     def authenticate(self, request):
-        # 1. First attempt to extract the token from the HttpOnly cookie
+        # 1. Try to extract the token from the HttpOnly cookie
         raw_token = request.COOKIES.get('access_token')
 
-        # 2. If it's not in the cookie, fallback to the standard Authorization header
+        # 2. Fall back to the standard Authorization header
         if not raw_token:
             header = self.get_header(request)
             if header is None:
@@ -15,7 +21,7 @@ class CookieJWTAuthentication(JWTAuthentication):
             if raw_token is None:
                 return None
 
-        # 3. Validate the token and return the user
+        # 3. Validate the token and return (user, token)
         try:
             validated_token = self.get_validated_token(raw_token)
             return self.get_user(validated_token), validated_token

@@ -23,7 +23,7 @@ from collections import defaultdict
 from openpyxl.utils import get_column_letter
 from django.db.models import Case, When, IntegerField, Sum, Value, Q
 
-from backend_laguna.utils import truncate_table
+from config.utils import truncate_table
 from apps.data_engine.models import AttendanceMaster
 from .models import PushNotification, DDayData, EmployeesOnHold
 

@@ -6,7 +6,7 @@ import pandas as pd
 
 from datetime import datetime
 from django.db import transaction
-from backend_laguna.utils import truncate_table
+from config.utils import truncate_table
 from .models import ManningSheetData, ManningGeneralInfo, SkillShortages, UnallocatedEmployees
 
 CHUNK_SIZE = 5000  # Larger chunk size for better efficiency

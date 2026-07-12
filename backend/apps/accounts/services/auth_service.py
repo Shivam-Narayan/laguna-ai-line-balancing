@@ -16,6 +16,10 @@ def authenticate_user(email, password):
     if not user.check_password(password):
         return None, None, None, "Invalid email or password", 401
 
+    if not user.status:
+        return None, None, None, "Your account has been deactivated. Please contact an administrator.", 403
+
+
     from rest_framework_simplejwt.tokens import RefreshToken
     try:
         refresh = RefreshToken.for_user(user)

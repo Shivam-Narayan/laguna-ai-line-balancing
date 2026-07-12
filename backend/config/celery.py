@@ -2,9 +2,9 @@ import os
 from celery import Celery
 
 # Set the default Django settings module for the 'celery' program.
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'backend_laguna.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 
-app = Celery('backend_laguna')
+app = Celery('laguna')
 
 # Using a string here means the worker doesn't have to serialize
 # the configuration object to child processes.

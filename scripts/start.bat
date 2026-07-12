@@ -234,7 +234,7 @@ echo [OK] All services started
 if not defined BACKEND_PORT set "BACKEND_PORT=8000"
 if not defined PGADMIN_PORT set "PGADMIN_PORT=5050"
 echo   Dev Backend:   http://localhost:%BACKEND_PORT%
-echo   Swagger:       http://localhost:%BACKEND_PORT%/api/schema/swagger-ui/
+echo   Swagger:       http://localhost:%BACKEND_PORT%/swagger/
 echo   pgAdmin:       http://localhost:%PGADMIN_PORT%
 echo   Redis UI:      http://localhost:8082
 echo   Prod (nginx):  http://localhost
@@ -274,7 +274,7 @@ echo [OK] All dev services started
 if not defined BACKEND_PORT set "BACKEND_PORT=8000"
 if not defined PGADMIN_PORT set "PGADMIN_PORT=5050"
 echo   Backend:  http://localhost:%BACKEND_PORT%
-echo   Swagger:  http://localhost:%BACKEND_PORT%/api/schema/swagger-ui/
+echo   Swagger:  http://localhost:%BACKEND_PORT%/swagger/
 echo   pgAdmin:  http://localhost:%PGADMIN_PORT%
 echo   Redis UI: http://localhost:8082
 echo   Grafana:  http://localhost:4000
@@ -416,8 +416,8 @@ echo [INFO] Starting Django development server...
 echo   Backend dir: %BACKEND_DIR%
 echo.
 echo   Server:   http://127.0.0.1:8000
-echo   Swagger:  http://127.0.0.1:8000/api/schema/swagger-ui/
-echo   Redoc:    http://127.0.0.1:8000/api/schema/redoc/
+echo   Swagger:  http://127.0.0.1:8000/swagger/
+echo   Redoc:    http://127.0.0.1:8000/redoc/
 echo.
 cd /d "%BACKEND_DIR%"
 python manage.py runserver

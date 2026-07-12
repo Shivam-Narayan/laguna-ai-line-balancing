@@ -6,7 +6,7 @@ import math
 import django
 
 # Setup Django before importing models
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend_laguna.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 django.setup()
 
 import time
@@ -21,7 +21,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed, ThreadPoolExec
 from django.db import transaction
 
 from .models import ManningGeneralInfo
-from backend_laguna.utils import truncate_table
+from config.utils import truncate_table
 
 CHUNK_SIZE = 50000  # Larger chunk size for better efficiency
 

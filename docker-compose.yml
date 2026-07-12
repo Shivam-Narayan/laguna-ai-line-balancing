@@ -129,7 +129,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       target: prod
-    command: celery -A backend_laguna worker -l info
+    command: celery -A config worker -l info
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-development}
       SECRET_KEY: ${SECRET_KEY}

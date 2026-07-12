@@ -113,7 +113,7 @@ CORS_ALLOW_HEADERS = [
 
 CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
 
-ROOT_URLCONF = 'backend_laguna.urls'
+ROOT_URLCONF = 'config.urls'
 
 TEMPLATES = [
     {
@@ -131,7 +131,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'backend_laguna.wsgi.application'
+WSGI_APPLICATION = 'config.wsgi.application'
 
 # Database
 if IS_PRODUCTION:
@@ -187,7 +187,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'apps.accounts.authentication.CookieJWTAuthentication',
+        'apps.accounts.api.authentication.CookieJWTAuthentication',
     ],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
@@ -204,7 +204,8 @@ USE_TZ = True
 # Static files and Media
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static_files')
-STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+_STATIC_DIR = os.path.join(BASE_DIR, 'static')
+STATICFILES_DIRS = [_STATIC_DIR] if os.path.isdir(_STATIC_DIR) else []
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

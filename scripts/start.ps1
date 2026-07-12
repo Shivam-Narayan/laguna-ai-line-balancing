@@ -257,7 +257,7 @@ if ($Dev) {
     $port = if ($env:BACKEND_PORT) { $env:BACKEND_PORT } else { "8000" }
     $pgport = if ($env:PGADMIN_PORT) { $env:PGADMIN_PORT } else { "5050" }
     Write-Colour "  Backend:  http://localhost:$port" Green
-    Write-Colour "  Swagger:  http://localhost:$port/api/schema/swagger-ui/" Green
+    Write-Colour "  Swagger:  http://localhost:$port/swagger/" Green
     Write-Colour "  pgAdmin:  http://localhost:$pgport" Green
     Write-Colour "  Redis UI: http://localhost:8082" Green
     Write-Colour "  Grafana:  http://localhost:4000" Green
@@ -336,8 +336,8 @@ if ($Local) {
     Write-Host "  Backend dir: $BackendDir"
     Write-Host ""
     Write-Colour "  Server:   http://127.0.0.1:8000" Green
-    Write-Colour "  Swagger:  http://127.0.0.1:8000/api/schema/swagger-ui/" Green
-    Write-Colour "  Redoc:    http://127.0.0.1:8000/api/schema/redoc/" Green
+    Write-Colour "  Swagger:  http://127.0.0.1:8000/swagger/" Green
+    Write-Colour "  Redoc:    http://127.0.0.1:8000/redoc/" Green
     Write-Host ""
     Push-Location $BackendDir
     python manage.py runserver

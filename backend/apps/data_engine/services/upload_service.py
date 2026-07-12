@@ -14,10 +14,10 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 from ..serializers import CalendarSerializer
 from apps.manning_sheet.models import ActiveEmployees, EMPFact
 from apps.absenteeism.utils import send_email, convert_to_excel_data, is_allowed_working_day
-from apps.accounts.authentication import CookieJWTAuthentication
+from apps.accounts.api.authentication import CookieJWTAuthentication
 from apps.accounts.utils.response_handlers import success_response, error_response
 from ..models import LocalHolidayCalendar, HistoricalWeather, EmployeeMaster, AttendanceMaster, PayableWorkingDays
-from backend_laguna.utils import truncate_table
+from config.utils import truncate_table
 
 logger = logging.getLogger('general')
 

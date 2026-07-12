@@ -5,7 +5,7 @@ import os
 import django
 
 # Setup Django before importing models
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend_laguna.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 django.setup()
 
 import numpy as np
@@ -19,7 +19,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed, ProcessPoolExec
 
 from django.db import transaction
 
-from backend_laguna.utils import truncate_table
+from config.utils import truncate_table
 from .models import ManningSheetData, ManningGeneralInfo, UnallocatedEmployees
 
 

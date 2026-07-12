@@ -1,4 +1,4 @@
-﻿import os
+import os
 import gzip
 import pytz
 import json
@@ -25,10 +25,10 @@ from datetime import datetime, timedelta, date, time
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 
-from apps.accounts.authentication import CookieJWTAuthentication
+from apps.accounts.api.authentication import CookieJWTAuthentication
 from apps.accounts.utils.response_handlers import error_response, success_response
 
-from backend_laguna.utils import truncate_table
+from config.utils import truncate_table
 from ..loading_plan_optimization import process_df
 from ..loading_plan import redistribute_production_plan
 from apps.absenteeism.utils import send_email, is_allowed_working_day, convert_number

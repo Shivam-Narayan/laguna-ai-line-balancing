@@ -57,4 +57,4 @@ CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 
 # Production image target
 FROM base AS prod
-CMD ["gunicorn", "backend_laguna.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "4"]
+CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "4"]

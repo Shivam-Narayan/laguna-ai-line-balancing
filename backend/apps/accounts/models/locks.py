@@ -1,7 +1,7 @@
 import uuid
 from django.utils import timezone
 from django.db import models, transaction
-from django.core.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError
 from datetime import timedelta
 from apps.core.models import BaseModel
 from .user import User
@@ -21,7 +21,7 @@ class EndpointLock(BaseModel):
     # Add additional fields to track user session/origin
     session_id = models.UUIDField(unique=True, default=uuid.uuid4)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
-    user_agent = models.TextField(null=True, blank=True)
+    user_agent = models.CharField(max_length=512, null=True, blank=True)
     url_name = models.CharField(null=True, blank=True, max_length=1000)
 
     class Meta:
@@ -92,18 +92,18 @@ class EndpointLock(BaseModel):
     @classmethod
     def release_lock(cls, lock_type, user, url_name):
         """
-        Release the lock for a specific endpoint
+        Release the lock for a specific endpoint.
+        Returns the number of locks released.
         """
         with transaction.atomic():
-            locks = cls.objects.filter(
-                lock_type=lock_type, 
+            # update() returns the number of rows affected — capture it before the queryset re-evaluates
+            count = cls.objects.filter(
+                lock_type=lock_type,
                 locked_by=user,
                 url_name=url_name,
                 is_active=True
-            )
-            
-            locks.update(is_active=False)
-            return locks.count()
+            ).update(is_active=False)
+            return count
 
     @classmethod
     def get_client_ip(cls, request):
