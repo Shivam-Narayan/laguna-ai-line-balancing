@@ -12,7 +12,7 @@ laguna-ai-line-balancing/             # Repository root
 │   │   ├── core/                     # Shared base models & utilities
 │   │   ├── data_engine/              # Data processing & employee management
 │   │   └── manning_sheet/            # Manning sheet & resource planning
-│   ├── backend_laguna/               # Django project configuration
+│   ├── config/                       # Django project configuration
 │   │   └── settings.py               # Environment-aware settings
 │   ├── csv_files/                    # Auto-generated CSV exports
 │   ├── data/                         # Data files (CSV, fixtures)
@@ -316,3 +316,21 @@ Navigate to `http://localhost:4000` and log in with the default credentials:
 3. Use the "Label filters" button to filter your logs. For example, to view only Django requests, set the filter to:
    `compose_service` `=` `backend`
 4. Click **Run query** to stream your logs in real-time!
+
+---
+
+## 🛠️ Troubleshooting
+
+### Nginx "Bind for 0.0.0.0:8000 failed"
+If Nginx fails to start with a port allocation error, it means another service on your machine is using port 8000. 
+- Check if another Docker project is running using `docker ps`.
+- Stop conflicting containers using `docker stop <container_name>`.
+- Check if you have a local `manage.py runserver` instance running in the background.
+
+### Celery "ModuleNotFoundError: No module named 'backend_laguna'"
+If the Django root module was recently renamed to `config`, Celery may still try to load the old name:
+1. Delete any stale `__pycache__` folders in your `backend` directory, as the `.pyc` files can still reference the old name and trip up Celery's autodiscovery.
+2. Rebuild the Celery docker image using `docker compose build celery`. Unlike the backend container, the Celery container does not volume-mount the source code and requires a rebuild to see changes.
+
+### Staticfiles Warning (W004)
+The backend now dynamically checks if the `static` directory exists before adding it to `STATICFILES_DIRS`. If you need to serve static assets, ensure the folder exists or run `python manage.py collectstatic`.
