@@ -2,17 +2,18 @@ services:
   # PostgreSQL Database
   db:
     image: postgres:15-alpine
+    env_file: .env
     environment:
-      POSTGRES_DB: ${DB_NAME:-Laguna}
-      POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_HOST_AUTHENTICATION_METHOD: md5
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -33,9 +34,10 @@ services:
   # pgAdmin (Database UI)
   pgadmin:
     image: dpage/pgadmin4:latest
+    env_file: .env
     environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@laguna.com}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin123}
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
       PGADMIN_CONFIG_SERVER_MODE: "False"
     ports:
       - "${PGADMIN_PORT:-5050}:80"
@@ -65,20 +67,21 @@ services:
       dockerfile: Dockerfile
       target: dev
     command: ["sh", "-c", "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"]
+    env_file: .env
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-development}
       SECRET_KEY: ${SECRET_KEY}
       DEBUG: "False"
       ALLOWED_HOSTS: ${ALLOWED_HOSTS}
       DB_ENGINE: ${DB_ENGINE:-django.db.backends.postgresql}
-      DB_NAME: ${DB_NAME:-Laguna}
-      DB_USER: ${DB_USER:-postgres}
-      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
       DB_HOST: db
       DB_PORT: "5432"
       REDIS_BACKEND: redis://redis:6379/0
       SENDGRID_API_KEY: ${SENDGRID_API_KEY}
-      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-noreply@laguna-clothing.com}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL}
       PRODUCTION_URL: ${PRODUCTION_URL}
       SERVER_URL: ${SERVER_URL}
     expose:
@@ -106,13 +109,14 @@ services:
              python manage.py dataEngine_scheduler &
              python manage.py manning_sheet_scheduler &
              wait"
+    env_file: .env
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-development}
-      SECRET_KEY: ${SECRET_KEY:-django-insecure-qkfz4kr257o+r7^5d$+vvr4zbvr@7+_1mq8^y0qzql0c&h*eg0}
+      SECRET_KEY: ${SECRET_KEY}
       DB_ENGINE: ${DB_ENGINE:-django.db.backends.postgresql}
-      DB_NAME: ${DB_NAME:-Laguna}
-      DB_USER: ${DB_USER:-postgres}
-      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
       DB_HOST: db
       DB_PORT: "5432"
       REDIS_BACKEND: redis://redis:6379/0
@@ -130,13 +134,14 @@ services:
       dockerfile: Dockerfile
       target: prod
     command: celery -A config worker -l info
+    env_file: .env
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-development}
       SECRET_KEY: ${SECRET_KEY}
       DB_ENGINE: ${DB_ENGINE:-django.db.backends.postgresql}
-      DB_NAME: ${DB_NAME:-Laguna}
-      DB_USER: ${DB_USER:-postgres}
-      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
       DB_HOST: db
       DB_PORT: "5432"
       REDIS_BACKEND: redis://redis:6379/0
