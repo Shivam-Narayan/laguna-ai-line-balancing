@@ -1,9 +1,8 @@
 import uuid
-from datetime import timedelta
+from datetime import timedelta, datetime
 from django.conf import settings
 from apps.core.models import BaseModel
 from django.utils import timezone
-from django.utils.timezone import now
 from django.db import models
 from .user import User
 
@@ -14,16 +13,16 @@ class PasswordResetToken(BaseModel):
     class Meta:
         db_table = 'accounts_passwordresettoken'
 
-    def is_expired(self):
+    def is_expired(self) -> bool:
         """Check if the token is expired (valid for 10 minutes)."""
-        return now() > self.created_at + timedelta(minutes=10)
+        return timezone.now() > self.created_at + timedelta(minutes=10)
 
 
-def default_expiry():
+def default_expiry() -> datetime:
     return timezone.now() + timedelta(days=365)  # 1-year expiry
     
 # Function to generate a unique token
-def generate_unique_token():
+def generate_unique_token() -> str:
     return uuid.uuid4().hex  
 
 # Custom Multi-Session Token Model
@@ -35,15 +34,15 @@ class MultiSessionToken(BaseModel):
     class Meta:
         db_table = 'accounts_multisessiontoken'
 
-    def is_expired(self):
+    def is_expired(self) -> bool:
         return timezone.now() > self.expiry
 
-    def refresh_token(self):
+    def refresh_token(self) -> None:
         """Refresh token validity if expired"""
         if self.is_expired():
             self.key = generate_unique_token()
             self.expiry = timezone.now() + timedelta(days=365)
             self.save()
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.user.email} - {self.key}"

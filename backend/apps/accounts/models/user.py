@@ -1,3 +1,4 @@
+from typing import Any, Optional
 from django.db import models
 from django.utils import timezone
 from django.core.validators import RegexValidator
@@ -5,7 +6,7 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Permis
 from apps.core.models import BaseModel
 
 class CustomUserManager(BaseUserManager):
-    def create_user(self, username, email, password=None, **extra_fields):
+    def create_user(self, username: str, email: str, password: Optional[str] = None, **extra_fields: Any) -> "User":
         if not username:
             raise ValueError('Username is required')
         if not email:
@@ -17,7 +18,7 @@ class CustomUserManager(BaseUserManager):
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, username, email, password=None, **extra_fields):
+    def create_superuser(self, username: str, email: str, password: Optional[str] = None, **extra_fields: Any) -> "User":
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         return self.create_user(username, email, password, **extra_fields)
@@ -28,6 +29,7 @@ class UserType(models.IntegerChoices):
 
 class User(AbstractBaseUser, PermissionsMixin, BaseModel):
     last_login = None  # Intentionally disabled — we do not track last login
+    is_staff = models.BooleanField(default=False)  # Required for Django Admin access
     username = models.CharField(max_length=150)
     email = models.EmailField(unique=True, max_length=255, db_index=True)
     location = models.CharField(max_length=50, default="", blank=True)

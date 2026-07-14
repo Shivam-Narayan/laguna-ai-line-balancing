@@ -1,9 +1,11 @@
+from typing import Tuple, Dict, Any, Optional
 from django.contrib.auth import get_user_model
+from rest_framework_simplejwt.tokens import RefreshToken
 from apps.accounts.models import MultiSessionToken
 
 User = get_user_model()
 
-def authenticate_user(email, password):
+def authenticate_user(email: str, password: str) -> Tuple[Optional[Dict[str, Any]], Optional[str], Optional[str], Optional[str], int]:
     """Authenticates a user and generates a session token."""
     if not email or not password:
         return None, None, None, "Email and password are required", 400
@@ -11,7 +13,8 @@ def authenticate_user(email, password):
     try:
         user = User.objects.get(email=email.strip().lower())
     except User.DoesNotExist:
-        return None, None, None, "No user found with this email", 404
+        # Standard security practice: Do not reveal if the email exists or not to prevent username enumeration.
+        return None, None, None, "Invalid email or password", 401
 
     if not user.check_password(password):
         return None, None, None, "Invalid email or password", 401
@@ -19,8 +22,6 @@ def authenticate_user(email, password):
     if not user.status:
         return None, None, None, "Your account has been deactivated. Please contact an administrator.", 403
 
-
-    from rest_framework_simplejwt.tokens import RefreshToken
     try:
         refresh = RefreshToken.for_user(user)
         user_details = {
@@ -37,7 +38,8 @@ def authenticate_user(email, password):
     except Exception as e:
         return None, None, None, f"Error generating token: {str(e)}", 500
 
-def logout_user(user, email):
+
+def logout_user(user, email: str) -> Tuple[Optional[str], int]:
     """Logs out a user by invalidating their tokens."""
     if not email:
         return "Email address is required", 400

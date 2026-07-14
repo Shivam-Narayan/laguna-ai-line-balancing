@@ -1,4 +1,5 @@
 import os
+from typing import Dict, Any
 
 from django.conf import settings
 from rest_framework import serializers  # type:ignore
@@ -44,7 +45,7 @@ class RegisterUserSerializer(serializers.Serializer):
     created_at = serializers.DateTimeField(read_only=True)
     send_mail = serializers.BooleanField(required=False, allow_null=True, default=False)
 
-    def validate_email(self, value):
+    def validate_email(self, value: str) -> str:
 
         validate_email(value)
 
@@ -53,11 +54,11 @@ class RegisterUserSerializer(serializers.Serializer):
 
         return value
 
-    def validate_password(self, value):
+    def validate_password(self, value: str) -> str:
         validate_password(value)
         return value
 
-    def create(self, validated_data):
+    def create(self, validated_data: Dict[str, Any]) -> Any:
         """
         Creating a new user with the validated data.
         """
@@ -90,13 +91,13 @@ class UpdateUserSerializer(serializers.Serializer):
     created_at = serializers.DateTimeField(read_only=True)
     send_mail = serializers.BooleanField(required=False, allow_null=True, default=False)
 
-    def validate_email(self, value):
+    def validate_email(self, value: str) -> str:
         validate_email(value)
         if self.instance and User.objects.filter(email=value.lower()).exclude(id=self.instance.id).exists():
             raise serializers.ValidationError("A user with this email already exists.")
         return value
 
-    def update(self, instance, validated_data):
+    def update(self, instance: Any, validated_data: Dict[str, Any]) -> Any:
         for field, value in validated_data.items():
             if field == "email":
                 if value.lower() != instance.email.lower():
@@ -117,16 +118,19 @@ class UpdateUserSerializer(serializers.Serializer):
 class RequestPasswordResetSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
-    def validate_email(self, value):
-        try:
-            user = User.objects.get(email=value.lower())
-            self.context['user'] = user  # Store user in context
-        except User.DoesNotExist:
-            raise serializers.ValidationError("No user found with this email", code='does_not_exist')
-        return value
+    def validate_email(self, value: str) -> str:
+        # We do NOT check if the user exists here to prevent username enumeration.
+        return value.lower()
 
-    def save(self):
-        user = self.context['user']
+    def save(self) -> Dict[str, str]:
+        email = self.validated_data['email']
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            # Standard Security Practice: Silently succeed so attackers cannot
+            # use the forgot password endpoint to guess valid emails.
+            return {"email": email}
+
         token = get_random_string(length=32)
         PasswordResetToken.objects.create(user=user, token=token)
 
@@ -160,7 +164,7 @@ class ResetPasswordSerializer(serializers.Serializer):
     new_password = serializers.CharField(write_only=True)
     confirm_password = serializers.CharField(write_only=True)
 
-    def validate(self, data):
+    def validate(self, data: Dict[str, Any]) -> Dict[str, Any]:
         token = data.get('token')
         new_password = data.get('new_password')
         confirm_password = data.get('confirm_password')
@@ -182,7 +186,7 @@ class ResetPasswordSerializer(serializers.Serializer):
 
         return data
 
-    def save(self):
+    def save(self) -> Dict[str, str]:
         reset_token = self.context['reset_token']
         user = reset_token.user
         user.set_password(self.validated_data['new_password'])

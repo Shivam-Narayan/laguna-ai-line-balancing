@@ -1,4 +1,7 @@
+from typing import Optional, Tuple, Any
+from rest_framework.request import Request
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.tokens import Token
 from rest_framework.exceptions import AuthenticationFailed
 
 
@@ -8,7 +11,7 @@ class CookieJWTAuthentication(JWTAuthentication):
     then falls back to the standard Authorization header.
     """
 
-    def authenticate(self, request):
+    def authenticate(self, request: Request) -> Optional[Tuple[Any, Token]]:
         # 1. Try to extract the token from the HttpOnly cookie
         raw_token = request.COOKIES.get('access_token')
 
@@ -17,6 +20,7 @@ class CookieJWTAuthentication(JWTAuthentication):
             header = self.get_header(request)
             if header is None:
                 return None
+            
             raw_token = self.get_raw_token(header)
             if raw_token is None:
                 return None

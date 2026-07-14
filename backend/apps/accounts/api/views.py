@@ -260,6 +260,12 @@ def debug_headers(request):
 @permission_classes([IsAuthenticated])
 def logout(request):
     try:
+        # 1. Clear database multi-session tokens
+        error_msg, _ = logout_user(request.user, request.user.email)
+        if error_msg:
+            logger.warning(f"Failed to clear multi-session token during logout for {request.user.email}: {error_msg}")
+
+        # 2. Blacklist the JWT refresh token
         refresh_token = request.COOKIES.get('refresh_token')
         if refresh_token:
             try:
@@ -294,18 +300,12 @@ def request_password_reset(request):
         serializer.save()
         return success_response(
             data=serializer.data,
-            message="Password reset link has been sent to your email",
+            message="If this email is registered, a password reset link has been sent.",
             status=status.HTTP_200_OK
         )
 
-    if 'email' in serializer.errors and serializer.errors['email'][0].code == 'does_not_exist':
-        return error_response(
-            error="Invalid or unregistered email address",
-            status=status.HTTP_404_NOT_FOUND
-        )
-
     return error_response(
-        error="Email address is required",
+        error="A valid email address is required.",
         status=status.HTTP_400_BAD_REQUEST
     )
 

@@ -1,10 +1,12 @@
+from typing import Tuple, Optional, Dict, Any
 from django.contrib.auth import get_user_model
 from rest_framework.exceptions import ValidationError
 from apps.accounts.utils.validators import validate_password
 
 User = get_user_model()
 
-def change_user_password(user, current_password, new_password, confirm_password):
+def change_user_password(user, current_password: str, new_password: str, confirm_password: str) -> Tuple[Optional[str], int]:
+    """Changes the password for a user after validating the current password and new password rules."""
     if not all([current_password, new_password, confirm_password]):
         return "All fields are required: current_password, new_password, confirm_password", 400
 
@@ -26,7 +28,9 @@ def change_user_password(user, current_password, new_password, confirm_password)
     user.save()
     return None, 200
 
-def delete_user_account(user_id):
+
+def delete_user_account(user_id: int) -> Tuple[Optional[Dict[str, Any]], Optional[str], int]:
+    """Deletes a user account by ID and returns the details of the deleted user."""
     try:
         user = User.objects.get(id=user_id)
         user_details = {

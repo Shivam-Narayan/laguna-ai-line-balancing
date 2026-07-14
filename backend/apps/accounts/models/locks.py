@@ -1,4 +1,5 @@
 import uuid
+from typing import Any, Optional
 from django.utils import timezone
 from django.db import models, transaction
 from rest_framework.exceptions import ValidationError
@@ -28,7 +29,7 @@ class EndpointLock(BaseModel):
         db_table="accounts_endpointlock"
 
     @classmethod
-    def acquire_lock(cls, lock_type, user, url_name, request=None):
+    def acquire_lock(cls, lock_type: str, user: User, url_name: str, request: Optional[Any] = None) -> "EndpointLock":
         """
         Acquire or update a lock for a specific endpoint and user.
         """
@@ -90,7 +91,7 @@ class EndpointLock(BaseModel):
             return cls.objects.create(**lock_details)
 
     @classmethod
-    def release_lock(cls, lock_type, user, url_name):
+    def release_lock(cls, lock_type: str, user: User, url_name: str) -> int:
         """
         Release the lock for a specific endpoint.
         Returns the number of locks released.
@@ -106,7 +107,7 @@ class EndpointLock(BaseModel):
             return count
 
     @classmethod
-    def get_client_ip(cls, request):
+    def get_client_ip(cls, request: Any) -> Optional[str]:
         """
         Retrieve client IP address
         """
