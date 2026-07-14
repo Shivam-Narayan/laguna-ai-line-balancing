@@ -16,6 +16,7 @@ from apps.accounts.api.views import (
     reset_password,
     change_password,
     fetch_logs,
+    CookieTokenRefreshView,
 )
 
 urlpatterns = [
@@ -24,7 +25,7 @@ urlpatterns = [
     # Auth
     path('auth/login/', login, name='login'),
     path('auth/logout/', logout, name='logout'),
-    path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('auth/token/refresh/', CookieTokenRefreshView.as_view(), name='token_refresh'),
     path('auth/password/reset/request/', request_password_reset, name='request_reset_password'),
     path('auth/password/reset/confirm/', reset_password, name='reset_password'),
     path('auth/password/change/', change_password, name='change_password'),

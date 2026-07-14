@@ -232,6 +232,53 @@ def protected_endpoint(request):
     )
 
 
+from rest_framework_simplejwt.views import TokenRefreshView
+
+class CookieTokenRefreshView(TokenRefreshView):
+    def post(self, request, *args, **kwargs):
+        refresh_token = request.COOKIES.get('refresh_token')
+        
+        if refresh_token and 'refresh' not in request.data:
+            # Make data mutable if it is a QueryDict
+            if hasattr(request.data, '_mutable'):
+                request.data._mutable = True
+                request.data['refresh'] = refresh_token
+                request.data._mutable = False
+            else:
+                try:
+                    request.data['refresh'] = refresh_token
+                except TypeError:
+                    # In case request.data is somehow a tuple or immutable list
+                    pass
+                
+        response = super().post(request, *args, **kwargs)
+        
+        if response.status_code == 200:
+            access_token = response.data.get('access')
+            new_refresh_token = response.data.get('refresh')
+            
+            cookie_samesite = 'None' if getattr(settings, 'IS_PRODUCTION', False) else 'Lax'
+            cookie_secure = getattr(settings, 'IS_PRODUCTION', False)
+            
+            if access_token:
+                response.set_cookie(
+                    key='access_token',
+                    value=access_token,
+                    httponly=True,
+                    samesite=cookie_samesite,
+                    secure=cookie_secure
+                )
+            if new_refresh_token:
+                response.set_cookie(
+                    key='refresh_token',
+                    value=new_refresh_token,
+                    httponly=True,
+                    samesite=cookie_samesite,
+                    secure=cookie_secure
+                )
+        return response
+
+
 @extend_schema(request=None)
 @api_view(['GET', 'POST'])
 @authentication_classes([])
