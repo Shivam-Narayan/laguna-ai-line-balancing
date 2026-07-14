@@ -241,19 +241,24 @@ curl -X POST http://localhost:8000/manning-sheet/manning-sheets/d-day/generate/
 
 ---
 
-## Key Features
-- **Modular Django Architecture**: All features are organized under separate apps in the `backend/apps/` directory. Each app follows a strict Domain-Driven Design pattern featuring modular `services/` that handle heavy business logic (Pandas/ETL/ML) and thin `views.py` endpoints for routing.
+## Key Features & Architectural Standards
+- **Strict Service Layer Architecture**: All features are organized under separate apps in the `backend/apps/` directory, adhering strictly to Domain-Driven Design. Heavy business logic (Pandas/ETL/ML/Database transactions) is isolated in `services/`, keeping `views.py` incredibly thin and focused only on HTTP routing.
 - **Environment-Aware Settings**: A single `settings.py` dynamically adjusts behavior based on the `ENVIRONMENT` variable (development vs production).
+- **Production-Grade Security**: 
+  - Django 4.0+ strict `CSRF_TRUSTED_ORIGINS` validation is automatically mapped to `ALLOWED_HOSTS` to prevent Cross-Site Request Forgery while supporting Nginx/Docker proxies.
+  - User deletions are protected by Django `pre_delete` signals to cleanly wipe SimpleJWT tokens (`OutstandingToken`, `BlacklistedToken`), guaranteeing database integrity and preventing foreign key crashes.
+- **Centralized Templates**: Email HTML templates (e.g., CSV exports, Password Resets) are maintained in a global, centralized `backend/templates/` directory to prevent app-level name collisions and simplify rebranding.
 - **Unified Docker Compose**: One `docker-compose.yml` for all environments. The `.env` file controls the behavior — no need for separate dev/prod compose files.
 - **Production-Ready**: Gunicorn + Celery + Nginx with proper static/media/logs separation.
 
 ## Important Notes
 
-- Django recognizes app labels (accounts, absenteeism, etc.) from INSTALLED_APPS
-- Database migrations are preserved and functional
-- All environment variables should be in `.env` (never commit this file)
-- Use `.env.example` as template for new environments
-- All containers start automatically without requiring `--profile` flags
+- Django recognizes app labels (accounts, absenteeism, etc.) from `INSTALLED_APPS`.
+- Database migrations are preserved and functional. If you add model fields (like `is_staff`), always run `python manage.py makemigrations` and `python manage.py migrate`.
+- To delete users safely (with automatic token cleanup), use the **Django Admin Panel** (`http://localhost:8000/admin/`) or the authenticated **Swagger API**, rather than raw SQL in pgAdmin.
+- All environment variables should be in `.env` (never commit this file).
+- Use `.env.example` as a template for new environments.
+- All containers start automatically without requiring `--profile` flags.
 
 ---
 
