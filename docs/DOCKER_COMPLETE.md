@@ -91,7 +91,7 @@ The helper scripts (`start.bat`, `start.ps1`, `start.sh`) provide the following 
 | `--status` | Show status of all containers |
 | `--migrate` | Run database migrations |
 | `--shell` | Open Django interactive shell |
-| `--superuser`| Create a Django superuser |
+| `--superuser`| Create a Django superuser (uses `.env` credentials) |
 
 ## 🔧 Configuration Management
 
@@ -106,15 +106,24 @@ DB_ENGINE=django.db.backends.postgresql
 DB_NAME=Laguna
 DB_USER=postgres
 DB_PASSWORD=postgres
+DB_HOST=db  # Resolves automatically in Docker
+DB_PORT=5432
+
+# CORS & CSRF Security (Required for Docker/Nginx Proxy)
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:8000
+
+# Superuser Auto-Provisioning
+DJANGO_SUPERUSER_EMAIL=admin@example.com
+DJANGO_SUPERUSER_PASSWORD=Laguna@Admin
 ```
-*Note: In Docker, `DB_HOST` is automatically resolved to `db` by the docker-compose file.*
 
 ## 🔒 Security Built-in
 
-✅ Environment-based secrets (no hardcoded passwords)
-✅ Multi-stage Dockerfile for smaller, secure production images
-✅ Health checks for database and redis
-✅ Automatic service restart on failure
+✅ **Environment-based secrets** (no hardcoded passwords).
+✅ **CSRF & CORS Protected** out of the box for Nginx/Docker proxy environments.
+✅ **Multi-stage Dockerfile** for smaller, secure production images.
+✅ **Health checks** for database and redis.
+✅ **Automatic service restart** on failure.
 
 ## ✅ Verification Checklist
 
@@ -123,4 +132,5 @@ After running `scripts\start.bat --dev`:
 - [ ] `docker compose ps` shows containers are running and "healthy"
 - [ ] You can access the Frontend at http://localhost:5173
 - [ ] You can access the Backend API at http://localhost:8000
+- [ ] You can log into the Django Admin at http://localhost:8000/admin/ with your `.env` credentials
 - [ ] You can access Grafana logs at http://localhost:4000

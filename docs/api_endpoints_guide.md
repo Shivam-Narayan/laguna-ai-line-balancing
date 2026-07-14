@@ -1,20 +1,32 @@
 # API Endpoints Workflow Guide
 
-The Laguna-AI API is split into three main app domains. While you can call endpoints individually, they are designed to be triggered in a specific sequence to achieve the final "Line Balancing" goal.
+The Laguna-AI API is split into four main app domains (`accounts`, `data_engine`, `absenteeism`, `manning_sheet`). While you can call endpoints individually, they are designed to be triggered in a specific sequence to achieve the final "Line Balancing" goal.
 
 Here is how the endpoints interact in a daily factory workflow.
 
 ---
 
-## 1. Identity & Access (`/accounts/`)
+## 1. Identity & Access (Root `/`)
 *Before any manager or HR rep can do anything, they must authenticate.*
 
-* **`POST /accounts/login/`**: Takes email/password and returns JWT access/refresh tokens.
-* **`POST /accounts/location-validator/`**: Ensures the manager clocking in is physically at the factory (Geofencing check based on latitude/longitude).
+* **`POST /auth/login/`**: Takes email/password and returns JWT access/refresh tokens.
+* **`POST /auth/token/refresh/`**: Refreshes an expired access token.
+* **`POST /locations/validate/`**: Ensures the manager clocking in is physically at the factory (Geofencing check based on latitude/longitude).
+* **`POST /users/create/`**: Registers a new user.
 
 ---
 
-## 2. Absenteeism AI & Ingestion (`/absenteeism/`)
+## 2. Data Engine (`/data/`)
+*The core ETL pipeline for uploading master datasets and calendars.*
+
+* **`POST /data/holiday-calendars/upload/`**: Uploads local holiday schedules.
+* **`POST /data/historical-weather/upload/`**: Uploads historical weather data required for the ML model.
+* **`POST /data/attendance/upload/`**: Uploads raw attendance files.
+* **`GET /data/employees/generate/`**: Generates the consolidated Employee Master record.
+
+---
+
+## 3. Absenteeism AI & Ingestion (`/absenteeism/`)
 *Ingests historical data and predicts who won't show up tomorrow.*
 
 * **`POST /absenteeism/upload/`**: Uploads historical absenteeism CSV data for training.
@@ -25,7 +37,7 @@ Here is how the endpoints interact in a daily factory workflow.
 
 ---
 
-## 3. The Manning Sheet Engine (`/manning-sheet/`)
+## 4. The Manning Sheet Engine (`/manning-sheet/`)
 *This is the final step. It combines HR API data (who works here and what are their skills) with the Absenteeism AI (who is missing today) to build the final factory line allocation.*
 
 * **`POST /manning-sheet/employees/rockhr/`**: Fetches the active employee master list directly from the external RockHR API.
@@ -38,7 +50,7 @@ Here is how the endpoints interact in a daily factory workflow.
 
 ---
 
-### The Daily Workflow Summary:
+## The Daily Workflow Summary:
 1. **Morning (Data Sync):** HR logs in and the system fetches the latest active employees and attendance (`/manning-sheet/employees/rockhr/` & `/manning-sheet/attendance/rockhr/`).
 2. **AI Processing:** The system runs the AI to calculate absence probabilities (`/absenteeism/predictions/generate/`). *(Usually handled automatically by the Celery/Scheduler service overnight).*
 3. **Execution:** The manager uploads the daily load plan and clicks generate (`/manning-sheet/manning-sheets/d-day/generate/`). The algorithm spits out the perfect line balance, and the factory starts running!
