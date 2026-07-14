@@ -59,3 +59,16 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
 
     def __str__(self):
         return self.username
+
+from django.db.models.signals import pre_delete
+from django.dispatch import receiver
+
+@receiver(pre_delete, sender=User)
+def _clear_jwt_outstanding_tokens(sender: Any, instance: "User", **kwargs: Any) -> None:
+    """
+    SimpleJWT's OutstandingToken model has a ForeignKey to the User model but does 
+    not use CASCADE deletion. We must manually delete the tokens before deleting the user 
+    to prevent an IntegrityError (Foreign Key constraint violation).
+    """
+    from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
+    OutstandingToken.objects.filter(user=instance).delete()

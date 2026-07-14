@@ -1,13 +1,14 @@
-# your_app/management/commands/run_all_schedulers.py
-from django.core.management.base import BaseCommand
-from ... import scheduler as absenteeism_scheduler
-from ...scheduler import start
 import time
+from typing import Any
+from django.core.management.base import BaseCommand
+
+# Use absolute imports in Django management commands to prevent ImportError crashes
+from apps.absenteeism.scheduler import start
 
 class Command(BaseCommand):
     help = 'Start all background schedulers'
 
-    def handle(self, *args, **kwargs):
+    def handle(self, *args: Any, **kwargs: Any) -> None:
         # self.stdout.write("🚀 Launching all schedulers...")
         start()
         try:

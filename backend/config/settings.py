@@ -111,7 +111,12 @@ CORS_ALLOW_HEADERS = [
     "content-type", "authorization", "x-requested-with", "accept", "origin",
 ]
 
-CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
+# CSRF Trusted Origins (Required for Django 4.0+ admin login)
+# Includes all CORS origins (frontend) + the backend's own origin (for admin panel)
+CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS + [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]
 
 ROOT_URLCONF = 'config.urls'
 

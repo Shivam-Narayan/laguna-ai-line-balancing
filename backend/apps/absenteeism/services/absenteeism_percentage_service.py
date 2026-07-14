@@ -12,12 +12,12 @@ def load_active_employees():
     """Load and process the active employees CSV file"""
     try:
         # Update path to look in utils directory
-        csv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'csv_files', 'Active_Employees.csv')
+        csv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'csv_files', 'Active_Employees.csv')
         logger.info(f"Attempting to read Active Employees from: {csv_path}")
         
         if not os.path.exists(csv_path):
             # Try alternate location
-            csv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'csv_files', 'Active_Employees.csv')
+            csv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'csv_files', 'Active_Employees.csv')
             logger.info(f"Trying alternate path: {csv_path}")
             
             if not os.path.exists(csv_path):

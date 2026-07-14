@@ -16,16 +16,16 @@ from django.db.models import Sum, Count, Q, Case, When, IntegerField
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 
 from apps.accounts.models import User
-from ..prediction import model_prediction
+from .prediction_service import model_prediction
 from config.utils import truncate_table
-from apps.manning_sheet.views import NOTIFICATION_DISPLAY_TITLE
 from apps.manning_sheet.models import ManningSheetData, LoadingPlan
 from apps.accounts.api.authentication import CookieJWTAuthentication
 from ..models import Absenteeism, PredictionData, AbsenteeismPrediction
 from apps.manning_sheet.utils import create_bulk_push_notifications, custom_round
 from apps.accounts.utils.response_handlers import error_response, success_response
 from apps.data_engine.models import LocalHolidayCalendar, EmployeeMaster, AttendanceMaster
-from ..absenteeism_percentage import calculate_line_percentages, get_working_days_around_date
+from .prediction_service import model_prediction
+from .absenteeism_percentage_service import calculate_line_percentages, get_working_days_around_date
 from ..utils import generate_csv, send_email, generate_prediction_data, convert_number, update_sections, merge_duplicates, is_allowed_working_day, sum_section_counts, normalize_sections, write_absenteeism_data_to_csv, export_absenteeism_predictions_excel
 
 logger = logging.getLogger('general')

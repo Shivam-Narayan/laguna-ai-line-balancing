@@ -54,7 +54,7 @@ def send_email(recipient_emails, data, subject, type, file_name, test=False):
         logger.info(f"Running EMAIL FUNCTION at {str(datetime.now())} hours!")
         # Get today's date
         # Render the email body from the template
-        email_body = render_to_string('email_template.html', {'subject': subject})
+        email_body = render_to_string('emails/absenteeism_export.html', {'subject': subject})
 
         # SendGrid API configuration
         sendgrid_api_key = settings.SENDGRID_API_KEY

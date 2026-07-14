@@ -42,7 +42,6 @@ class RegisterUserSerializer(serializers.Serializer):
     status = serializers.BooleanField(default=True)
     latitude = serializers.FloatField(required=False)
     longitude = serializers.FloatField(required=False)
-    created_at = serializers.DateTimeField(read_only=True)
     send_mail = serializers.BooleanField(required=False, allow_null=True, default=False)
 
     def validate_email(self, value: str) -> str:
