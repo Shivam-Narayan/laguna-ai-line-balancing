@@ -8,7 +8,7 @@ from sendgrid.helpers.mail import Mail, Attachment, FileContent, FileName, FileT
 
 logger = logging.getLogger('general')
 
-def send_email(recipient_emails, data, subject, type, file_name, test=False):
+def send_email(recipient_emails, data, subject, type, file_name, test=False, encoded_data=None):
     try:
         logger.info(f"*******************************************************************")
         logger.info(f"Running EMAIL FUNCTION at {str(datetime.now())} hours!")
@@ -35,13 +35,14 @@ def send_email(recipient_emails, data, subject, type, file_name, test=False):
         attachments_list = []
 
         # Add attachment if data is provided
-        if data:
+        if data or encoded_data:
             # Base64 encode the file (SendGrid requires this format)
-            encoded_file = base64.b64encode(data.getvalue()).decode()
+            if not encoded_data:
+                encoded_data = base64.b64encode(data.getvalue()).decode()
 
             # Create the attachment
             attached_file = Attachment(
-                file_content=FileContent(encoded_file),
+                file_content=FileContent(encoded_data),
                 file_name=FileName(file_name),
                 file_type=FileType(type),
                 disposition=Disposition('attachment')

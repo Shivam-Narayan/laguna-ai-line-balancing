@@ -143,17 +143,22 @@ def send_csv_via_email(request):
         # Sending email with CSV as attachment
         email_subject = "Download Absenteeism CSV File"
         file_name="absent.csv"
-        email_body = send_email(email, csv_data, email_subject, file_name=file_name)  # type: ignore
-
-        if not email_body:
-            return error_response(
-                error="Error sending email, Invalid email address.",
-                status=status.HTTP_404_NOT_FOUND
-            )
+        
+        import base64
+        from apps.absenteeism.tasks import send_email_task
+        encoded_csv = base64.b64encode(csv_data.getvalue()).decode()
+        
+        send_email_task.delay(
+            recipient_emails=email,
+            encoded_data=encoded_csv,
+            subject=email_subject,
+            file_type="text/csv",
+            file_name=file_name
+        )
 
         return success_response(
-            message=f"Email sent successfully to {email}.",
-            data={"message": "CSV file attached to the email."}
+            message=f"Email is being sent to {email} in the background.",
+            data={"message": "CSV file will be attached to the email."}
         )
 
     except Exception as e:

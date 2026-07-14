@@ -138,6 +138,10 @@ def update_employee_on_hold(request):
         if not multiple_ids:
             return error_response(error='No data found in multiple_IDs.', status=status.HTTP_400_BAD_REQUEST)
 
+        manning_ids = [entry.get('manning_id') for entry in multiple_ids if entry.get('manning_id')]
+        manning_instances = ManningSheetData.objects.in_bulk(manning_ids)
+        manning_to_update = []
+
         for entry in multiple_ids:
             preferred_employee = entry.get('preferred_employee')
             allocated_capacity = entry.get('allocated_capacity')
@@ -153,7 +157,9 @@ def update_employee_on_hold(request):
                 employee_id = emp_id
                 employee_name = emp_name
 
-            manning_instance = get_object_or_404(ManningSheetData, pk=manning_id)
+            manning_instance = manning_instances.get(manning_id)
+            if not manning_instance:
+                return error_response(error=f'ManningSheetData with id {manning_id} not found.', status=status.HTTP_404_NOT_FOUND)
 
             try:
                 employees_on_hold_instance = EmployeesOnHold.objects.get(
@@ -170,17 +176,16 @@ def update_employee_on_hold(request):
                 preferred_employees = json.loads(employees_on_hold_instance.preferred_employees)
 
                 if any(str(employee_id) == str(eid) for eid in map(str, [list(emp.keys())[0] for emp in preferred_employees])):
-                    # preferred_employees = remove_by_employee_id(preferred_employees, employee_id)
-                    # employees_on_hold_instance.preferred_employees = json.dumps(preferred_employees)
-                    # employees_on_hold_instance.count = len(preferred_employees) if preferred_employees else 0
-                    manning_instance.save()
-                    # employees_on_hold_instance.save()
+                    manning_to_update.append(manning_instance)
                 else:
                     return error_response(error=f'Employee {employee_id} not found in preferred employees list for manning_id {manning_id}.',
                                           status=status.HTTP_400_BAD_REQUEST)
             except EmployeesOnHold.DoesNotExist:
                 return error_response(error=f'No EmployeesOnHold instance found for manning_id {manning_id}.',
                                       status=status.HTTP_404_NOT_FOUND)
+
+        if manning_to_update:
+            ManningSheetData.objects.bulk_update(manning_to_update, ['allocated_emp_id', 'allocated_emp_name', 'allocated_capacity'])
 
         return success_response(message='Successfully updated the allocation of all employees.', status=status.HTTP_200_OK)
 

@@ -386,31 +386,19 @@ def manning_sheet_generation(request):
 
                             # Add shortage reason
                             # Check if any employees with matching code exist in any line
-                            any_matching_code = False
-                            for emp in emp_fact_df.iterrows():
-                                if emp[1]["code"] == code:
-                                    any_matching_code = True
-                                    break
+                            any_matching_code = not emp_fact_df[emp_fact_df["code"] == code].empty
 
                             if not any_matching_code:
                                 original_row["SHORTAGE_REASON"] = f"No employees with CODE={code} found in any line"
                             else:
                                 # Check if there are employees with the code but in different lines
-                                other_lines = []
-                                for emp in emp_fact_df.iterrows():
-                                    if emp[1]["code"] == code and emp[1]["line"] != line:
-                                        other_lines.append(emp[1]["line"])
+                                other_lines = emp_fact_df[(emp_fact_df["code"] == code) & (emp_fact_df["line"] != line)]["line"].unique().tolist()
 
                                 if other_lines:
                                     original_row["SHORTAGE_REASON"] = f"CODE={code} found only in lines: {', '.join(set(other_lines))}"
                                 else:
                                     # Check if there are employees in this line but with zero capacity
-                                    zero_capacity = False
-                                    for emp in emp_fact_df.iterrows():
-                                        if (emp[1]["code"] == code and emp[1]["line"] == line
-                                            and emp[1]["remaining_capacity"] == 0):
-                                            zero_capacity = True
-                                            break
+                                    zero_capacity = not emp_fact_df[(emp_fact_df["code"] == code) & (emp_fact_df["line"] == line) & (emp_fact_df["remaining_capacity"] == 0)].empty
 
                                     if zero_capacity:
                                         original_row["SHORTAGE_REASON"] = f"Employees with CODE={code} in LINE={line} have no remaining capacity"
@@ -500,12 +488,10 @@ def manning_sheet_generation(request):
                                 shortage_row["PERIOD"] = df_info["period"]  # Ensure PERIOD is set
 
                                 # Add shortage reason for partial shortage
-                                capacity_in_line = 0
-                                for emp in emp_fact_df.iterrows():
-                                    if emp[1]["line"] == line and emp[1]["code"] == code:
-                                        # Ensure we never add negative capacity to our sum
-                                        capacity = max(0, emp[1]["remaining_capacity"])
-                                        capacity_in_line += capacity
+                                capacity_in_line = emp_fact_df.loc[
+                                    (emp_fact_df["line"] == line) & (emp_fact_df["code"] == code),
+                                    "remaining_capacity"
+                                ].clip(lower=0).sum()
 
                                 if capacity_in_line == 0:
                                     shortage_row["SHORTAGE_REASON"] = f"All employees with CODE={code} in LINE={line} are fully allocated"

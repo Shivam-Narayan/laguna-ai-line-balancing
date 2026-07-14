@@ -96,12 +96,18 @@ def run_absenteeism_report(viaAPI):
             ]
 
             subject = "Download Absenteeism Report"
-            # email_sent = send_email(userEmails, excel_data, subject, "text/excel", file_name)
-            email_sent = send_email(userEmails, csv_buffer, subject, "text/csv", file_name)
-
-            if not email_sent:
-                logger.info(f"Error in sending email.")
-                return error_response(error="Error in sending email.", status=status.HTTP_404_NOT_FOUND)
+            
+            import base64
+            from apps.absenteeism.tasks import send_email_task
+            encoded_csv = base64.b64encode(csv_buffer.getvalue()).decode()
+            
+            send_email_task.delay(
+                recipient_emails=userEmails,
+                encoded_data=encoded_csv,
+                subject=subject,
+                file_type="text/csv",
+                file_name=file_name
+            )
 
             logger.info(f"Data sent via mail successfully at {str(datetime.now())} hours!")
             logger.info(f"***************************************************\n\n")

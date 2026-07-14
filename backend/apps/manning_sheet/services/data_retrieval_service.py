@@ -597,8 +597,19 @@ def get_dday_data():
         file_data = output  # Pass the BytesIO object directly
         content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
-        # Call the send_email function
-        send_email(userEmails, file_data, subject, content_type, file_name=file_name, test=True)
+        # Call the send_email_task function
+        import base64
+        from apps.absenteeism.tasks import send_email_task
+        encoded_excel = base64.b64encode(file_data.getvalue()).decode()
+        
+        send_email_task.delay(
+            recipient_emails=userEmails,
+            encoded_data=encoded_excel,
+            subject=subject,
+            file_type=content_type,
+            file_name=file_name,
+            test=True
+        )
         # Send push notifications to all users regardless of status
         notification_type = get_notification_type_by_time()
         time_display = NOTIFICATION_DISPLAY_TIME.get(notification_type, "Unknown")

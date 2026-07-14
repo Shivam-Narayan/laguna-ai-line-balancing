@@ -348,15 +348,21 @@ def download_manning_attendance_data(request):
             file_name = f"Dday_Manning_data_{line_no}.xlsx"
             file_data = output  # Pass the BytesIO object directly
             content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            # Call the send_email function
-            email_body = send_email(email, file_data, subject, content_type, file_name=file_name)
-            if not email_body:
-                return error_response(
-                    error="Error sending email, Invalid email address.",
-                    status=status.HTTP_404_NOT_FOUND
-                )
+            # Call the send_email_task function
+            import base64
+            from apps.absenteeism.tasks import send_email_task
+            encoded_excel = base64.b64encode(file_data.getvalue()).decode()
+            
+            send_email_task.delay(
+                recipient_emails=email,
+                encoded_data=encoded_excel,
+                subject=subject,
+                file_type=content_type,
+                file_name=file_name
+            )
+            
             return success_response(
-                message=f"Email sent successfully to {email}.",
+                message=f"Email is being sent to {email} in the background.",
                 data={"message": "File attached to the email."},
                 status=status.HTTP_200_OK
             )

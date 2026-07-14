@@ -179,15 +179,20 @@ def export_operators_data_email(request):
         subject = f"Operators Data List for {line_no}"
         file_name = f'OperatorsData_{line_no}.xlsx'
         data_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        email_sent = send_email(recipient_email, excel_data, subject, data_type, file_name=file_name)
+        
+        import base64
+        from apps.absenteeism.tasks import send_email_task
+        encoded_excel = base64.b64encode(excel_data.getvalue()).decode()
+        
+        send_email_task.delay(
+            recipient_emails=recipient_email,
+            encoded_data=encoded_excel,
+            subject=subject,
+            file_type=data_type,
+            file_name=file_name
+        )
 
-        if email_sent:
-            return Response({"message": "Email sent successfully."}, status=status.HTTP_200_OK)
-        else:
-            return error_response(
-                error="Failed to send email.",
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        return Response({"message": "Email will be sent successfully in the background."}, status=status.HTTP_200_OK)
 
     except ObjectDoesNotExist:
         return error_response(

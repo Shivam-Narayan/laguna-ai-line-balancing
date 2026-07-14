@@ -678,12 +678,20 @@ def absenteeism_prediction_data(request):
 
                 subject = "Download Absenteeism File"
                 file_name = f"Prediction_Data_{line_no}_{forecast_period}.xlsx"
-                email_sent = send_email(email, excel_data, subject, "text/excel", file_name)
+                
+                import base64
+                from apps.absenteeism.tasks import send_email_task
+                encoded_excel = base64.b64encode(excel_data.getvalue()).decode()
+                
+                send_email_task.delay(
+                    recipient_emails=email,
+                    encoded_data=encoded_excel,
+                    subject=subject,
+                    file_type="text/excel",
+                    file_name=file_name
+                )
 
-                if not email_sent:
-                    return error_response(error="Error sending email. Invalid email address.", status=status.HTTP_404_NOT_FOUND)
-
-                return success_response(message=f"Email sent successfully to {email}.", data={"message": "File attached to the email."})
+                return success_response(message=f"Email is being sent to {email} in the background.", data={"message": "File will be attached to the email."})
 
             return error_response(error='Type should be either "excel" or "email"', status=status.HTTP_400_BAD_REQUEST)
 
