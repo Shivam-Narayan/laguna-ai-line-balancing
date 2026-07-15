@@ -37,6 +37,18 @@ laguna-ai-line-balancing/             # Repository root
 
 ---
 
+## 📚 Documentation Hub
+
+| Document | Purpose |
+| :--- | :--- |
+| 🏗️ [System Architecture](docs/system_architecture.md) | High-level system design, DDD structure, and Data Pipeline diagrams |
+| 📖 [API Endpoints Guide](docs/api_endpoints_guide.md) | Frontend integration guide (or visit `/swagger/` when running) |
+| 🐳 [Docker Complete](docs/DOCKER_COMPLETE.md) | Setup, configuration, and environment variable references |
+| 🚑 [Operations Runbook](docs/runbook.md) | Troubleshooting, log extraction, and database backup procedures |
+| 🤖 [CI/CD Pipeline](docs/ci_cd_pipeline.md) | GitHub Actions automation and deployment protections |
+
+---
+
 ## Prerequisites
 
 Before starting, clone **both** repositories side-by-side in the same parent directory:
