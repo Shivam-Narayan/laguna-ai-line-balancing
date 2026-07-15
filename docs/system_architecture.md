@@ -61,7 +61,23 @@ The backend code eschews traditional "Fat Views" and "Fat Models" in favor of st
 
 ## 4. The Four Core Domains (Apps)
 
-The system is compartmentalized into four specialized micro-apps in `backend/apps/`:
+The system is compartmentalized into four specialized micro-apps in `backend/apps/`. Below is the automated Data Pipeline flow between these core engines:
+
+```mermaid
+sequenceDiagram
+    participant DE as Data Engine
+    participant DB as PostgreSQL
+    participant AB as Absenteeism Engine
+    participant MS as Manning Engine
+    
+    DE->>DB: Ingest & Cleanse Raw Factory CSVs
+    AB->>DB: Fetch Historical Attendance
+    AB->>AB: Run Scikit-Learn Regression
+    AB->>DB: Store Predicted Shortages
+    MS->>DB: Fetch Predicted Shortages & Skill Matrix
+    MS->>MS: Run Allocation Algorithm
+    MS->>DB: Save Final Shift Roster
+```
 
 ### A. Accounts (`apps/accounts`)
 Handles Identity and Access Management (IAM).
