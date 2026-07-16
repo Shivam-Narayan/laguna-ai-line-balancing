@@ -68,13 +68,8 @@ class Round(Func):
     arity = 2
     output_field = FloatField()
 
-@api_view(['POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def update_allocated_employees(request):
+def run_update_allocated_employees(final_allocation, dday_id):
     try:
-        final_allocation = request.data.get('final_allocation')
-        dday_id = request.data.get('dday_id')
 
         dday_instance = get_object_or_404(DDayData, pk=dday_id)
         dday_instance.final_allocation = final_allocation
@@ -84,19 +79,15 @@ def update_allocated_employees(request):
         return error_response(error= str(e), status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def update_employee_on_hold_individual(request):
+def run_update_employee_on_hold_individual(preferred_employee, allocated_capacity, manning_id):
     try:
-        preferred_employee = request.data.get('preferred_employee')
         employee_name = None
         employee_id = 0
-        allocated_capacity = request.data.get('allocated_capacity')
-        for emp_id, emp_name in preferred_employee.items():
-            employee_id = emp_id
-            employee_name = emp_name
-        manning_id = request.data.get('manning_id')
+        
+        if preferred_employee:
+            for emp_id, emp_name in preferred_employee.items():
+                employee_id = emp_id
+                employee_name = emp_name
 
         manning_instance = get_object_or_404(ManningSheetData, pk=manning_id)
 
@@ -129,12 +120,8 @@ def update_employee_on_hold_individual(request):
         return error_response(error= str(e), status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def update_employee_on_hold(request):
+def run_update_employee_on_hold(multiple_ids):
     try:
-        multiple_ids = request.data.get('multiple_IDs', [])
         if not multiple_ids:
             return error_response(error='No data found in multiple_IDs.', status=status.HTTP_400_BAD_REQUEST)
 
@@ -193,13 +180,8 @@ def update_employee_on_hold(request):
         return error_response(error=str(e), status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def update_allocated_capacity(request):
+def run_update_allocated_capacity(allocated_capacity, manning_id):
     try:
-        allocated_capacity = request.data.get('allocated_capacity')
-        manning_id = request.data.get('manning_id')
 
         # Validate required fields
         if not allocated_capacity or not manning_id:

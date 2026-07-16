@@ -21,12 +21,8 @@ from config.utils import truncate_table
 
 logger = logging.getLogger('general')
 
-@api_view(['GET'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def operators_data(request):
+def run_operators_data(line_no):
     try:
-        line_no = request.query_params.get('line', ' ').strip()
        
         if not line_no:
             return error_response(
@@ -76,15 +72,6 @@ def operators_data(request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
-
-@api_view(['GET'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def generate_employee_master(request):
-    try:
-        return run_generate_employee_master()  # Call the function without needing a request
-    except Exception as e:
-        return error_response(error= str(e), status=status.HTTP_400_BAD_REQUEST)
 
 
 def run_generate_employee_master():

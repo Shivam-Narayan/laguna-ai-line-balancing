@@ -485,21 +485,15 @@ def prepare_prediction_data(line_no, forecast_period, summation=False):
         return error_response(error=f"Unknown error: {str(e)}", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@api_view(['GET'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def get_absenteeism_forecast(request):
+def run_get_absenteeism_forecast(forecast_period, line):
     try:
-        # Step 0: Validate forecast_period
-        forecast_period = request.GET.get('forecast_period', 7)
+        # Default to 7 days if not provided or invalid
         try:
             forecast_period = int(forecast_period)
-            if forecast_period not in [1, 7, 30, 60]:
-                return Response({"error": "Forecast period must be 1, 7, 30, or 60 days"}, status=400)
-        except ValueError:
-            return Response({"error": "Invalid forecast period. Must be an integer."}, status=400)
+        except (ValueError, TypeError):
+            forecast_period = 7
 
-        line = request.GET.get('line', 'all').upper()
+        line = line.strip().upper()
         if line != 'ALL' and not line.startswith('LINE '):
             return Response({"error": "Line parameter must be in format 'LINE X'"}, status=400)
 
@@ -595,11 +589,8 @@ def get_absenteeism_forecast(request):
         }, status=500)
 
 
-@api_view(['POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])        
-def absenteeism_prediction(request):
-    if request.method == 'POST':  
+def run_absenteeism_prediction_trigger():
+    if True:
         import threading
         viaAPI = True
         # Run the heavy ML process in the background to prevent 504 Gateway Time-out
@@ -612,16 +603,9 @@ def absenteeism_prediction(request):
     return error_response(error='Invalid request method.', status=405)
 
 
-@api_view(['GET', 'POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def absenteeism_prediction_data(request):
+def run_absenteeism_prediction_data(line_no, forecast_period, get_all, is_export=False, export_type='', email=''):
     try:
-        line_no = request.query_params.get('line', '').strip()
-        forecast_period = request.query_params.get('forecast_period', '').strip()
-        get_all = request.query_params.get('get_all', 'false').strip().lower() == 'true'
-        
-        if request.method == 'POST' and get_all:
+        if is_export and get_all:
             response = export_absenteeism_predictions_excel()
             return response
 
@@ -638,7 +622,7 @@ def absenteeism_prediction_data(request):
         if prediction_response.data['status'] == 'error':
             return prediction_response
 
-        if request.method == 'GET':
+        if not is_export:
             updatedResponse={
                 'data': prediction_response.data['data'],
                 'message': "Data fetched successfully",
@@ -658,11 +642,9 @@ def absenteeism_prediction_data(request):
                     'Vary': 'Accept-Encoding'
                 }
             )
-            # return success_response(message='Data fetched successfully', data=prediction_response.data['data'], status=status.HTTP_200_OK)
 
-        elif request.method == 'POST':
+        elif is_export:
             excel_data = generate_prediction_data(prediction_response.data['data'])
-            export_type = request.query_params.get('type', '').lower()
             if not export_type:
                 return error_response(error='Type (excel/email) of data to export not provided', status=status.HTTP_400_BAD_REQUEST)
 
@@ -672,7 +654,6 @@ def absenteeism_prediction_data(request):
                 return response
 
             elif export_type == 'email':
-                email = request.query_params.get("email")
                 if not email:
                     return error_response(error='Email not provided', status=status.HTTP_400_BAD_REQUEST)
 

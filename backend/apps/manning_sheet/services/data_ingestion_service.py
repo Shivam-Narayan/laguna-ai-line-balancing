@@ -68,12 +68,8 @@ class Round(Func):
     arity = 2
     output_field = FloatField()
 
-@api_view(['POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def styleob_file_upload(request):
-    if request.method == 'POST':
-        file = request.FILES.get('file')
+def run_styleob_file_upload(file):
+    if True:
         if not file:
             return error_response(error='File is required', status=status.HTTP_400_BAD_REQUEST)
         
@@ -131,13 +127,8 @@ def styleob_file_upload(request):
     return error_response(error= 'Invalid request', status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def loading_plan_file_upload(request):
-    if request.method == 'POST':
-        file = request.FILES.get('file')
-    
+def run_loading_plan_file_upload(file):
+    if True:
         if not file:
             return error_response(error='File is required', status=status.HTTP_400_BAD_REQUEST)
         
@@ -209,13 +200,8 @@ def loading_plan_file_upload(request):
     return error_response(error= 'Invalid request', status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def loading_plan_file_upload_old(request):
-    if request.method == 'POST':
-        file = request.FILES.get('file')
-
+def run_loading_plan_file_upload_old(file, max_styles_per_day, custom_line_capacities):
+    if True:
         if not file:
             return error_response(error='File is required', status=status.HTTP_400_BAD_REQUEST)
         
@@ -417,9 +403,9 @@ def loading_plan_file_upload_old(request):
             unique_lines = df_load_plan_transformed["Line"].unique().tolist()
 
             # Prepare optimization parameters from form
-            max_styles_per_day = request.POST.get('max_styles_per_day')
+            # Variables passed directly
             max_styles_per_day = int(max_styles_per_day) if max_styles_per_day else 2
-            custom_line_capacities = request.POST.get("line_capacities")  # Dictionary {line_name: capacity}
+            custom_line_capacities = custom_line_capacities  # Dictionary {line_name: capacity}
 
 
             if custom_line_capacities:
@@ -657,12 +643,8 @@ def loading_plan_file_upload_old(request):
     return error_response(error= 'Invalid request', status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def emp_fact_file_upload(request):
-    if request.method == 'POST':
-        file = request.FILES.get('file')
+def run_emp_fact_file_upload(file):
+    if True:
         if not file:
             return error_response(error='File is required', status=status.HTTP_400_BAD_REQUEST)
         
@@ -700,12 +682,8 @@ def emp_fact_file_upload(request):
     return error_response(error= 'Invalid request', status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def wip_file_upload(request):
-    if request.method == 'POST':
-        file = request.FILES.get('file')
+def run_wip_file_upload(file):
+    if True:
         if not file:
             return error_response(error='File is required', status=status.HTTP_400_BAD_REQUEST)
         
@@ -739,20 +717,14 @@ def wip_file_upload(request):
     return error_response(error= 'Invalid request', status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['GET'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def fetch_emp_attendance_rockhr(request):
+def run_fetch_emp_attendance_rockhr():
     try:
         return fetch_and_transform_emp_attendance()  # Call the function without needing a request
     except Exception as e:
         return error_response(error= str(e), status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['GET'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def fetch_emp_details_rockhr(request):
+def run_fetch_emp_details_rockhr():
     try:
         return fetch_and_transform_empdetails()  # Call the function without needing a request
     except Exception as e:
@@ -1068,10 +1040,7 @@ def fetch_and_transform_empdetails():
         return error_response(error=f"Error in RockHR API: {str(e)}", status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['GET'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def fetch_wip_data_api(request):
+def run_fetch_wip_data_api():
     try:
         viaAPI = True
         return run_fetch_wip_data(viaAPI)
@@ -1135,12 +1104,9 @@ def run_fetch_wip_data(viaAPI):
         return error_response(error=str(e), status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def uploading_planned_leaves(request):
+def run_uploading_planned_leaves(file):
     try:
-        file = request.FILES.get('file')
+        
         if not file:
             return error_response(error='File is required', status=status.HTTP_400_BAD_REQUEST)
         
@@ -1171,11 +1137,8 @@ def uploading_planned_leaves(request):
         return error_response(error= str(e), status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def upload_wip_data(request):
-    file = request.FILES.get('file')
+def run_upload_wip_data(file):
+    
 
     if not file:
         return error_response(error='File is required', status=status.HTTP_400_BAD_REQUEST)
@@ -1221,10 +1184,7 @@ def upload_wip_data(request):
         return error_response(error= str(e), status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['GET'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def add_bulk_wip_data(request):
+def run_add_bulk_wip_data(data_list):
     """
     Adds multiple WIPData records in bulk.
 
@@ -1951,12 +1911,9 @@ def insert_all_unallocated_employees(all_unallocated_employees, df_active_employ
         executor.map(insert_chunk, chunked_data)
 
 
-@api_view(['POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def upload_active_employees(request):
+def run_upload_active_employees(file):
     try:
-        file = request.FILES.get('file')
+        
         if not file:
             return error_response(error="No file uploaded", status=status.HTTP_400_BAD_REQUEST)
 

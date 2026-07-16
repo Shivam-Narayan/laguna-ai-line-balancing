@@ -4,6 +4,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from apps.accounts.models import MultiSessionToken
 
 User = get_user_model()
+from apps.accounts.api.serializers import RequestPasswordResetSerializer, ResetPasswordSerializer
 
 def authenticate_user(email: str, password: str) -> Tuple[Optional[Dict[str, Any]], Optional[str], Optional[str], Optional[str], int]:
     """Authenticates a user and generates a session token."""
@@ -49,3 +50,21 @@ def logout_user(user, email: str) -> Tuple[Optional[str], int]:
 
     MultiSessionToken.objects.filter(user=user).delete()
     return None, 200
+
+
+def request_password_reset_email(data: Dict[str, Any]) -> Tuple[Optional[Dict[str, Any]], Optional[str], int]:
+    """Handles password reset request and triggers the email."""
+    serializer = RequestPasswordResetSerializer(data=data)
+    if serializer.is_valid():
+        serializer.save()
+        return serializer.data, None, 200
+    return None, "A valid email address is required.", 400
+
+
+def reset_user_password(data: Dict[str, Any]) -> Tuple[Optional[Dict[str, Any]], Optional[Any], int]:
+    """Resets the user's password using the provided token."""
+    serializer = ResetPasswordSerializer(data=data)
+    if serializer.is_valid():
+        result_data = serializer.save()
+        return result_data, None, 200
+    return None, serializer.errors, 400

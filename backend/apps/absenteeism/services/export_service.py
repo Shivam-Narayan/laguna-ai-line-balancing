@@ -31,10 +31,7 @@ from ..utils import generate_csv, send_email, generate_prediction_data, convert_
 logger = logging.getLogger('general')
 prediction_response = {}
 
-@api_view(['GET'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def export_data(request):
+def run_export_data():
     try:
         # Fetching data from the database dynamically
         fields = [field.name for field in LocalHolidayCalendar._meta.get_fields()]  # type: ignore
@@ -78,10 +75,7 @@ def export_data(request):
         )
 
 
-@api_view(['GET'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def export_absenteeism_data(request):
+def run_export_absenteeism_data():
     try:
         # Fetch all fields dynamically from the model
         fields = [field.name for field in Absenteeism._meta.get_fields()]  # type: ignore
@@ -118,13 +112,9 @@ def export_absenteeism_data(request):
         )
 
 
-@api_view(['POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def send_csv_via_email(request):
+def run_send_csv_via_email(email):
     try:
-        # Getting the email from the request body
-        email = request.data.get("email")
+        # Getting the email
         if not email:
             return error_response(
                 error="Email address is required.",
