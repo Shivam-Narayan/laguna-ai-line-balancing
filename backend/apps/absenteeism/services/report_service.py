@@ -31,19 +31,6 @@ from ..utils import generate_csv, send_email, generate_prediction_data, convert_
 logger = logging.getLogger('general')
 prediction_response = {}
 
-@api_view(['GET'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def get_today_absenteeism_report(request):
-    try:
-        viaAPI=True
-        excel_data, file_name = run_absenteeism_report(viaAPI)  # Call the function without needing a request
-        response = HttpResponse(excel_data, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')  # type: ignore
-        response['Content-Disposition'] = f'attachment; filename="{file_name}"'
-        return response
-    except Exception as e:
-        return error_response(error= str(e), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 def run_absenteeism_report(viaAPI):
     try:

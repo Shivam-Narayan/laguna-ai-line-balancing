@@ -54,12 +54,9 @@ def extract_week_number(week_col):
     return int(''.join(filter(str.isdigit, week_col)))
 
 
-@api_view(['POST'])
-def upload_historical_weather_data(request):
-    if request.method == 'POST':
-        file = request.FILES.get('file')
-        if not file:
-            return error_response(error= 'No file uploaded', status=400)
+def run_upload_historical_weather_data(file):
+    if not file:
+        return error_response(error= 'No file uploaded', status=400)
 
         try:
             # Check the file type
@@ -147,14 +144,9 @@ def upload_historical_weather_data(request):
     return error_response(error= 'Invalid request method', status=405)
 
 
-@api_view(['POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def upload_attendance_file(request):
-    if request.method == 'POST':
-        file = request.FILES.get('file')
-        if not file:
-            return error_response(error="File is required", status=status.HTTP_404_NOT_FOUND)
+def run_upload_attendance_file(file):
+    if not file:
+        return error_response(error="File is required", status=status.HTTP_404_NOT_FOUND)
         
         try:
             # Read the Excel file into a DataFrame
@@ -214,12 +206,8 @@ def upload_attendance_file(request):
     return error_response(error= 'Invalid request', status=400)
 
 
-@api_view(['POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def add_local_holiday_calender(request):
+def run_add_local_holiday_calender(file):
     try:
-        file = request.FILES.get('file')
         if not file:
             return error_response(error='File is required', status=status.HTTP_400_BAD_REQUEST)
         
@@ -260,10 +248,7 @@ def add_local_holiday_calender(request):
         return error_response(error= str(e), status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def add_payable_working_days(request):
+def run_add_payable_working_days():
     try:
         # file = request.FILES.get('file')
         # if not file:
