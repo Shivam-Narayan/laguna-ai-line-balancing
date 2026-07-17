@@ -1,6 +1,6 @@
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.permissions import IsAuthenticated
-from apps.accounts.api.authentication import CookieJWTAuthentication
+from apps.accounts.authentication import CookieJWTAuthentication
 
 from .services.upload_service import run_upload_historical_weather_data, run_upload_attendance_file, run_add_local_holiday_calender, run_add_payable_working_days
 from .services.export_service import run_get_calendar, run_export_operators_data, run_export_operators_data_email

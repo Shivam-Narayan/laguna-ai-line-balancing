@@ -14,9 +14,9 @@ from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.accounts.models import MultiSessionToken
-from apps.accounts.api.authentication import CookieJWTAuthentication
+from apps.accounts.authentication import CookieJWTAuthentication
 from apps.accounts.utils.response_handlers import success_response, error_response
-from apps.accounts.api.serializers import (
+from apps.accounts.serializers import (
     UserSerializer,
     RegisterUserSerializer,
     UpdateUserSerializer,

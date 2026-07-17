@@ -4,7 +4,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from apps.accounts.models import MultiSessionToken
 
 User = get_user_model()
-from apps.accounts.api.serializers import RequestPasswordResetSerializer, ResetPasswordSerializer
+from apps.accounts.serializers import RequestPasswordResetSerializer, ResetPasswordSerializer
 
 def authenticate_user(email: str, password: str) -> Tuple[Optional[Dict[str, Any]], Optional[str], Optional[str], Optional[str], int]:
     """Authenticates a user and generates a session token."""

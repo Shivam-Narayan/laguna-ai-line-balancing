@@ -5,7 +5,7 @@ from apps.accounts.utils.validators import validate_password
 
 User = get_user_model()
 import logging
-from apps.accounts.api.serializers import RegisterUserSerializer, UserSerializer, UpdateUserSerializer
+from apps.accounts.serializers import RegisterUserSerializer, UserSerializer, UpdateUserSerializer
 
 logger = logging.getLogger(__name__)
 

@@ -25,7 +25,7 @@ from datetime import datetime, timedelta, date, time
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 
-from apps.accounts.api.authentication import CookieJWTAuthentication
+from apps.accounts.authentication import CookieJWTAuthentication
 from apps.accounts.utils.response_handlers import error_response, success_response
 
 from .data_ingestion_service import fetch_and_transform_emp_attendance

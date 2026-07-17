@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework.permissions import IsAuthenticated
 from django.core.exceptions import ValidationError
 
-from apps.accounts.api.authentication import CookieJWTAuthentication
+from apps.accounts.authentication import CookieJWTAuthentication
 from apps.accounts.utils.response_handlers import error_response
 
 from .services.data_ingestion_service import run_styleob_file_upload, run_loading_plan_file_upload, run_loading_plan_file_upload_old, run_emp_fact_file_upload, run_wip_file_upload, run_fetch_emp_attendance_rockhr, run_fetch_emp_details_rockhr, fetch_and_transform_emp_attendance, fetch_and_transform_empdetails, run_fetch_wip_data_api, run_fetch_wip_data, run_uploading_planned_leaves, run_upload_wip_data, run_add_bulk_wip_data, run_upload_active_employees

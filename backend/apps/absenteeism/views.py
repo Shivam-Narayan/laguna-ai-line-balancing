@@ -1,7 +1,7 @@
 from django.http import HttpResponse
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.permissions import IsAuthenticated
-from apps.accounts.api.authentication import CookieJWTAuthentication
+from apps.accounts.authentication import CookieJWTAuthentication
 
 from .services.data_ingestion_service import run_upload_absenteesim_data, run_absenteeism_data_preprocessing, run_upload_prediction_data
 from .services.export_service import run_export_data, run_export_absenteeism_data, run_send_csv_via_email, scheduler_prediction_data_email

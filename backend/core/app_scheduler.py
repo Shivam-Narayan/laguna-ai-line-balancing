@@ -2,64 +2,50 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from pytz import timezone
 
+# Initialize scheduler
 scheduler = BackgroundScheduler()
-scheduler_started = False  # Global flag to prevent multiple starts
+_is_started = False  # Private flag to prevent multiple starts
 
-def absenteeismScheduler():
+def start_all_schedulers():
+    """
+    Centralized function to add all jobs and start the scheduler once.
+    """
+    global _is_started
+    if _is_started:
+        print("⚠ APScheduler is already running!")
+        return
+
+    print("🔄 Initializing and starting APScheduler...")
+    ist = timezone("Asia/Kolkata")
+
+    # 1. Add Absenteeism Job
     from apps.absenteeism.views import run_absenteeism_prediction
-    global scheduler_started
-    if not scheduler_started:
-        print("🔄 Starting APScheduler for Absenteeism App...")
+    scheduler.add_job(
+        run_absenteeism_prediction,
+        CronTrigger(hour=2, minute=30, timezone=ist),
+        id="absenteeism_prediction_job",
+        replace_existing=True
+    )
 
-        # Set the timezone (e.g., for IST - Indian Standard Time)
-        ist = timezone("Asia/Kolkata")
-        scheduler.add_job(run_absenteeism_prediction,
-                          CronTrigger(hour=2, minute=30,  timezone=ist),  # 02:30 (02:30 AM)
-                          id="absenteeis_prediction_job",
-                          replace_existing=True
-                        )
-        scheduler.start()
-        scheduler_started = True  # Set flag to True after starting
-    else:
-        print("⚠ APScheduler for Absenteeism App is already running!")
-
-
-
-
-def data_engineScheduler():
+    # 2. Add Data Engine Job
     from apps.data_engine.views import run_generate_employee_master
-    global scheduler_started
-    if not scheduler_started:
-        print("🔄 Starting APScheduler for DataEngine App...")
+    scheduler.add_job(
+        run_generate_employee_master,
+        CronTrigger(hour=22, minute=30, timezone=ist),
+        id="employee_master_job",
+        replace_existing=True
+    )
 
-        # Set the timezone (e.g., for IST - Indian Standard Time)
-        ist = timezone("Asia/Kolkata")
-        scheduler.add_job(run_generate_employee_master,
-                          CronTrigger(hour=22, minute=30, timezone=ist),  # 22:30 (10:30 PM)
-                          id="employee_master_job",
-                          replace_existing=True
-                        )
-        scheduler.start()
-        scheduler_started = True  # Set flag to True after starting
-    else:
-        print("⚠ APScheduler for DataEngine App is already running!")
-
-
-
-def manningSheetScheduler():
+    # 3. Add Manning Sheet Job
     from apps.manning_sheet.views import run_generate_emp_fact
-    global scheduler_started
-    if not scheduler_started:
-        print("🔄 Starting APScheduler for ManningSheet App...")
+    scheduler.add_job(
+        run_generate_emp_fact,
+        CronTrigger(hour=22, minute=0, timezone=ist),
+        id="emp_fact_job",
+        replace_existing=True
+    )
 
-        # Set the timezone (e.g., for IST - Indian Standard Time)
-        ist = timezone("Asia/Kolkata")
-        scheduler.add_job(run_generate_emp_fact,
-                          CronTrigger(hour=22, minute=0, timezone=ist),  # 22:00 (10 PM)
-                          id="emp_fact_job",
-                          replace_existing=True
-                        )
-        scheduler.start()
-        scheduler_started = True  # Set flag to True after starting
-    else:
-        print("⚠ APScheduler for ManningSheet App is already running!")
+    # Start the scheduler ONCE
+    scheduler.start()
+    _is_started = True
+    print("✅ APScheduler started successfully.")
