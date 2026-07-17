@@ -11,20 +11,20 @@ All services are containerized. To view real-time logs for a specific service:
 
 ```bash
 # View main Django backend logs
-docker-compose logs -f backend
+./scripts/start.sh --logs backend
 
 # View Celery worker logs (for ML and background tasks)
-docker-compose logs -f celery
+./scripts/start.sh --logs celery
 
 # View Nginx access/error logs
-docker-compose logs -f nginx
+./scripts/start.sh --logs nginx
 ```
 
 ### Inspecting Django Error Files
 If the backend crashes with a 500 error, detailed stack traces are saved to persistent volumes.
 ```bash
-# Exec into the backend container
-docker-compose exec backend sh
+# Exec into the backend container (requires raw docker compose with correct files, or just use docker exec)
+docker exec -it laguna-ai-line-balancing-backend-1 sh
 
 # View the last 100 lines of the error log
 tail -n 100 logs/error.log
@@ -39,14 +39,14 @@ If the background tasks (Data Engine imports, Absenteeism predictions, Manning S
 ### Check Celery Worker Status
 ```bash
 # Ping the celery worker to see if it is responsive
-docker-compose exec backend celery -A config inspect ping
+docker exec -it laguna-ai-line-balancing-backend-1 celery -A config inspect ping
 ```
 
 ### Check Redis Queue Length
 If workers are overwhelmed, tasks will pile up in Redis.
 ```bash
 # Access the Redis CLI
-docker-compose exec redis redis-cli
+docker exec -it laguna-ai-line-balancing-redis-1 redis-cli
 
 # Check the length of the default Celery queue
 127.0.0.1:6379> LLEN celery
@@ -55,7 +55,7 @@ docker-compose exec redis redis-cli
 
 ### Restarting a Stuck Worker
 ```bash
-docker-compose restart celery
+docker restart laguna-ai-line-balancing-celery-1
 ```
 *Note: Restarting the worker will not lose pending tasks, as they remain safely in the Redis broker queue until explicitly acknowledged.*
 
@@ -66,14 +66,15 @@ docker-compose restart celery
 ### Backing Up the Database
 To create a manual backup of the PostgreSQL database without bringing down the system:
 ```bash
-# Create a backup file on the host machine
-docker-compose exec -t db pg_dump -U $DB_USER $DB_NAME -c > backup_$(date +%F).sql
+# Create a backup file on the host machine using the helper script
+./scripts/start.sh --backup
 ```
 
 ### Restoring the Database
 *Warning: This is a destructive operation that will overwrite current data.*
 ```bash
-cat backup_YYYY-MM-DD.sql | docker-compose exec -T db psql -U $DB_USER -d $DB_NAME
+# Restore from a SQL backup file
+./scripts/start.sh --restore backup_YYYY-MM-DD.sql
 ```
 
 ---
@@ -85,15 +86,15 @@ If the entire application becomes unresponsive (e.g., 502 Bad Gateway across all
 
 ```bash
 # Gracefully stop all containers
-docker-compose down
+./scripts/start.sh --down
 
-# Restart the system in detached mode
-docker-compose up -d
+# Restart the system
+./scripts/start.sh --prod   # or --dev
 ```
 
 ### Database Lock / Deadlock
 If the system logs show PostgreSQL deadlock errors (`OperationalError: deadlock detected`), restart the database container to terminate all connections:
 ```bash
-docker-compose restart db
+docker restart laguna-ai-line-balancing-db-1
 ```
 *Note: The backend and celery containers are configured to automatically reconnect once the database is healthy.*

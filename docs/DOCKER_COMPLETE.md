@@ -9,7 +9,9 @@ Your Laguna AI Line Balancing application uses a **Unified Docker Setup**, meani
 #### Core Docker Files
 ```text
 laguna-ai-line-balancing/
-├── docker-compose.yml           # Unified orchestration for all services
+├── docker-compose.yml           # Base orchestration (db, redis, frontend, logging)
+├── docker-compose.override.yml  # Dev overrides (local volume mounts, pgadmin)
+├── docker-compose.prod.yml      # Prod overrides (celery, scheduler, nginx, gunicorn)
 ├── backend/
 │   └── Dockerfile               # Multi-stage Dockerfile for the backend
 ├── nginx.conf                   # Nginx reverse proxy configuration
@@ -27,24 +29,24 @@ Located in the `scripts/` directory:
 
 ## 🎯 Services Included
 
-The `docker-compose.yml` orchestrates the following services:
+The architecture is split into three layered files: `docker-compose.yml` (Base), `docker-compose.override.yml` (Dev), and `docker-compose.prod.yml` (Prod).
 
-### Application Services
-- **backend**: Django API server (runs development server or Gunicorn based on `.env`)
-- **app**: Frontend React Application (port 5173)
-- **scheduler**: Background scheduler for absenteeism and manning sheet generation
-- **celery**: Production task queue worker
-
-### Data & Caching
+### Base Services (`docker-compose.yml`)
 - **db**: PostgreSQL database (port 5432)
 - **redis**: Cache and message broker (port 6379)
+- **app**: Frontend React Application (port 5173)
+- **loki**, **promtail**, **grafana**: Centralized logging and monitoring
 
-### Monitoring & UI Tools
+### Development Overrides (`docker-compose.override.yml`)
+- **backend**: Django API server (runs development server with local volume mounts)
 - **pgadmin**: Web UI for PostgreSQL (port 5050)
 - **redis-commander**: Web UI for Redis (port 8082)
-- **grafana**: Log visualization and monitoring dashboards (port 4000)
-- **loki**: Log aggregation backend
-- **promtail**: Scrapes Docker logs and pushes to Loki
+
+### Production Overrides (`docker-compose.prod.yml`)
+- **backend**: Django API server (runs production Gunicorn server)
+- **celery**: Production background task worker
+- **scheduler**: Background scheduler for absenteeism and manning sheet generation
+- **nginx**: Reverse proxy serving static files and routing traffic
 
 ## 🚀 Quick Start
 
@@ -186,30 +188,30 @@ CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers
 
 **Summary:** This Dockerfile allows you to run `docker build --target dev` for local testing, or `docker build --target prod` for a highly optimized, compiler-free, production-ready image!
 
-### 2. Microservices Architecture (`docker-compose.yml`)
+### 2. Microservices Architecture (Layered Docker Compose)
 
-This `docker-compose.yml` file is incredibly well-structured. It defines a complete, production-ready **microservices architecture** for your application. 
+This setup is incredibly well-structured. It defines a complete, production-ready **microservices architecture** using a **layered compose approach**.
 
-Instead of running everything on one machine manually, this file tells Docker how to spin up **11 different isolated services** that all talk to each other seamlessly.
+Instead of a monolithic file, the setup is split into `docker-compose.yml` (Base), `docker-compose.override.yml` (Dev environment UI tools and live-reloading), and `docker-compose.prod.yml` (Production workers, Nginx, and Gunicorn).
 
-Here is a breakdown of the entire architecture, grouped by what they do:
+Here is a breakdown of the entire architecture:
 
-#### The Data Layer (Storage & Caching)
+#### The Data Layer (Storage & Caching) - Base
 - **`db`**: A PostgreSQL 15 database. It stores all your application's permanent data. It uses a `healthcheck` to ensure the database is fully booted before letting other services connect to it.
 - **`redis`**: An in-memory data store. This is typically used for caching data to make the app faster, and it also acts as the "message broker" for Celery background tasks.
 
-#### The Management UIs (Tools for Developers)
+#### The Management UIs (Tools for Developers) - Dev Override
 - **`pgadmin`**: A graphical web interface (running on port 5050) that lets you easily view and manage your PostgreSQL database without writing SQL in the terminal.
 - **`redis-commander`**: A graphical web interface (port 8082) for looking inside your Redis cache.
 
 #### The Core Application Layer
-- **`backend`**: Your main Django application. It builds from the `dev` target of the `Dockerfile` we just looked at. Notice the `command` line: it automatically runs database migrations (`migrate`) before starting the Django server!
-- **`celery`**: A Celery background worker. While the `backend` handles quick HTTP requests from users, `celery` handles long-running background tasks (like sending emails or processing huge files) so the user doesn't have to wait.
-- **`scheduler`**: This is exactly what we were talking about earlier! This container runs a custom script that launches your three individual app schedulers (`absenteeism_scheduler`, `dataEngine_scheduler`, `manning_sheet_scheduler`) simultaneously in the background. 
-- **`app`**: Your Frontend web application (likely React or Vue, running on port 5173). It is built from a folder outside the backend (`../laguna-ai-line-balancing-app`).
+- **`backend`**: Your main Django application. In dev, it mounts your local files for live-reloading. In prod, it uses a baked Docker image running Gunicorn. Both automatically run database migrations (`migrate`) on boot.
+- **`celery`** (Prod): A Celery background worker for long-running background tasks.
+- **`scheduler`** (Prod): This container runs a custom script that launches your three individual app schedulers simultaneously in the background. 
+- **`app`** (Base): Your Frontend web application (running on port 5173 for dev).
 
-#### The Gateway
-- **`nginx`**: A high-performance web server acting as a "Reverse Proxy". It sits in front of your backend, listens on standard web ports (80 and 443 for HTTPS), and serves your static files (like CSS/images) extremely fast, passing only the complex dynamic requests to Django.
+#### The Gateway - Prod Override
+- **`nginx`**: A high-performance web server acting as a "Reverse Proxy". It sits in front of your backend, listens on standard web ports (80 and 443 for HTTPS), and serves your static files (like CSS/images) extremely fast.
 
 #### The Observability Layer (Monitoring & Logs)
 - **`loki`**: A log aggregation system built by Grafana. It acts like a giant database specifically for storing logs from all your different containers.

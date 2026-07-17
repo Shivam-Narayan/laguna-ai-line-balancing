@@ -209,24 +209,24 @@ if "%STAGED_MODE%"=="true" (
     echo [INFO] Starting ALL services ^(staged sequence^)...
 
     echo   Stage 1/4: Core infrastructure ^(db, redis^)...
-    %DC% --profile dev --profile prod up -d db redis
+    %DC% -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml up -d db redis
     echo   Waiting for databases to be healthy...
     timeout /t 10 /nobreak >nul
 
     echo   Stage 2/4: Backend application...
-    %DC% --profile dev --profile prod up -d backend
+    %DC% -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml up -d backend
     timeout /t 5 /nobreak >nul
 
     echo   Stage 3/4: Background workers ^(celery, scheduler^)...
-    %DC% --profile prod --profile scheduler up -d celery scheduler
+    %DC% -f docker-compose.yml -f docker-compose.prod.yml up -d celery scheduler
     timeout /t 3 /nobreak >nul
 
     echo   Stage 4/4: Developer tools and reverse proxy ^(pgadmin, nginx^)...
-    %DC% --profile dev up -d pgadmin
-    %DC% --profile prod up -d nginx
+    %DC% -f docker-compose.yml -f docker-compose.override.yml up -d pgadmin
+    %DC% -f docker-compose.yml -f docker-compose.prod.yml up -d nginx
 ) else (
     echo [INFO] Starting ALL services ^(fast mode^)...
-    %DC% --profile dev --profile prod --profile scheduler up --force-recreate -d
+    %DC% -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml up --force-recreate -d
 )
 
 echo [OK] All services started
@@ -252,21 +252,21 @@ if "%STAGED_MODE%"=="true" (
     echo [INFO] Starting dev services ^(staged sequence^)...
 
     echo   Stage 1/3: Core infrastructure ^(db, redis^)...
-    %DC% --profile dev up -d db redis
+    %DC% -f docker-compose.yml -f docker-compose.override.yml up -d db redis
     echo   Waiting for databases to be healthy...
     timeout /t 8 /nobreak >nul
 
     echo   Stage 2/3: Backend application...
-    %DC% --profile dev up -d backend
+    %DC% -f docker-compose.yml -f docker-compose.override.yml up -d backend
     timeout /t 5 /nobreak >nul
 
     echo   Stage 3/3: Developer tools and Proxy ^(pgadmin, nginx^)...
-    %DC% --profile dev up -d pgadmin
-    %DC% --profile prod up -d nginx
+    %DC% -f docker-compose.yml -f docker-compose.override.yml up -d pgadmin
+    %DC% -f docker-compose.yml -f docker-compose.prod.yml up -d nginx
 ) else (
     echo [INFO] Starting dev services ^(fast mode^)...
-    %DC% --profile dev up --force-recreate -d
-    %DC% --profile prod up -d nginx
+    %DC% -f docker-compose.yml -f docker-compose.override.yml up --force-recreate -d
+    %DC% -f docker-compose.yml -f docker-compose.prod.yml up -d nginx
 )
 
 echo [OK] All dev services started
@@ -291,22 +291,22 @@ if "%STAGED_MODE%"=="true" (
     echo [INFO] Starting production services ^(staged sequence^)...
 
     echo   Stage 1/4: Core infrastructure ^(db, redis^)...
-    %DC% --profile prod up -d db redis
+    %DC% -f docker-compose.yml -f docker-compose.prod.yml up -d db redis
     timeout /t 10 /nobreak >nul
 
     echo   Stage 2/4: Backend application...
-    %DC% --profile prod up -d backend
+    %DC% -f docker-compose.yml -f docker-compose.prod.yml up -d backend
     timeout /t 8 /nobreak >nul
 
     echo   Stage 3/4: Background workers ^(celery^)...
-    %DC% --profile prod up -d celery
+    %DC% -f docker-compose.yml -f docker-compose.prod.yml up -d celery
     timeout /t 5 /nobreak >nul
 
     echo   Stage 4/4: Reverse proxy ^(nginx^)...
-    %DC% --profile prod up -d nginx
+    %DC% -f docker-compose.yml -f docker-compose.prod.yml up -d nginx
 ) else (
     echo [INFO] Starting production services ^(fast mode^)...
-    %DC% --profile prod up --force-recreate -d
+    %DC% -f docker-compose.yml -f docker-compose.prod.yml up --force-recreate -d
 )
 
 echo [OK] All production services started
@@ -323,7 +323,7 @@ call :determine_docker_compose
 if errorlevel 1 exit /b 1
 
 echo [INFO] Rebuilding Docker images...
-%DC% build --no-cache
+%DC% -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml build --no-cache
 echo [OK] Images rebuilt
 
 goto :cmd_all
@@ -335,7 +335,7 @@ call :determine_docker_compose
 if errorlevel 1 exit /b 1
 
 echo [INFO] Stopping and removing all containers...
-%DC% --profile dev --profile prod --profile scheduler down
+%DC% -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml down
 echo [OK] All containers stopped and removed
 goto :eof
 
@@ -348,7 +348,7 @@ if errorlevel 1 exit /b 1
 echo [WARNING] This will remove all containers AND volumes (database data will be lost!)
 set /p confirm="Continue? (y/N): "
 if /i "%confirm%"=="y" (
-    %DC% --profile dev --profile prod --profile scheduler down -v
+    %DC% -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml down -v
     echo [OK] Containers and volumes removed
 ) else (
     echo   Cancelled.
