@@ -17,6 +17,7 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 
 from apps.accounts.models import User
 from .prediction_service import model_prediction
+from .prediction_orchestrator import prepare_prediction_data
 from config.utils import truncate_table
 from apps.manning_sheet.views import NOTIFICATION_DISPLAY_TITLE
 from apps.manning_sheet.models import ManningSheetData, LoadingPlan
