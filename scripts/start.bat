@@ -262,11 +262,11 @@ if "%STAGED_MODE%"=="true" (
 
     echo   Stage 3/3: Developer tools and Proxy ^(pgadmin, nginx^)...
     %DC% -f docker-compose.yml -f docker-compose.override.yml up -d pgadmin
-    %DC% -f docker-compose.yml -f docker-compose.prod.yml up -d nginx
+    %DC% -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml up -d nginx
 ) else (
     echo [INFO] Starting dev services ^(fast mode^)...
     %DC% -f docker-compose.yml -f docker-compose.override.yml up --force-recreate -d
-    %DC% -f docker-compose.yml -f docker-compose.prod.yml up -d nginx
+    %DC% -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml up -d nginx
 )
 
 echo [OK] All dev services started

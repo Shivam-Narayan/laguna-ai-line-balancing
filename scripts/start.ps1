@@ -184,7 +184,7 @@ function Start-DevStaged {
     Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml up -d pgadmin"
 
     Write-Colour "  Stage 4/4: Reverse proxy (nginx)..." Cyan
-    Invoke-DC "up -d nginx"
+    Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml up -d nginx"
 
     Write-Colour "[OK] All dev services started" Green
 }
@@ -192,7 +192,7 @@ function Start-DevStaged {
 function Start-DevFast {
     Write-Colour "[INFO] Starting dev services (fast mode)..." Blue
     Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml up --force-recreate -d"
-    Invoke-DC "up -d nginx"
+    Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml up -d nginx"
     Write-Colour "[OK] All dev services started" Green
 }
 
@@ -331,7 +331,7 @@ if ($Restore -ne "") {
 
 if ($Local) {
     Assert-Python
-    Activate-Venv
+    Enable-Venv
     Write-Colour "[INFO] Starting Django development server..." Blue
     Write-Host "  Backend dir: $BackendDir"
     Write-Host ""
@@ -379,9 +379,9 @@ if ($Superuser) {
 if ($Test) {
     Assert-Python; Enable-Venv
     if ($Test) {
-        Assert-Python; Activate-Venv
+        Assert-Python; Enable-Venv
         if ( $Test) {
-            Assert-Python; Activate-Venv
+            Assert-Python; Enable-Venv
             Write-Colour "[INFO] Running test suite..." Blue
             Push-Location $BackendDir
             python manage.py test

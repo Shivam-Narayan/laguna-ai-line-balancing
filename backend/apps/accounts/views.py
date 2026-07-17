@@ -61,6 +61,8 @@ def check_geofence(request):
 
 # Home view
 @api_view(['GET'])
+@authentication_classes([])
+@permission_classes([AllowAny])
 def home(request):
     return Response({
         "message": "app is running successfully"
