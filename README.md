@@ -44,6 +44,7 @@ laguna-ai-line-balancing/             # Repository root
 | 🏗️ [System Architecture](docs/system_architecture.md) | High-level system design, DDD structure, and Data Pipeline diagrams |
 | 📖 [API Endpoints Guide](docs/api_endpoints_guide.md) | Frontend integration guide (or visit `/swagger/` when running) |
 | 🐳 [Docker Complete](docs/DOCKER_COMPLETE.md) | Setup, configuration, and environment variable references |
+| 🚀 [Kubernetes & Deployment](docs/kubernetes_guide.md) | Production deployment architecture, K8s vs Docker Compose, and cloud testing |
 | 🚑 [Operations Runbook](docs/runbook.md) | Troubleshooting, log extraction, and database backup procedures |
 | 🤖 [CI/CD Pipeline](docs/ci_cd_pipeline.md) | GitHub Actions automation and deployment protections |
 
