@@ -46,3 +46,21 @@ django.core.exceptions.DisallowedHost: Invalid HTTP_HOST header: 'testserver'. Y
 2026-07-17 21:08:34 - INFO - Watching for file changes with StatReloader
 2026-07-17 21:26:34 - INFO - C:\Projects\laguna\laguna-ai-line-balancing\backend\apps\absenteeism\services\export_service.py changed, reloading.
 2026-07-17 21:26:40 - INFO - Watching for file changes with StatReloader
+2026-07-17 21:27:57 - INFO - C:\Projects\laguna\laguna-ai-line-balancing\backend\apps\absenteeism\services\prediction_service.py changed, reloading.
+2026-07-17 21:28:01 - INFO - Watching for file changes with StatReloader
+2026-07-17 21:29:22 - INFO - C:\Projects\laguna\laguna-ai-line-balancing\backend\apps\absenteeism\services\report_service.py changed, reloading.
+2026-07-17 21:29:24 - INFO - Watching for file changes with StatReloader
+2026-07-17 22:08:55 - INFO - C:\Projects\laguna\laguna-ai-line-balancing\backend\apps\accounts\models\user.py changed, reloading.
+2026-07-17 22:09:02 - INFO - Watching for file changes with StatReloader
+2026-07-17 22:13:37 - INFO - C:\Projects\laguna\laguna-ai-line-balancing\backend\apps\accounts\services\auth_service.py changed, reloading.
+2026-07-17 22:13:42 - INFO - Watching for file changes with StatReloader
+2026-07-17 22:15:02 - INFO - C:\Projects\laguna\laguna-ai-line-balancing\backend\apps\accounts\services\auth_service.py changed, reloading.
+2026-07-17 22:15:04 - INFO - Watching for file changes with StatReloader
+2026-07-17 22:15:19 - INFO - C:\Projects\laguna\laguna-ai-line-balancing\backend\apps\accounts\services\auth_service.py changed, reloading.
+2026-07-17 22:15:23 - INFO - Watching for file changes with StatReloader
+2026-07-17 22:15:32 - INFO - C:\Projects\laguna\laguna-ai-line-balancing\backend\apps\accounts\services\auth_service.py changed, reloading.
+2026-07-17 22:15:34 - INFO - Watching for file changes with StatReloader
+2026-07-17 22:15:41 - INFO - C:\Projects\laguna\laguna-ai-line-balancing\backend\apps\accounts\services\auth_service.py changed, reloading.
+2026-07-17 22:15:45 - INFO - Watching for file changes with StatReloader
+2026-07-17 22:16:17 - INFO - C:\Projects\laguna\laguna-ai-line-balancing\backend\apps\accounts\services\auth_service.py changed, reloading.
+2026-07-17 22:16:19 - INFO - Watching for file changes with StatReloader
