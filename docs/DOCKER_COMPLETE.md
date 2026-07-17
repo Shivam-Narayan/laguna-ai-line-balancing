@@ -143,50 +143,78 @@ This section explains the internal mechanics of the `Dockerfile` build process a
 
 ### 1. Multi-Stage Dockerfile (`backend/Dockerfile`)
 
-The backend uses a **multi-stage build** approach to keep the final image size small and secure. It splits the build process into distinct stages:
+This `Dockerfile` is written using a **multi-stage build** approach. This is considered a best practice in Docker because it keeps your final image size very small and secure. 
 
-#### The `builder` Stage
-- **Purpose:** Entirely dedicated to downloading and compiling Python dependencies.
-- **How it works:** Installs heavy system tools (like `gcc`) required to build certain Python packages (like database drivers). It then installs packages from `requirements.txt`.
-- **Why:** We exclude the `gcc` compiler from the final production image to save space and reduce security vulnerabilities.
+It works by splitting the build process into different "stages." Here is the step-by-step breakdown of how it works:
 
-#### The `base` Stage
-- **Purpose:** The core runtime image. Starts completely fresh from a slim Python image.
-- **How it works:** 
-  - Installs lightweight database clients (MySQL/Postgres) needed to *connect* to the database.
-  - Reaches back into the `builder` stage and copies **only** the finished, compiled Python packages (`/root/.local`).
-  - Sets optimizations like `PYTHONUNBUFFERED=1` (for instant logs) and `PYTHONDONTWRITEBYTECODE=1` (prevents `.pyc` files).
-  - Copies the application code and sets up a `HEALTHCHECK` to ensure the server hasn't crashed.
+#### The `builder` Stage (Lines 2-17)
+```dockerfile
+FROM python:3.11-slim AS builder
+```
+- **Purpose:** This stage is entirely dedicated to downloading and compiling your Python dependencies.
+- **What it does:** It installs heavy system tools (like `gcc`, a C-compiler) that are required to build certain Python packages (like database drivers for MySQL/Postgres). It then installs your `requirements.txt`.
+- **Why:** We don't want to include the `gcc` compiler in the final production image because it makes the image huge and creates a security risk.
 
-#### The `dev` & `prod` Targets
-- **`dev`**: Uses the `base` stage and runs the standard Django development server (`manage.py runserver`). Used for local development with hot-reloading.
-- **`prod`**: Uses the `base` stage but runs using **Gunicorn**, a robust, production-grade web server capable of handling multiple requests at once via worker processes.
+#### The `base` Stage (Lines 19-52)
+```dockerfile
+FROM python:3.11-slim AS base
+```
+- **Purpose:** This is the core image that will actually run your application. It starts completely fresh.
+- **Dependencies:** It installs only the lightweight database clients (MySQL/Postgres) needed to *connect* to the database, skipping the heavy compilers.
+- **Copying Packages:** (`COPY --from=builder...`) It reaches back into the `builder` stage and copies **only** the finished, compiled Python packages (`/root/.local`). 
+- **Environment Variables (`ENV`):**
+  - `PYTHONUNBUFFERED=1`: Ensures Python outputs logs directly to the terminal without buffering (great for seeing logs immediately in Docker).
+  - `PYTHONDONTWRITEBYTECODE=1`: Stops Python from creating `.pyc` files, saving disk space.
+  - `PYTHONPATH=/app/apps:/app`: Tells Python exactly where to look when you write `import ...` in your code.
+- **Setup:** It copies your actual code (`COPY . .`), creates necessary folders for logs and media, and sets up a `HEALTHCHECK`. The health check tells Docker to ping `http://localhost:8000/admin/` every 30 seconds to ensure the server hasn't crashed.
+
+#### The `dev` Target (Lines 54-56)
+```dockerfile
+FROM base AS dev
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+```
+- **Purpose:** Used for local development.
+- **What it does:** It takes the `base` stage and runs the standard Django development server. When you build this image (e.g., via docker-compose targeting `dev`), it gives you hot-reloading.
+
+#### The `prod` Target (Lines 58-60)
+```dockerfile
+FROM base AS prod
+CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "4"]
+```
+- **Purpose:** Used for your live production servers.
+- **What it does:** It takes the exact same `base` stage but runs it using **Gunicorn**, a robust, production-grade web server capable of handling multiple requests at once using 4 worker processes.
+
+**Summary:** This Dockerfile allows you to run `docker build --target dev` for local testing, or `docker build --target prod` for a highly optimized, compiler-free, production-ready image!
 
 ### 2. Microservices Architecture (`docker-compose.yml`)
 
-The `docker-compose.yml` file defines 11 different isolated services that communicate seamlessly to form a complete, production-ready environment.
+This `docker-compose.yml` file is incredibly well-structured. It defines a complete, production-ready **microservices architecture** for your application. 
+
+Instead of running everything on one machine manually, this file tells Docker how to spin up **11 different isolated services** that all talk to each other seamlessly.
+
+Here is a breakdown of the entire architecture, grouped by what they do:
 
 #### The Data Layer (Storage & Caching)
-- **`db`**: A PostgreSQL 15 database storing permanent application data.
-- **`redis`**: An in-memory data store used for caching and acting as a message broker for Celery background tasks.
+- **`db`**: A PostgreSQL 15 database. It stores all your application's permanent data. It uses a `healthcheck` to ensure the database is fully booted before letting other services connect to it.
+- **`redis`**: An in-memory data store. This is typically used for caching data to make the app faster, and it also acts as the "message broker" for Celery background tasks.
 
-#### The Management UIs (Developer Tools)
-- **`pgadmin`**: A graphical web interface (port 5050) to manage the PostgreSQL database.
-- **`redis-commander`**: A graphical web interface (port 8082) to view and manage the Redis cache.
+#### The Management UIs (Tools for Developers)
+- **`pgadmin`**: A graphical web interface (running on port 5050) that lets you easily view and manage your PostgreSQL database without writing SQL in the terminal.
+- **`redis-commander`**: A graphical web interface (port 8082) for looking inside your Redis cache.
 
 #### The Core Application Layer
-- **`backend`**: The main Django application (built from the `dev` target). It automatically runs database migrations (`migrate`) before starting.
-- **`celery`**: A Celery background worker handling long-running asynchronous tasks (like sending emails) so the main server remains responsive.
-- **`scheduler`**: Runs a custom script that launches the three individual app schedulers (`absenteeism_scheduler`, `dataEngine_scheduler`, `manning_sheet_scheduler`) simultaneously in the background.
-- **`app`**: The Frontend web application (React/Vue) running on port 5173.
+- **`backend`**: Your main Django application. It builds from the `dev` target of the `Dockerfile` we just looked at. Notice the `command` line: it automatically runs database migrations (`migrate`) before starting the Django server!
+- **`celery`**: A Celery background worker. While the `backend` handles quick HTTP requests from users, `celery` handles long-running background tasks (like sending emails or processing huge files) so the user doesn't have to wait.
+- **`scheduler`**: This is exactly what we were talking about earlier! This container runs a custom script that launches your three individual app schedulers (`absenteeism_scheduler`, `dataEngine_scheduler`, `manning_sheet_scheduler`) simultaneously in the background. 
+- **`app`**: Your Frontend web application (likely React or Vue, running on port 5173). It is built from a folder outside the backend (`../laguna-ai-line-balancing-app`).
 
 #### The Gateway
-- **`nginx`**: A high-performance reverse proxy. It listens on standard web ports (80/443), serves static files extremely fast, and routes complex dynamic requests to the Django backend.
+- **`nginx`**: A high-performance web server acting as a "Reverse Proxy". It sits in front of your backend, listens on standard web ports (80 and 443 for HTTPS), and serves your static files (like CSS/images) extremely fast, passing only the complex dynamic requests to Django.
 
 #### The Observability Layer (Monitoring & Logs)
-- **`loki`**: A log aggregation system (built by Grafana) acting as a database for container logs.
-- **`promtail`**: The scraper that watches the Docker engine, grabs console logs from *all* containers, and ships them to `loki`.
-- **`grafana`**: A visualization dashboard (port 4000) used to view charts, metrics, and search through all logs collected by Loki.
+- **`loki`**: A log aggregation system built by Grafana. It acts like a giant database specifically for storing logs from all your different containers.
+- **`promtail`**: This is the "scraper". Notice it mounts the `/var/run/docker.sock`. It constantly watches the Docker engine, grabs the console logs from *all* your containers, and ships them to `loki`.
+- **`grafana`**: A beautiful visualization dashboard (port 4000). You log into this to view charts, graphs, and search through all the logs collected by Loki.
 
-#### Persistent Volumes
-At the bottom of the compose file, named volumes (like `postgres_data` and `media_volume`) are defined. These act as permanent virtual hard drives ensuring that the database, uploaded files, and logs survive container restarts.
+#### Volumes
+At the very bottom, you see a `volumes:` block. Docker containers are temporary; if they crash, all data inside is lost. These named volumes (like `postgres_data` and `media_volume`) act like permanent virtual hard drives plugged into the containers, ensuring your database, uploaded files, and logs survive restarts!
