@@ -10,6 +10,7 @@ Here is how the endpoints interact in a daily factory workflow.
 *Before any manager or HR rep can do anything, they must authenticate.*
 
 * **`POST /auth/login/`**: Takes email/password and returns JWT access/refresh tokens.
+* **`POST /api/auth/google/`**: Takes a Google Access Token for SSO and returns standard JWT access/refresh tokens.
 * **`POST /auth/token/refresh/`**: Refreshes an expired access token.
 * **`POST /locations/validate/`**: Ensures the manager clocking in is physically at the factory (Geofencing check based on latitude/longitude).
 * **`POST /users/create/`**: Registers a new user.

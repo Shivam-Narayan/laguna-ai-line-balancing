@@ -373,3 +373,16 @@ def fetch_logs(request, log_filename):
         return error_response(error=error_msg, status=status_code)
 
     return FileResponse(open(log_path, "rb"), content_type="text/plain")
+
+# SSO Login View for Google
+from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
+from allauth.socialaccount.providers.oauth2.client import OAuth2Client
+from dj_rest_auth.registration.views import SocialLoginView
+
+class GoogleLoginView(SocialLoginView):
+    adapter_class = GoogleOAuth2Adapter
+    client_class = OAuth2Client
+    # The callback URL must match exactly what is registered in Google Cloud Console
+    # The frontend is responsible for passing the token here, but the adapter needs a callback URL.
+    callback_url = getattr(settings, 'DEV_FRONTED_URL', 'http://localhost:5173') + '/auth/callback/google'
+

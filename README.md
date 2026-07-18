@@ -42,11 +42,13 @@ laguna-ai-line-balancing/             # Repository root
 | Document | Purpose |
 | :--- | :--- |
 | 🏗️ [System Architecture](docs/system_architecture.md) | High-level system design, DDD structure, and Data Pipeline diagrams |
+| 🔐 [SSO Implementation Guide](docs/sso-implementation.md) | Complete setup, configuration, and testing guide for Google SSO |
 | 📖 [API Endpoints Guide](docs/api_endpoints_guide.md) | Frontend integration guide (or visit `/swagger/` when running) |
 | 🐳 [Docker Complete](docs/DOCKER_COMPLETE.md) | Setup, configuration, and environment variable references |
 | 🚀 [Kubernetes & Deployment](docs/kubernetes_guide.md) | Production deployment architecture, K8s vs Docker Compose, and cloud testing |
 | 🚑 [Operations Runbook](docs/runbook.md) | Troubleshooting, log extraction, and database backup procedures |
 | 🤖 [CI/CD Pipeline](docs/ci_cd_pipeline.md) | GitHub Actions automation and deployment protections |
+| 🛠️ [Scripts & Automation](docs/scripts_guide.md) | Explains the `scripts/` folder, standalone `.bat` files, and the master `start.bat` |
 | 🧪 [Testing Guide](backend/TESTING.md) | How to run the automated test suite, mock services, and TDD guidelines |
 
 ---
@@ -258,6 +260,7 @@ curl -X POST http://localhost:8000/manning-sheet/manning-sheets/d-day/generate/
 ---
 
 ## Key Features & Architectural Standards
+- **Authentication & SSO**: Fully functional JWT-based authentication with integrated Google SSO (OAuth 2.0). Utilizes `dj-rest-auth` and `django-allauth` to allow seamless login and automatic linking of Google profiles to existing local accounts without disrupting the user flow.
 - **Strict Service Layer Architecture**: All features are organized under separate apps in the `backend/apps/` directory, adhering strictly to Domain-Driven Design. Heavy business logic (Pandas/ETL/ML/Database transactions) is isolated in `services/`, keeping `views.py` incredibly thin and focused only on HTTP routing.
 - **Environment-Aware Settings**: A single `settings.py` dynamically adjusts behavior based on the `ENVIRONMENT` variable (development vs production).
 - **Production-Grade Security**: 

@@ -45,3 +45,7 @@ vine==5.1.0
 wcwidth==0.2.13
 gunicorn==23.0.0
 drf-spectacular==0.27.2
+boto3
+django-storages
+django-allauth
+dj-rest-auth

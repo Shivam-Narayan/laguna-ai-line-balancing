@@ -117,6 +117,10 @@ CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:8000
 # Superuser Auto-Provisioning
 DJANGO_SUPERUSER_EMAIL=admin@example.com
 DJANGO_SUPERUSER_PASSWORD=Laguna@Admin
+
+# Google SSO Configuration
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
 ```
 
 ## 🔒 Security Built-in

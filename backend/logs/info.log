@@ -310,3 +310,4 @@ DETAIL:  Failing row contains (pbkdf2_sha256$1000000$whm01TlpHL9eskZLDE5ydI$/iJo
 2026-07-18 13:10:51 - INFO - User logged in successfully: manning@example.com
 2026-07-18 13:10:52 - INFO - User logged in successfully: manning@example.com
 2026-07-18 13:10:53 - INFO - User logged in successfully: manning@example.com
+2026-07-18 19:19:02 - INFO - Watching for file changes with StatReloader

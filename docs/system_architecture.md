@@ -81,7 +81,7 @@ sequenceDiagram
 
 ### A. Accounts (`apps/accounts`)
 Handles Identity and Access Management (IAM).
-- **Authentication:** Custom token-based auth using SimpleJWT.
+- **Authentication:** Custom token-based auth using SimpleJWT, integrated with **Google SSO (OAuth 2.0)** via `django-allauth` and `dj-rest-auth` for seamless enterprise login.
 - **Geofencing:** Validates GPS coordinates to ensure factory workers are physically on-site before clocking in.
 
 ### B. Data Engine (`apps/data_engine`)
