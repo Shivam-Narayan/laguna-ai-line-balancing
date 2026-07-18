@@ -21,7 +21,7 @@ Laguna-AI Line Balancing is an intelligent, automated ERP platform designed to o
 
 ## 2. Infrastructure Architecture
 
-The application is fully containerized using Docker, allowing a seamless transition between development and production environments using a single `docker-compose.yml` controlled by `.env` variables.
+The application is fully containerized using Docker, allowing a seamless transition between development and production environments using a layered approach (`docker-compose.yml`, `docker-compose.override.yml`, and `docker-compose.prod.yml`), easily managed via the provided `start` scripts.
 
 ```mermaid
 graph TD

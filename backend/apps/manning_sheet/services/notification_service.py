@@ -25,7 +25,7 @@ from datetime import datetime, timedelta, date, time
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 
-from apps.accounts.api.authentication import CookieJWTAuthentication
+from apps.accounts.authentication import CookieJWTAuthentication
 from apps.accounts.utils.response_handlers import error_response, success_response
 
 from config.utils import truncate_table
@@ -68,10 +68,7 @@ class Round(Func):
     arity = 2
     output_field = FloatField()
 
-@api_view(['GET'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def get_user_notifications(request):
+def run_get_user_notifications(user, unread_only):
     """
     Get all notifications for the authenticated user from the last 7 days.
     Notifications are ordered by creation time (newest first).
@@ -81,12 +78,9 @@ def get_user_notifications(request):
         # Calculate date 7 days ago
         seven_days_ago = datetime.now() - timedelta(days=7)
         
-        # Check if we should only return unread notifications
-        unread_only = request.query_params.get('unread_only', '').lower() == 'true'
-        
         # Create base filter dictionary
         base_filter = {
-            'user': request.user,
+            'user': user,
             'created_at__gte': seven_days_ago
         }
         
@@ -127,10 +121,7 @@ def get_user_notifications(request):
         )
 
 
-@api_view(['POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def mark_notification_read(request):
+def run_mark_notification_read(user, mark_all, notification_id):
     """
     Mark a notification as read.
     Requires 'notification_id' in the request body to mark a specific notification as read.
@@ -139,13 +130,10 @@ def mark_notification_read(request):
     provide any one of the above in the request body.
     """
     try:
-        # Check if we should mark all notifications as read
-        mark_all = request.data.get('mark_all', False)
-        
         if mark_all:
             # Create filter for marking all unread notifications
             unread_filter = {
-                'user': request.user,
+                'user': user,
                 'is_read': False
             }
             
@@ -158,8 +146,7 @@ def mark_notification_read(request):
                 status=status.HTTP_200_OK
             )
         
-        # Get notification ID from request
-        notification_id = request.data.get('notification_id')
+        
         
         if not notification_id:
             return error_response(
@@ -170,7 +157,7 @@ def mark_notification_read(request):
         # Create filter for specific notification
         notification_filter = {
             'id': notification_id,
-            'user': request.user
+            'user': user
         }
         
         # Update notification in a single database call
@@ -194,10 +181,7 @@ def mark_notification_read(request):
         )
 
 
-@api_view(['POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def create_test_notification(request):
+def run_create_test_notification(user):
     """
     Create test notifications with different dates to test the 7-day filter.
     Creates 3 notifications:
@@ -209,7 +193,7 @@ def create_test_notification(request):
         
         # Create today's notification
         today_notification = PushNotification.objects.create(
-            user=request.user,
+            user=user,
             title="Test Notification - Today",
             message="This is a test notification created today",
             created_at=datetime.now()
@@ -218,7 +202,7 @@ def create_test_notification(request):
         # Create 5 days old notification
         five_days_ago = datetime.now() - timedelta(days=5)
         five_days_notification = PushNotification.objects.create(
-            user=request.user,
+            user=user,
             title="Test Notification - 5 Days Ago",
             message="This is a test notification created 5 days ago",
             created_at=five_days_ago
@@ -227,7 +211,7 @@ def create_test_notification(request):
         # Create 10 days old notification (should not appear in 7-day filter)
         ten_days_ago = datetime.now() - timedelta(days=10)
         ten_days_notification = PushNotification.objects.create(
-            user=request.user,
+            user=user,
             title="Test Notification - 10 Days Ago",
             message="This is a test notification created 10 days ago",
             created_at=ten_days_ago

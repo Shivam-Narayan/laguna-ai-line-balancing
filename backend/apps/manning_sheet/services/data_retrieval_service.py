@@ -25,7 +25,7 @@ from datetime import datetime, timedelta, date, time
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 
-from apps.accounts.api.authentication import CookieJWTAuthentication
+from apps.accounts.authentication import CookieJWTAuthentication
 from apps.accounts.utils.response_handlers import error_response, success_response
 
 from config.utils import truncate_table
@@ -68,16 +68,16 @@ class Round(Func):
     arity = 2
     output_field = FloatField()
 
-@api_view(['GET', 'POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated]) 
-def get_manning_data(request):
+def run_get_manning_data(line_no, section_value, period, style, planned_date, is_export=False):
+    """
+    Retrieve manning sheet data based on query parameters.
+    """
     try:
-        line_no = request.query_params.get('line', '').strip().capitalize()
-        section_value = request.query_params.get('section', '').strip().capitalize()
-        period = request.query_params.get('forecast_period', '').strip()
-        style = request.query_params.get('style', '').strip()
-        planned_date = request.query_params.get('planned_date', '').strip()
+        line_no = line_no.strip().capitalize()
+        section_value = section_value.strip().capitalize()
+        period = period.strip()
+        style = style.strip()
+        planned_date = planned_date.strip()
 
         # Validate required fields
         if not line_no or not section_value or not period:
@@ -230,41 +230,7 @@ def get_manning_data(request):
             else:
                 row['Preferred Employees'] = []
 
-        
-        # ------------------------------------------------------------------------------------------- #
-        # # Create a dict mapping date strings in '%d-%m-%Y' format to preferred_employees JSON string
-        # date_to_preferred_employees = {}
-
-        # for obj in employees_on_hold_queryset:
-        #     date_str = obj.date.strftime('%d-%m-%Y')
-        #     date_to_preferred_employees[date_str] = json.loads(obj.preferred_employees) if obj.preferred_employees else []
-
-
-        # for row in formatted_data:
-        #     date_key = row.get('Date')
-        #     if row.get('Operator ID') == 0:
-        #         preferred = date_to_preferred_employees.get(date_key, [])
-        #         row['Preferred Employees'] = preferred
-        #     else:
-        #         row['Preferred Employees'] = []
-        # ------------------------------------------------------------------------------------------- #
-
-
         actual_machinists = EmployeeMaster.objects.filter(**employee_master_filters).count()
-        # # OLD LOGIC REJECTED BY CLIENT
-        # required_machinists = filtered_data_table.values_list('code', flat=True).distinct().count()
-        # working_days = filtered_data_table.values_list('planned_dates', flat=True).distinct().count()
-
-        # # Group by machine and count occurrences and exclude None and Null values before aggregation
-        # machine_nonMachine_info = (
-        #     filtered_data_table
-        #                     # .exclude(machine__isnull=True)
-        #                     # .exclude(machine='null')
-        #                     .values('machine_type')
-        #                     .annotate(count=Count('machine_type'))
-        #                     # .annotate(total_machinist_required=Sum('machinist_required'))
-        # )
-        # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
         machine_dict = {entry['machine_type']: entry['count'] for entry in machine_nonMachine_info}
 
         unique_buyers = ', '.join(set(buyer.upper() for buyer in filtered_data_table.values_list('buyer', flat=True) if buyer))
@@ -285,10 +251,9 @@ def get_manning_data(request):
         # Add unique styles if style == 'all'
         if style.lower() == 'all':
             unique_styles = filtered_data_table.values_list('style', flat=True).distinct()
-            # response_data['unique_styles'] = [s.upper() for s in unique_styles if s]
             response_data['unique_styles'] = list({s.upper() for s in unique_styles if s})
         
-        if request.method == 'POST':
+        if is_export:
             # Create a new list with 'Manning_ID' and 'Code' removed
             sanitized_data = [
                 {k: v for k, v in row.items() if k not in ['Manning_ID', 'Code']}
@@ -316,9 +281,7 @@ def get_actual_vs_planned_data(line_no, forecast_period, today, summation=False,
         filter_date = planned_date if planned_date else filter_date
 
         manning_sheet_filter = {'planned_dates': filter_date, 'machinist': True}
-        # absenteeism_filter = {'forecast_period': forecast_period}
         loading_plan_filter = {'planned_dates': filter_date}
-        # absenteeism_filter_primary={}
         employee_filter={}
 
         if line_no.lower() != 'all':
@@ -327,8 +290,6 @@ def get_actual_vs_planned_data(line_no, forecast_period, today, summation=False,
         if section is not None:
             sections = [section]
             employee_filter['section'] = section
-            # absenteeism_filter['section']=section.upper()
-            # absenteeism_filter_primary['section']=section.upper()
             manning_sheet_filter['section']=section
         else:
             sections = ['Assembly', 'Cuff', 'Front', 'Back', 'Sleeve', 'Collar']
@@ -338,40 +299,8 @@ def get_actual_vs_planned_data(line_no, forecast_period, today, summation=False,
             return None, None, error_response(error='No employees found.', status=status.HTTP_404_NOT_FOUND)
 
         if line_no.lower() != 'all':
-            # absenteeism_filter['line'] = line_no.upper()
             loading_plan_filter['line'] = line_no.title()
             manning_sheet_filter['line'] = line_no.title()
-            # absenteeism_filter_primary['line']=line_no.upper()
-
-        # search_date = today
-        # if forecast_period == 1:
-        #     absenteeism_filter['forecast_period'] = 7
-        #     absenteeism_filter_primary['forecast_period']=7
-
-        #     while True:
-        #         absenteeism_filter_primary['datetime'] = search_date
-        #         prediction_qs = AbsenteeismPrediction.objects.filter(
-        #             **(absenteeism_filter_primary)
-        #         ).exclude(section__iexact='nan')
-
-        #         if prediction_qs.exists():
-        #             absenteeism_filter['datetime'] = search_date
-        #             break
-        #         search_date += timedelta(days=1)
-
-        #     total_values = 1
-        # else:
-        #     absenteeism_filter['datetime__lte'] = filter_date
-        #     absenteeism_filter_primary['datetime__lte'] = filter_date
-        #     absenteeism_filter_primary['forecast_period']=forecast_period
-
-        #     prediction_qs = AbsenteeismPrediction.objects.filter(
-        #         **(absenteeism_filter_primary)
-        #     ).exclude(section__iexact='nan')
-        #     total_values = prediction_qs.values('datetime').distinct().count()
-
-        # if not prediction_qs.exists():
-        #     return None, None, error_response(error='No predictions found.', status=status.HTTP_404_NOT_FOUND)
 
         manning_sheet_qs = ManningSheetData.objects.filter(**manning_sheet_filter)
         manning_sheet_target = (
@@ -380,14 +309,7 @@ def get_actual_vs_planned_data(line_no, forecast_period, today, summation=False,
             .annotate(total_planned_qty=Sum('allocated_capacity'))
         )
 
-        # Find the minimum value per section (including all matching records)
         min_entries = {}
-
-        # for item in manning_sheet_target:
-        #     section = item['section']
-        #     qty = item['total_planned_qty']
-        #     if section not in min_entries or qty < min_entries[section]['total_planned_qty']:
-        #         min_entries[section] = item  # Keep only one item with min qty
 
         for item in manning_sheet_target:
             key = (item['section'], item['style'])  # tuple as key
@@ -408,13 +330,6 @@ def get_actual_vs_planned_data(line_no, forecast_period, today, summation=False,
         # Convert to list of dicts if needed
         result = [{'section': sec, 'total_planned_qty': qty} for sec, qty in section_summary.items()]
 
-        # section_data = (
-        #     EmployeeMaster.objects
-        #     .filter(**employee_filter)
-        #     .values('section')
-        #     .annotate(count=Count('emp_code'))
-        # )
-
         total_planned_qty = (
             LoadingPlan.objects
             .filter(**loading_plan_filter)
@@ -426,41 +341,6 @@ def get_actual_vs_planned_data(line_no, forecast_period, today, summation=False,
             for section in sections
         ]
 
-        # total_gap_summary = (
-        #     AbsenteeismPrediction.objects
-        #     .filter(**absenteeism_filter)
-        #     .exclude(section='nan')
-        #     .values('section')
-        #     .annotate(count=Sum('predicted_absent_count'))
-        # )
-
-        # gap_summary_normalized = [
-        #     {
-        #         'section': entry['section'].strip().capitalize(),
-        #         'count': convert_number(entry['count'] / total_values)
-        #     }
-        #     for entry in total_gap_summary
-        # ]
-
-        # section_emp_count = {
-        #     item['section']: item['count']
-        #     for item in section_data
-        # }
-
-        # # Calculate absenteeism percentage by section
-        # absenteeism_percentage_by_section = {
-        #     item['section']: round((item['count'] / section_emp_count[item['section']] * 100), 1) if total_emp_count else 0
-        #     for item in gap_summary_normalized
-        # }
-
-        # # Calculate predicted production based on absenteeism percentage
-        # predicted_production = [
-        #     {
-        #         'section': item['section'],
-        #         'total_planned_qty': custom_round(item['total_planned_qty'] - (item['total_planned_qty'] * absenteeism_percentage_by_section.get(item['section'], 0) / 100))
-        #     }
-        #     for item in result
-        # ]
         predicted_production = update_sections(result, sections)
 
         # Special handling for "all" lines case
@@ -508,7 +388,6 @@ def get_actual_vs_planned_data(line_no, forecast_period, today, summation=False,
         production_data = [{
             "production_target": production_target,
             "predicted_production": predicted_production,
-            # "absenteeism_percentage_by_section": absenteeism_percentage_by_section
         }]
 
         prediction_response = {
@@ -635,13 +514,10 @@ def get_dday_data():
     return success_response(message="Success", status=status.HTTP_200_OK)
 
 
-@api_view(['GET'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def get_dday_manning_data(request):
+def run_get_dday_manning_data(line_no):
     try:
         # Get line parameter from either GET or POST
-        line_no = request.query_params.get('line', '').strip().capitalize()
+        line_no = line_no.strip().capitalize()
 
         if not line_no:
             return error_response(error='"line" is required.', status=status.HTTP_400_BAD_REQUEST)
@@ -805,17 +681,14 @@ def get_dday_actual_vs_planned_data(line_no, today, section=None, operation=None
         )
 
 
-@api_view(['GET'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def get_attendance_data(request):
+def run_get_attendance_data(line_no):
     """
-    Retrieve attendance statistics with a single highly optimized database query
-    using Django's conditional expressions.
+    Retrieve simplified attendance statistics using conditional aggregation
+    to match output exactly with the complex logic but using single DB hit
     """
     try:
         # Get and validate line parameter
-        line_no = request.query_params.get('line', 'all').strip().title()
+        line_no = line_no.strip().title()
         
         if not line_no:
             return error_response(error='"line" is required.', status=status.HTTP_400_BAD_REQUEST)
@@ -846,14 +719,10 @@ def get_attendance_data(request):
         )
 
 
-@api_view(['GET', 'POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def get_unallocated_employees(request):
+def run_get_unallocated_employees(line_no, forecast_period, is_export=False):
     try:
-        line_no = request.query_params.get('line', '').strip()
-        forecast_period = request.query_params.get('forecast_period', '').strip()
-
+        line_no = line_no.strip()
+        
         if not line_no or not forecast_period:
             return error_response(error='"line" and "forecast_period" are required.', status=status.HTTP_400_BAD_REQUEST)
 
@@ -871,7 +740,7 @@ def get_unallocated_employees(request):
         }
         queryset = UnallocatedEmployees.objects.filter(**query_filter)
 
-        if request.method == 'POST':
+        if is_export:
             df_unallocated_employees = pd.DataFrame(list(queryset.values()))
             df_unallocated_employees['period'] = forecast_period
             df_unallocated_employees.drop(columns={'id'}, inplace=True)
@@ -885,7 +754,6 @@ def get_unallocated_employees(request):
                 df_unallocated_employees.to_excel(writer, index=False, sheet_name='Unallocated Employees')
 
                 # Get the workbook and worksheet objects
-                # workbook  = writer.book
                 worksheet = writer.sheets['Unallocated Employees']
 
                 # Auto-adjust column widths
@@ -905,13 +773,10 @@ def get_unallocated_employees(request):
         return error_response(error=str(e), status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['GET', 'POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def get_unallocated_employees_dday(request):
+def run_get_unallocated_employees_dday(line_no, is_export=False):
     try:
         import os
-        line_no = request.query_params.get('line', 'all').strip()
+        line_no = line_no.strip()
         
         file_path = 'exports/unallocated_report_dday.csv'
         if not os.path.exists(file_path):
@@ -926,7 +791,7 @@ def get_unallocated_employees_dday(request):
             df_unallocated_employees = df_unallocated_employees[df_unallocated_employees['line'] == line_no.title()]
             file_name =  f"Unallocated_Employees_DDay_{line_no.replace(' ', '_').title()}"
 
-        if request.method == 'POST':
+        if is_export:
             df_unallocated_employees.columns = df_unallocated_employees.columns.str.replace('_', ' ').str.upper()
             # Convert timezone-aware datetimes to timezone-naive
             for col in df_unallocated_employees.select_dtypes(include=['datetimetz']).columns:

@@ -30,4 +30,6 @@ class CookieJWTAuthentication(JWTAuthentication):
             validated_token = self.get_validated_token(raw_token)
             return self.get_user(validated_token), validated_token
         except Exception as e:
-            raise AuthenticationFailed(f"Invalid token: {str(e)}")
+            # If the token is invalid or expired, return None to fall back to AnonymousUser
+            # This allows AllowAny endpoints (like Swagger) to load without returning 401
+            return None

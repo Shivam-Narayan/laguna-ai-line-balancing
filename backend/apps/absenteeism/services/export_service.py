@@ -17,10 +17,11 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 
 from apps.accounts.models import User
 from .prediction_service import model_prediction
+from .prediction_orchestrator import prepare_prediction_data
 from config.utils import truncate_table
 from apps.manning_sheet.views import NOTIFICATION_DISPLAY_TITLE
 from apps.manning_sheet.models import ManningSheetData, LoadingPlan
-from apps.accounts.api.authentication import CookieJWTAuthentication
+from apps.accounts.authentication import CookieJWTAuthentication
 from ..models import Absenteeism, PredictionData, AbsenteeismPrediction
 from apps.manning_sheet.utils import create_bulk_push_notifications, custom_round
 from apps.accounts.utils.response_handlers import error_response, success_response
@@ -31,10 +32,7 @@ from ..utils import generate_csv, send_email, generate_prediction_data, convert_
 logger = logging.getLogger('general')
 prediction_response = {}
 
-@api_view(['GET'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def export_data(request):
+def run_export_data():
     try:
         # Fetching data from the database dynamically
         fields = [field.name for field in LocalHolidayCalendar._meta.get_fields()]  # type: ignore
@@ -78,10 +76,7 @@ def export_data(request):
         )
 
 
-@api_view(['GET'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def export_absenteeism_data(request):
+def run_export_absenteeism_data():
     try:
         # Fetch all fields dynamically from the model
         fields = [field.name for field in Absenteeism._meta.get_fields()]  # type: ignore
@@ -118,13 +113,9 @@ def export_absenteeism_data(request):
         )
 
 
-@api_view(['POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def send_csv_via_email(request):
+def run_send_csv_via_email(email):
     try:
-        # Getting the email from the request body
-        email = request.data.get("email")
+        # Getting the email
         if not email:
             return error_response(
                 error="Email address is required.",

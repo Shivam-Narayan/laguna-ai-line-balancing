@@ -25,7 +25,7 @@ from datetime import datetime, timedelta, date, time
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 
-from apps.accounts.api.authentication import CookieJWTAuthentication
+from apps.accounts.authentication import CookieJWTAuthentication
 from apps.accounts.utils.response_handlers import error_response, success_response
 
 from .data_ingestion_service import fetch_and_transform_emp_attendance
@@ -713,14 +713,7 @@ def manning_sheet_generation(request):
         return error_response(error=f"Failed in manning sheet generation. {str(e)}", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@api_view(['GET'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def generate_emp_fact(request):
-    try:
-        return run_generate_emp_fact()  # Call the function without needing a request
-    except Exception as e:
-        return error_response(error= str(e), status=status.HTTP_400_BAD_REQUEST)
+
 
 
 def run_generate_emp_fact():
@@ -799,25 +792,7 @@ def run_generate_emp_fact():
         return error_response(error= str(e), status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated]) 
-def manning_allocation(request):
-    try:
-        # Attempt to acquire lock
-        # EndpointLock.acquire_lock('data_update', request.user, 'generate_manning_sheet')
-        try:
-            viaAPI=True
-            # Get and validate period parameter
-            PERIOD = request.query_params.get('period', 60)
-            return run_manning_generation(viaAPI, PERIOD)  # Call the function without needing a request
-        except Exception as e:
-            return error_response(error=f"Failed in manning sheet generation. {str(e)}", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        # finally:
-        #     # Always attempt to release the lock
-        #     EndpointLock.release_lock('data_update', request.user, 'generate_manning_sheet')
-    except ValidationError as ve:
-        return error_response(error=f"{str(ve)}", status=status.HTTP_423_LOCKED)
+
 
 
 def run_manning_generation(viaAPI, PERIOD):
@@ -942,15 +917,7 @@ def run_manning_generation(viaAPI, PERIOD):
         return error_response(error=f"Failed in manning sheet generation. {str(e)}", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@api_view(['POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def generate_dday_manning_data(request):
-    try:
-        viaAPI=True
-        return run_dday_generation(viaAPI)  # Call the function without needing a request
-    except Exception as e:
-        return error_response(error= str(e), status=status.HTTP_400_BAD_REQUEST)
+
 
 
 def run_dday_generation(viaAPI):
@@ -1321,15 +1288,7 @@ def run_dday_generation(viaAPI):
         return error_response(error=f"An unexpected error occurred. {e}", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@api_view(['GET'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def generate_style_ob(request):
-    try:
-        viaAPI=True
-        return run_generate_style_ob(viaAPI)  # Call the function without needing a request
-    except Exception as e:
-        return error_response(error= str(e), status=status.HTTP_400_BAD_REQUEST)
+
 
 
 def run_generate_style_ob(viaAPI):

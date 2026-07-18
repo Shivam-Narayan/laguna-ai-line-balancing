@@ -14,9 +14,9 @@ from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.accounts.models import MultiSessionToken
-from apps.accounts.api.authentication import CookieJWTAuthentication
+from apps.accounts.authentication import CookieJWTAuthentication
 from apps.accounts.utils.response_handlers import success_response, error_response
-from apps.accounts.api.serializers import (
+from apps.accounts.serializers import (
     UserSerializer,
     RegisterUserSerializer,
     UpdateUserSerializer,
@@ -25,9 +25,10 @@ from apps.accounts.api.serializers import (
 )
 
 # Services
-from apps.accounts.services.auth_service import authenticate_user, logout_user
-from apps.accounts.services.user_service import change_user_password, delete_user_account
+from apps.accounts.services.auth_service import authenticate_user, logout_user, request_password_reset_email, reset_user_password
+from apps.accounts.services.user_service import change_user_password, delete_user_account, register_new_user, get_all_users as get_all_users_service, get_user_by_id as get_user_by_id_service, update_user_details
 from apps.accounts.services.location_service import verify_geofence
+from apps.accounts.services.log_service import clear_log_file, get_log_file_path
 
 # Path to logs directory
 LOGS_DIR = os.path.join(settings.BASE_DIR, "logs")
@@ -60,6 +61,8 @@ def check_geofence(request):
 
 # Home view
 @api_view(['GET'])
+@authentication_classes([])
+@permission_classes([AllowAny])
 def home(request):
     return Response({
         "message": "app is running successfully"
@@ -72,26 +75,10 @@ def home(request):
 @authentication_classes([])
 @permission_classes([AllowAny])
 def register_user(request):
-    try:
-        serializer = RegisterUserSerializer(data=request.data)
-        if serializer.is_valid():
-            user = serializer.save()
-            user_details = {
-                'id': user.id,
-                'username': user.username,
-                'email': user.email,
-                'location': user.location,
-                'department': user.department,
-                'status': user.status,
-                'send_mail': user.send_mail,
-            }
-            return success_response(data=user_details, message="User registered successfully", status=status.HTTP_201_CREATED)
-        return error_response(error=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    except ValidationError as e:
-        return error_response(error=str(e), status=status.HTTP_400_BAD_REQUEST)
-    except Exception as e:
-        logger.exception("Unexpected error during register_user")
-        return error_response(error="An unexpected error occurred.", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    user_details, error_msg, status_code = register_new_user(request.data)
+    if error_msg:
+        return error_response(error=error_msg, status=status_code)
+    return success_response(data=user_details, message="User registered successfully", status=status_code)
 
 
 # Get all users from db (non-admin users)
@@ -99,13 +86,10 @@ def register_user(request):
 @authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def get_all_users(request):
-    try:
-        users = User.objects.filter(user_type=0)
-        serializer = UserSerializer(users, many=True)
-        return success_response(data=serializer.data, message="Fetched all the users", status=status.HTTP_200_OK)
-    except Exception as e:
-        logger.exception("Unexpected error during get_all_users")
-        return error_response(error="An unexpected error occurred.", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    data, error_msg, status_code = get_all_users_service()
+    if error_msg:
+        return error_response(error=error_msg, status=status_code)
+    return success_response(data=data, message="Fetched all the users", status=status_code)
 
 
 # Get a user from db by user_id
@@ -113,43 +97,25 @@ def get_all_users(request):
 @authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def get_user_by_id(request, user_id):
-    try:
-        user = User.objects.get(id=user_id)
-        serializer = UserSerializer(user)
-        return success_response(data=serializer.data, message="Fetched user by Id", status=status.HTTP_200_OK)
-    except User.DoesNotExist:
-        return error_response(error="User not found", status=status.HTTP_404_NOT_FOUND)
+    data, error_msg, status_code = get_user_by_id_service(user_id)
+    if error_msg:
+        return error_response(error=error_msg, status=status_code)
+    return success_response(data=data, message="Fetched user by Id", status=status_code)
 
 
 @api_view(['PUT'])
 @authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def update_user(request, user_id):
-    try:
-        user = User.objects.get(id=user_id)
-    except User.DoesNotExist:
-        return error_response(error="User not found.", status=status.HTTP_404_NOT_FOUND)
-
     # Copy request.data to avoid mutating the immutable QueryDict
     mutable_data = request.data.copy()
     mutable_data.pop('username', None)
     mutable_data.pop('created_at', None)
 
-    serializer = UpdateUserSerializer(user, data=mutable_data)
-    if serializer.is_valid():
-        updated_user = serializer.save()
-        user_details = {
-            'id': updated_user.id,
-            'username': updated_user.username,
-            'email': updated_user.email,
-            'location': updated_user.location,
-            'department': updated_user.department,
-            'phonenumber': updated_user.phonenumber,
-            'user_type': updated_user.user_type,
-            'status': updated_user.status,
-        }
-        return success_response(data=user_details, message="User updated successfully", status=status.HTTP_200_OK)
-    return error_response(error=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    user_details, error_msg, status_code = update_user_details(user_id, mutable_data)
+    if error_msg:
+        return error_response(error=error_msg, status=status_code)
+    return success_response(data=user_details, message="User updated successfully", status=status_code)
 
 
 # Delete a user by user_id
@@ -342,37 +308,20 @@ def logout(request):
 @authentication_classes([])
 @permission_classes([AllowAny])
 def request_password_reset(request):
-    serializer = RequestPasswordResetSerializer(data=request.data, context={'request': request})
-    if serializer.is_valid():
-        serializer.save()
-        return success_response(
-            data=serializer.data,
-            message="If this email is registered, a password reset link has been sent.",
-            status=status.HTTP_200_OK
-        )
-
-    return error_response(
-        error="A valid email address is required.",
-        status=status.HTTP_400_BAD_REQUEST
-    )
+    data, error_msg, status_code = request_password_reset_email(request.data)
+    if error_msg:
+        return error_response(error=error_msg, status=status_code)
+    return success_response(data=data, message="If this email is registered, a password reset link has been sent.", status=status_code)
 
 
 @api_view(['POST'])
 @authentication_classes([])
 @permission_classes([AllowAny])
 def reset_password(request):
-    serializer = ResetPasswordSerializer(data=request.data)
-    if serializer.is_valid():
-        data = serializer.save()
-        return success_response(
-            data=data,
-            message="Password has been reset successfully",
-            status=status.HTTP_200_OK
-        )
-    return error_response(
-        error=serializer.errors,
-        status=status.HTTP_400_BAD_REQUEST
-    )
+    data, error_msg, status_code = reset_user_password(request.data)
+    if error_msg:
+        return error_response(error=error_msg, status=status_code)
+    return success_response(data=data, message="Password has been reset successfully", status=status_code)
 
 
 @api_view(['POST'])
@@ -411,22 +360,16 @@ def fetch_logs(request, log_filename):
     GET  /fetch_logs/<log_filename>/ — returns the log file contents
     POST /fetch_logs/<log_filename>/ — clears the log file contents
     """
-    # Sanitize filename: strip directory components to prevent path traversal
-    safe_name = pathlib.Path(log_filename).name
-    log_path = os.path.join(LOGS_DIR, f"{safe_name}.log")
-
-    # Double-check the resolved path is still inside LOGS_DIR
-    if not os.path.realpath(log_path).startswith(os.path.realpath(LOGS_DIR)):
-        return error_response(error="Invalid log filename.", status=status.HTTP_400_BAD_REQUEST)
-
     if request.method == 'POST':
-        if not os.path.exists(log_path):
-            return error_response(error="Log file not found.", status=status.HTTP_404_NOT_FOUND)
-        with open(log_path, "w") as log_file:
-            log_file.truncate(0)
-        return JsonResponse({"message": f"{safe_name}.log has been cleared successfully."})
+        message, error_msg, status_code = clear_log_file(log_filename)
+        if error_msg:
+            return error_response(error=error_msg, status=status_code)
+        return JsonResponse({"message": message})
 
-    if not os.path.exists(log_path):
-        return HttpResponseNotFound("Log file not found")
+    log_path, error_msg, status_code = get_log_file_path(log_filename)
+    if error_msg:
+        if status_code == 404:
+            return HttpResponseNotFound(error_msg)
+        return error_response(error=error_msg, status=status_code)
 
     return FileResponse(open(log_path, "rb"), content_type="text/plain")

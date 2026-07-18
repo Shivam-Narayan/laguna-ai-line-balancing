@@ -20,7 +20,7 @@ from .prediction_service import model_prediction
 from config.utils import truncate_table
 from apps.manning_sheet.views import NOTIFICATION_DISPLAY_TITLE
 from apps.manning_sheet.models import ManningSheetData, LoadingPlan
-from apps.accounts.api.authentication import CookieJWTAuthentication
+from apps.accounts.authentication import CookieJWTAuthentication
 from ..models import Absenteeism, PredictionData, AbsenteeismPrediction
 from apps.manning_sheet.utils import create_bulk_push_notifications, custom_round
 from apps.accounts.utils.response_handlers import error_response, success_response
@@ -31,13 +31,7 @@ from ..utils import generate_csv, send_email, generate_prediction_data, convert_
 logger = logging.getLogger('general')
 prediction_response = {}
 
-@api_view(['POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def upload_absenteesim_data(request):
-    file = request.FILES.get('file')
-    month = request.POST.get('month')
-    year = request.POST.get('year')
+def run_upload_absenteesim_data(file, month, year):
 
     if not month or not year:
         return error_response(error= 'No month or year provided.', status=status.HTTP_400_BAD_REQUEST)
@@ -210,10 +204,7 @@ def process_absenteeism_data():
     except Exception as e:
         return False, f"An unexpected error occurred: {str(e)}"
 
-@api_view(['POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def absenteeism_data_preprocessing(request):
+def run_absenteeism_data_preprocessing():
     success, msg = process_absenteeism_data()
     if success:
         return success_response(data=msg)
@@ -221,11 +212,8 @@ def absenteeism_data_preprocessing(request):
         return error_response(error=msg, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@api_view(['POST'])
-def upload_prediction_data(request):
+def run_upload_prediction_data(uploaded_file):
     try:
-        # Check if a file is uploaded
-        uploaded_file = request.FILES.get('file')
         if not uploaded_file:
             return error_response(error= 'No file provided', status=status.HTTP_400_BAD_REQUEST)
 

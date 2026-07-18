@@ -172,27 +172,27 @@ function Start-DevStaged {
     Write-Colour "[INFO] Starting dev services (staged sequence)..." Blue
 
     Write-Colour "  Stage 1/4: Core infrastructure (db, redis)..." Cyan
-    Invoke-DC "--profile dev up -d db redis"
+    Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml up -d db redis"
     Write-Host "  Waiting for databases to be healthy..."
     Start-Sleep -Seconds 8
 
     Write-Colour "  Stage 2/4: Backend application..." Cyan
-    Invoke-DC "--profile dev up -d backend"
+    Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml up -d backend"
     Start-Sleep -Seconds 5
 
     Write-Colour "  Stage 3/4: Developer tools (pgadmin)..." Cyan
-    Invoke-DC "--profile dev up -d pgadmin"
+    Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml up -d pgadmin"
 
     Write-Colour "  Stage 4/4: Reverse proxy (nginx)..." Cyan
-    Invoke-DC "up -d nginx"
+    Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml up -d nginx"
 
     Write-Colour "[OK] All dev services started" Green
 }
 
 function Start-DevFast {
     Write-Colour "[INFO] Starting dev services (fast mode)..." Blue
-    Invoke-DC "--profile dev up --force-recreate -d"
-    Invoke-DC "up -d nginx"
+    Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml up --force-recreate -d"
+    Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml up -d nginx"
     Write-Colour "[OK] All dev services started" Green
 }
 
@@ -200,26 +200,26 @@ function Start-ProdStaged {
     Write-Colour "[INFO] Starting production services (staged sequence)..." Blue
 
     Write-Colour "  Stage 1/4: Core infrastructure (db, redis)..." Cyan
-    Invoke-DC "--profile prod up -d db redis"
+    Invoke-DC "-f docker-compose.yml -f docker-compose.prod.yml up -d db redis"
     Start-Sleep -Seconds 10
 
     Write-Colour "  Stage 2/4: Backend application (gunicorn)..." Cyan
-    Invoke-DC "--profile prod up -d backend"
+    Invoke-DC "-f docker-compose.yml -f docker-compose.prod.yml up -d backend"
     Start-Sleep -Seconds 8
 
     Write-Colour "  Stage 3/4: Background workers (celery)..." Cyan
-    Invoke-DC "--profile prod up -d celery"
+    Invoke-DC "-f docker-compose.yml -f docker-compose.prod.yml up -d celery"
     Start-Sleep -Seconds 5
 
     Write-Colour "  Stage 4/4: Reverse proxy (nginx)..." Cyan
-    Invoke-DC "--profile prod up -d nginx"
+    Invoke-DC "-f docker-compose.yml -f docker-compose.prod.yml up -d nginx"
 
     Write-Colour "[OK] All production services started" Green
 }
 
 function Start-ProdFast {
     Write-Colour "[INFO] Starting production services (fast mode)..." Blue
-    Invoke-DC "--profile prod up --force-recreate -d"
+    Invoke-DC "-f docker-compose.yml -f docker-compose.prod.yml up --force-recreate -d"
     Write-Colour "[OK] All production services started" Green
 }
 
@@ -286,7 +286,7 @@ if ($Build) {
 if ($Down) {
     Assert-Docker
     Write-Colour "[INFO] Stopping and removing all containers..." Blue
-    Invoke-DC "--profile dev --profile prod --profile scheduler down"
+    Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml down"
     Write-Colour "[OK] All containers stopped and removed" Green
 }
 
@@ -295,7 +295,7 @@ if ($Clean) {
     Write-Colour "[WARNING] This will remove all containers AND volumes (database data will be lost!)" Red
     $confirm = Read-Host "Continue? (y/N)"
     if ($confirm -eq "y") {
-        Invoke-DC "--profile dev --profile prod --profile scheduler down -v"
+        Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml down -v"
         Write-Colour "[OK] Containers and volumes removed" Green
     }
     else {
@@ -331,7 +331,7 @@ if ($Restore -ne "") {
 
 if ($Local) {
     Assert-Python
-    Activate-Venv
+    Enable-Venv
     Write-Colour "[INFO] Starting Django development server..." Blue
     Write-Host "  Backend dir: $BackendDir"
     Write-Host ""
@@ -379,9 +379,9 @@ if ($Superuser) {
 if ($Test) {
     Assert-Python; Enable-Venv
     if ($Test) {
-        Assert-Python; Activate-Venv
+        Assert-Python; Enable-Venv
         if ( $Test) {
-            Assert-Python; Activate-Venv
+            Assert-Python; Enable-Venv
             Write-Colour "[INFO] Running test suite..." Blue
             Push-Location $BackendDir
             python manage.py test

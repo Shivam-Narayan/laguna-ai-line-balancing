@@ -126,7 +126,7 @@ remove_backend_images() {
 # Function to start services quickly (development mode)
 start_services_quick() {
     echo "Starting Docker Compose services (quick mode)..."
-    $DOCKER_COMPOSE_CMD --profile dev --profile prod up --force-recreate -d
+    $DOCKER_COMPOSE_CMD -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml up --force-recreate -d
     if [ $? -ne 0 ]; then
         echo "Failed to start services."
         exit 1
@@ -146,26 +146,26 @@ start_services_staged() {
 
     # Stage 2: Backend Application (dev)
     echo "Stage 2: Starting dev backend (Django runserver)..."
-    $DOCKER_COMPOSE_CMD --profile dev up --force-recreate -d backend
+    $DOCKER_COMPOSE_CMD -f docker-compose.yml -f docker-compose.override.yml up --force-recreate -d backend
     sleep 5
 
     # Stage 3: Backend Application (prod)
     echo "Stage 3: Starting prod backend (gunicorn)..."
-    $DOCKER_COMPOSE_CMD --profile prod up --force-recreate -d backend
+    $DOCKER_COMPOSE_CMD -f docker-compose.yml -f docker-compose.prod.yml up --force-recreate -d backend
     sleep 5
 
     # Stage 4: Background Workers
     echo "Stage 4: Starting background workers (celery)..."
-    $DOCKER_COMPOSE_CMD --profile prod up --force-recreate -d celery
+    $DOCKER_COMPOSE_CMD -f docker-compose.yml -f docker-compose.prod.yml up --force-recreate -d celery
     sleep 3
 
     # Stage 5: Developer Tools
     echo "Stage 5: Starting developer tools (pgadmin)..."
-    $DOCKER_COMPOSE_CMD --profile dev up --force-recreate -d pgadmin
+    $DOCKER_COMPOSE_CMD -f docker-compose.yml -f docker-compose.override.yml up --force-recreate -d pgadmin
 
     # Stage 6: Reverse Proxy
     echo "Stage 6: Starting reverse proxy (nginx)..."
-    $DOCKER_COMPOSE_CMD --profile prod up --force-recreate -d nginx
+    $DOCKER_COMPOSE_CMD -f docker-compose.yml -f docker-compose.prod.yml up --force-recreate -d nginx
     sleep 3
 
     echo "All services started successfully."
@@ -253,7 +253,7 @@ export COMPOSE_FILE="docker-compose.yml"
 # Handle --down command early (before other setup)
 if [ "$COMMAND" = "--down" ]; then
     echo "Stopping and removing all platform containers..."
-    $DOCKER_COMPOSE_CMD --profile dev --profile prod --profile scheduler down
+    $DOCKER_COMPOSE_CMD -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml down
     exit 0
 fi
 

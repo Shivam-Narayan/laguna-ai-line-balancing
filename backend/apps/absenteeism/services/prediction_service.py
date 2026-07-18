@@ -588,6 +588,7 @@ def predict_with_dynamic_model(future_weather, forecast_days, lags, line, sectio
                 if f'rolling_min_{window}d' in important_features:
                     input_features[f'rolling_min_{window}d'] = np.min(rolling_values[-window:])
                 if f'rolling_max_{window}d' in important_features:
+                    mean_3d = np.mean(rolling_values[-3:])
                     mean_7d = np.mean(rolling_values[-7:])
                     input_features['trend_3d'] = mean_3d - mean_7d
                 if 'trend_5d' in important_features:

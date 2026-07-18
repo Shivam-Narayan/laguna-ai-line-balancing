@@ -14,29 +14,26 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 from ..serializers import CalendarSerializer
 from apps.manning_sheet.models import ActiveEmployees, EMPFact
 from apps.absenteeism.utils import send_email, convert_to_excel_data, is_allowed_working_day
-from apps.accounts.api.authentication import CookieJWTAuthentication
+from apps.accounts.authentication import CookieJWTAuthentication
 from apps.accounts.utils.response_handlers import success_response, error_response
 from ..models import LocalHolidayCalendar, HistoricalWeather, EmployeeMaster, AttendanceMaster, PayableWorkingDays
 from config.utils import truncate_table
 
 logger = logging.getLogger('general')
 
-@api_view(['GET'])
-def get_calendar(request):
-    calendar = LocalHolidayCalendar.objects.all()
-    if not calendar:
-        return Response({'message': 'No data to display'}, status=status.HTTP_200_OK)
-    serializer = CalendarSerializer(calendar, many=True)
-    return Response(serializer.data)
-
-
-@api_view(['GET'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def export_operators_data(request):
+def run_get_calendar():
     try:
-        line_no = request.query_params.get('line', '').strip()
+        calendar = LocalHolidayCalendar.objects.all()
+        if not calendar:
+            return Response({'message': 'No data to display'}, status=status.HTTP_200_OK)
+        serializer = CalendarSerializer(calendar, many=True)
+        return Response(serializer.data)
+    except Exception as e:
+        return error_response(error=str(e), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+def run_export_operators_data(line_no):
+    try:
         if not line_no:
             return error_response(
                 error='Line is required.',
@@ -108,23 +105,11 @@ def export_operators_data(request):
         )
 
 
-@api_view(['GET'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def export_operators_data_email(request):
+def run_export_operators_data_email(recipient_email, line_no):
     try:
-        recipient_email = request.query_params.get('email', '').strip()
-        line_no = request.query_params.get('line', '').strip()
-
-        if not recipient_email:
+        if not recipient_email or not line_no:          
             return error_response(
                 error='Recipient email is required.',
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        if not line_no:
-            return error_response(
-                error='Line is required.',
                 status=status.HTTP_400_BAD_REQUEST
             )
 

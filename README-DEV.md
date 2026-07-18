@@ -7,11 +7,22 @@ This document describes the development environment setup and best practices for
    ```bash
    cp .env.example .env
    ```
-2. Start the development environment with Docker:
-   ```bash
-   docker compose up -d
+2. Start the development environment using the unified startup scripts (which automatically manage the modular `docker-compose.yml` and `docker-compose.override.yml` files):
+
+   **Windows (Command Prompt):**
+   ```cmd
+   scripts\start.bat --dev
    ```
-3. Access the backend services at `http://localhost:8000`.
+   **Windows (PowerShell):**
+   ```powershell
+   .\scripts\start.ps1 -Dev
+   ```
+   **Linux / macOS:**
+   ```bash
+   chmod +x scripts/start.sh
+   ./scripts/start.sh
+   ```
+3. Access the backend services at `http://localhost:8000` (Swagger UI at `/swagger/`).
 
 ## Backend Architecture & Standards
 

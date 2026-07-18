@@ -62,6 +62,7 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
 
 from django.db.models.signals import pre_delete
 from django.dispatch import receiver
+from django.apps import apps
 
 @receiver(pre_delete, sender=User)
 def _clear_jwt_outstanding_tokens(sender: Any, instance: "User", **kwargs: Any) -> None:
@@ -70,5 +71,9 @@ def _clear_jwt_outstanding_tokens(sender: Any, instance: "User", **kwargs: Any) 
     not use CASCADE deletion. We must manually delete the tokens before deleting the user 
     to prevent an IntegrityError (Foreign Key constraint violation).
     """
-    from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
+    try:
+        OutstandingToken = apps.get_model('token_blacklist', 'OutstandingToken')
+    except LookupError:
+        return
+
     OutstandingToken.objects.filter(user=instance).delete()

@@ -25,7 +25,7 @@ from datetime import datetime, timedelta, date, time
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 
-from apps.accounts.api.authentication import CookieJWTAuthentication
+from apps.accounts.authentication import CookieJWTAuthentication
 from apps.accounts.utils.response_handlers import error_response, success_response
 
 from config.utils import truncate_table
@@ -68,13 +68,7 @@ class Round(Func):
     arity = 2
     output_field = FloatField()
 
-@api_view(['POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def download_manning_data_by_section(request):
-    line_no = request.query_params.get('line', ' ').strip()
-    period = request.query_params.get('forecast_period', ' ').strip()
-    
+def run_download_manning_data_by_section(line_no, period):
     line_no = line_no.capitalize()
     
     try:
@@ -258,17 +252,13 @@ def download_manning_data_by_section(request):
         return success_response(message=f"Error: {str(e)}", data=None, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@api_view(['POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def download_manning_attendance_data(request):
+def run_download_manning_attendance_data(line_no, type_of_export, email):
     """
     Retrieve attendance statistics with a single highly optimized database query
     using Django's conditional expressions and fetch dday data and export it as excel or via email
     """
     try:
-        # Get and validate line parameter
-        line_no = request.query_params.get('line', '').strip().title()
+        # Check if line parameter is provided, handle 'null' string safely
         if not line_no:
             return error_response(error='"line" is required.', status=status.HTTP_400_BAD_REQUEST)
         # Fast validation with set lookup
@@ -294,8 +284,7 @@ def download_manning_attendance_data(request):
             production_target = prediction_data.get('production_target', 0.0)
             predicted_production = prediction_data.get('predicted_production', 0.0)
         unallocated_emp_data = get_unallocated_employees_count(line_no=line_no)
-        type_of_export = request.query_params.get('type', '').strip().lower()
-        email = request.query_params.get('email', '').strip()
+        # type and email logic is handled directly by parameters
         df = pd.DataFrame(dday_data["data"]["records"])
         df.drop(columns=['Dday_ID', 'WIP Qty'], inplace=True)
         # Generate Excel file in memory
@@ -383,10 +372,7 @@ def download_manning_attendance_data(request):
         )
 
 
-@api_view(['POST'])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def download_notification_file(request):
+def run_download_notification_file(notification_id, user):
     """
     Download a file attached to a specific notification for the authenticated user.
 
@@ -407,8 +393,6 @@ def download_notification_file(request):
         - 500 on unexpected server error.
     """
     try:
-        notification_id = request.query_params.get('notification_id', None)
-
         if not notification_id:
             return error_response(
                 error="Notification ID is required",
@@ -417,7 +401,7 @@ def download_notification_file(request):
         
         # Create base filter dictionary
         base_filter = {
-            'user': request.user,
+            'user': user,
             'id': notification_id
         }
         
