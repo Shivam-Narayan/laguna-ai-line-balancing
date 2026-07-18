@@ -18,6 +18,9 @@ class AuthServiceTest(TestCase):
             username='authuser',
             email='auth@example.com',
             password='StrongPass123!',
+            location='Test City',
+            department='Engineering',
+            phonenumber='9876543210'
         )
 
     def test_login_missing_credentials(self):
@@ -47,6 +50,9 @@ class UserServiceTest(TestCase):
             username='pwduser',
             email='pwd@example.com',
             password='OldPass123!',
+            location='Test City',
+            department='Engineering',
+            phonenumber='9876543210'
         )
 
     def test_change_password_missing_fields(self):
@@ -82,6 +88,9 @@ class LocationServiceTest(TestCase):
             username='locuser',
             email='loc@example.com',
             password='StrongPass123!',
+            location='Test City',
+            department='Engineering',
+            phonenumber='9876543210'
         )
         self.user.latitude = 12.9729
         self.user.longitude = 77.7189
@@ -104,3 +113,52 @@ class LocationServiceTest(TestCase):
         within, msg, code = verify_geofence(self.user, 28.6139, 77.2090)
         self.assertFalse(within)
         self.assertEqual(code, 403)
+
+    def test_logout_user(self):
+        from apps.accounts.services.auth_service import logout_user
+        # Mismatch email
+        msg, code = logout_user(self.user, 'wrong@example.com')
+        self.assertEqual(code, 400)
+        
+        # Valid logout
+        msg, code = logout_user(self.user, self.user.email)
+        self.assertEqual(code, 200)
+
+    def test_get_all_users(self):
+        from apps.accounts.services.user_service import get_all_users
+        data, err, code = get_all_users()
+        self.assertEqual(code, 200)
+        self.assertIsInstance(data, list)
+
+    def test_get_user_by_id(self):
+        from apps.accounts.services.user_service import get_user_by_id
+        data, err, code = get_user_by_id(self.user.id)
+        self.assertEqual(code, 200)
+        self.assertEqual(data['email'], self.user.email)
+
+        # Invalid ID
+        data, err, code = get_user_by_id(9999)
+        self.assertEqual(code, 404)
+
+    def test_update_user_details(self):
+        from apps.accounts.services.user_service import update_user_details
+        data, err, code = update_user_details(self.user.id, {'department': 'NewDept'})
+        self.assertEqual(code, 200)
+        self.assertEqual(data['department'], 'NewDept')
+
+
+import os
+import tempfile
+from django.conf import settings
+from apps.accounts.services.log_service import _get_validated_log_path, clear_log_file, get_log_file_path
+
+class LogServiceTest(TestCase):
+    def setUp(self):
+        # Ensure we don't accidentally wipe real logs by using a mock
+        pass
+
+    def test_log_path_validation_invalid(self):
+        # Test path traversal prevention
+        path, err, code = _get_validated_log_path('../../../etc/passwd')
+        self.assertEqual(code, 404) # Not found because it prepends to LOGS_DIR but strips directories using pathlib.Path.name
+

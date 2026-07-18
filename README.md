@@ -47,6 +47,7 @@ laguna-ai-line-balancing/             # Repository root
 | 🚀 [Kubernetes & Deployment](docs/kubernetes_guide.md) | Production deployment architecture, K8s vs Docker Compose, and cloud testing |
 | 🚑 [Operations Runbook](docs/runbook.md) | Troubleshooting, log extraction, and database backup procedures |
 | 🤖 [CI/CD Pipeline](docs/ci_cd_pipeline.md) | GitHub Actions automation and deployment protections |
+| 🧪 [Testing Guide](backend/TESTING.md) | How to run the automated test suite, mock services, and TDD guidelines |
 
 ---
 
