@@ -13,7 +13,11 @@ laguna-ai-line-balancing/             # Repository root
 │   │   ├── data_engine/              # Data processing & employee management
 │   │   └── manning_sheet/            # Manning sheet & resource planning
 │   ├── config/                       # Django project configuration
-│   │   └── settings.py               # Environment-aware settings
+│   │   ├── settings/                 # Modular settings folder
+│   │   │   ├── __init__.py           # Auto-loads dev/prod
+│   │   │   ├── base.py               # Common settings
+│   │   │   ├── development.py        # Local overrides
+│   │   │   └── production.py         # Live environment overrides
 │   ├── csv_files/                    # Auto-generated CSV exports
 │   ├── data/                         # Data files (CSV, fixtures)
 │   ├── Dockerfile                    # Dockerfile for building backend images
@@ -262,7 +266,7 @@ curl -X POST http://localhost:8000/manning-sheet/manning-sheets/d-day/generate/
 ## Key Features & Architectural Standards
 - **Authentication & SSO**: Fully functional JWT-based authentication with integrated Google SSO (OAuth 2.0). Utilizes `dj-rest-auth` and `django-allauth` to allow seamless login and automatic linking of Google profiles to existing local accounts without disrupting the user flow.
 - **Strict Service Layer Architecture**: All features are organized under separate apps in the `backend/apps/` directory, adhering strictly to Domain-Driven Design. Heavy business logic (Pandas/ETL/ML/Database transactions) is isolated in `services/`, keeping `views.py` incredibly thin and focused only on HTTP routing.
-- **Environment-Aware Settings**: A single `settings.py` dynamically adjusts behavior based on the `ENVIRONMENT` variable (development vs production).
+- **Modular Environment Settings**: The configuration is split into `settings/base.py`, `settings/development.py`, and `settings/production.py` to keep environments safely isolated. An automated `__init__.py` loader dynamically routes to the correct module based on your `ENVIRONMENT` variable.
 - **Production-Grade Security**: 
   - Django 4.0+ strict `CSRF_TRUSTED_ORIGINS` validation is automatically mapped to `ALLOWED_HOSTS` to prevent Cross-Site Request Forgery while supporting Nginx/Docker proxies.
   - User deletions are protected by Django `pre_delete` signals to cleanly wipe SimpleJWT tokens (`OutstandingToken`, `BlacklistedToken`), guaranteeing database integrity and preventing foreign key crashes.
