@@ -37,6 +37,17 @@ All Django models must strictly adhere to the following enterprise standards:
 - **Explicit Indexing:** Set `db_index=True` on fields that are frequently queried or filtered against (e.g., Foreign Keys, dates, emails, status flags).
 - **Modern Enum Choices:** Never use raw tuples for choices. Always use `models.TextChoices` or `models.IntegerChoices`.
 
+### 3. Code Quality Tools
+This project strictly enforces code quality through automated tools configured in `backend/pyproject.toml`.
+Before submitting a pull request, run the following from the `backend/` directory:
+- **Linting & Formatting (Ruff)**: 
+  - `python -m ruff check .` (finds errors)
+  - `python -m ruff format .` (auto-fixes styling)
+- **Type Checking (Mypy)**: 
+  - `python -m mypy .` (ensures type hints are valid)
+- **Testing (Pytest)**: 
+  - `pytest --cov=. --cov-report=term-missing` (runs tests and shows coverage)
+
 ## Version Management and Collaboration Guide
 
 ## Branching Strategy

@@ -1,5 +1,7 @@
 from django.db import models
+
 from apps.core.models import BaseModel
+
 
 class StyleOB(BaseModel):
     style = models.CharField(max_length=255)
@@ -10,17 +12,18 @@ class StyleOB(BaseModel):
     sam = models.FloatField()
     # color = models.CharField(max_length=255, default="Black")
     machine_type = models.CharField(max_length=255, default="Machine Type")
-    machinist = models.CharField(max_length=255, default='False')
+    machinist = models.CharField(max_length=255, default="False")
 
     class Meta:
-        db_table = 'style_ob'
+        db_table = "style_ob"
 
     def __str__(self):
         return self.style
-    
+
+
 class LoadingPlan(BaseModel):
     oc_no = models.CharField(max_length=255)
-    order_no = models.CharField(max_length=255, default='NaN')
+    order_no = models.CharField(max_length=255, default="NaN")
     cfm_date = models.DateField(null=True, blank=True)
     merchant = models.CharField(max_length=255)
     style = models.CharField(max_length=255)
@@ -43,10 +46,11 @@ class LoadingPlan(BaseModel):
     raw_fabric_article = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta:
-        db_table = 'loading_plan'
+        db_table = "loading_plan"
 
     def __str__(self):
         return f"{self.oc_no} - {self.order_no}"
+
 
 class EMPFact(BaseModel):
     employee_id = models.IntegerField()
@@ -62,15 +66,16 @@ class EMPFact(BaseModel):
     average_capacity = models.IntegerField()
     machine = models.CharField(max_length=255)
     status = models.CharField(max_length=255)
-    factory = models.CharField(max_length=255, default='Factory 1')
-    floor = models.CharField(max_length=255, default='Floor 1')
+    factory = models.CharField(max_length=255, default="Factory 1")
+    floor = models.CharField(max_length=255, default="Floor 1")
 
     class Meta:
-        db_table = 'emp_fact'
+        db_table = "emp_fact"
 
     def __str__(self):
         return self.employee_name
-    
+
+
 class ManningSheetData(BaseModel):
     oc_no = models.CharField(max_length=255)
     order_no = models.CharField(max_length=255)
@@ -107,15 +112,15 @@ class ManningSheetData(BaseModel):
     shortage_reason = models.CharField(max_length=255, null=True, blank=True)
     split_order_id = models.CharField(max_length=255, null=True, blank=True)
     machine_type = models.CharField(max_length=255, default="Machine Type")
-    machinist = models.CharField(max_length=255, default='False')
-    color = models.CharField(max_length=255, default='Black')
+    machinist = models.CharField(max_length=255, default="False")
+    color = models.CharField(max_length=255, default="Black")
     raw_oc_no = models.CharField(max_length=255, null=True, blank=True)
     raw_style = models.CharField(max_length=255, null=True, blank=True)
     raw_color = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta:
-        db_table = 'manning_sheet_data'
-    
+        db_table = "manning_sheet_data"
+
     def __str__(self):
         return f"{self.order_no} - {self.style} - {self.line}"
 
@@ -157,29 +162,41 @@ class DDayData(BaseModel):
     new_emp = models.CharField(max_length=255, null=True, blank=True)
     reallocation_level = models.CharField(max_length=255, null=True, blank=True)
     re_allocated_employee = models.CharField(max_length=255, null=True, blank=True)
-    preferred_employees = models.TextField(null=True, blank=True)  # Storing as text, can be parsed as needed
+    preferred_employees = models.TextField(
+        null=True, blank=True
+    )  # Storing as text, can be parsed as needed
     shortage_reason = models.CharField(max_length=255, null=True, blank=True)
     split_order_id = models.CharField(max_length=255, null=True, blank=True)
     reallocation_reason = models.CharField(max_length=255, null=True, blank=True)
-    machine_type = models.CharField(max_length=255, default="Machine Type", null=True, blank=True)
-    machinist = models.CharField(max_length=255, default='False', null=True, blank=True)
+    machine_type = models.CharField(
+        max_length=255, default="Machine Type", null=True, blank=True
+    )
+    machinist = models.CharField(max_length=255, default="False", null=True, blank=True)
     color = models.CharField(max_length=255, default="Black", null=True, blank=True)
-    backlog_flag = models.CharField(max_length=255, default='Back Log', null=True, blank=True)
-    original_emp_name = models.CharField(max_length=255, default='Original Employee Name', null=True, blank=True)
+    backlog_flag = models.CharField(
+        max_length=255, default="Back Log", null=True, blank=True
+    )
+    original_emp_name = models.CharField(
+        max_length=255, default="Original Employee Name", null=True, blank=True
+    )
     original_planned_qty = models.FloatField(default=0, null=True, blank=True)
     average_capacity_per_hour = models.FloatField(default=0, null=True, blank=True)
-    attendance_status = models.CharField(max_length=255, default='P', null=True, blank=True)
+    attendance_status = models.CharField(
+        max_length=255, default="P", null=True, blank=True
+    )
     smv = models.FloatField(default=0, null=True, blank=True)
-    final_allocation = models.TextField(null=True, blank=True)  # Storing as text, can be parsed as needed
+    final_allocation = models.TextField(
+        null=True, blank=True
+    )  # Storing as text, can be parsed as needed
     wip_quantity = models.FloatField(default=0, null=True, blank=True)
 
     class Meta:
-        db_table = 'dday_manning_data'
+        db_table = "dday_manning_data"
 
     def __str__(self):
         return f"{self.order_no} - {self.operation}"
-    
-    
+
+
 class ManningGeneralInfo(BaseModel):
     style = models.CharField(max_length=255)
     line = models.CharField(max_length=50)
@@ -199,9 +216,9 @@ class ManningGeneralInfo(BaseModel):
     non_machinist_required = models.FloatField(null=True, blank=True)
     machine = models.CharField(max_length=100, null=True, blank=True)
     planned_dates = models.DateField(null=True, blank=True)
-    
+
     class Meta:
-        db_table = 'manning_general_info'
+        db_table = "manning_general_info"
 
     def __str__(self):
         return f"{self.style} - {self.line} - {self.code}"
@@ -221,11 +238,10 @@ class WIPData(BaseModel):
     wip_qty = models.FloatField()
 
     class Meta:
-        db_table = 'wip_data'
+        db_table = "wip_data"
 
     def __str__(self):
         return f"{self.oc_no} - {self.order_no}"
-    
 
 
 class SkillShortages(BaseModel):
@@ -235,11 +251,10 @@ class SkillShortages(BaseModel):
     shortage_qty = models.FloatField(null=True, blank=True)
 
     class Meta:
-        db_table = 'skill_shortages'
+        db_table = "skill_shortages"
 
     def __str__(self):
         return f"{self.line} - {self.code}"
-    
 
 
 class UnallocatedEmployees(BaseModel):
@@ -258,9 +273,8 @@ class UnallocatedEmployees(BaseModel):
     period = models.IntegerField(null=True, blank=True)
     designation = models.CharField(max_length=255, blank=True, null=True)
 
-
     class Meta:
-        db_table = 'unallocated_employees'
+        db_table = "unallocated_employees"
 
     def __str__(self):
         return f"{self.employee_id} - {self.employee_name}"
@@ -271,38 +285,46 @@ class EmployeesOnHold(BaseModel):
     line = models.CharField(max_length=255, null=True, blank=True)
     section = models.CharField(max_length=255, null=True, blank=True)
     code = models.CharField(max_length=255, null=True, blank=True)
-    preferred_employees = models.TextField(null=True, blank=True)  # Storing as text, can be parsed as needed
+    preferred_employees = models.TextField(
+        null=True, blank=True
+    )  # Storing as text, can be parsed as needed
     count = models.IntegerField(null=True, blank=True)
+
     class Meta:
-        db_table = 'employees_on_hold'
+        db_table = "employees_on_hold"
 
     def __str__(self):
         return f"{self.date} - {self.line} - {self.section}"
 
 
 class NotificationType(models.TextChoices):
-    DDAY_8_50 = 'dday_8_50', 'D-Day 8:50 AM Allocation Notification'
-    DDAY_12_45 = 'dday_12_45', 'D-day 12:45 PM Allocation Data'
-    DDAY_5_30 = 'dday_5_30', 'D-Day 5:30 PM Allocation Notification'
-    MANNING_SHEET = 'manning_sheet', 'Manning Sheet Allocation Notification'
-    ABSENTEEISM = 'absenteeism_prediction', 'Absenteeism Prediction Data'
+    DDAY_8_50 = "dday_8_50", "D-Day 8:50 AM Allocation Notification"
+    DDAY_12_45 = "dday_12_45", "D-day 12:45 PM Allocation Data"
+    DDAY_5_30 = "dday_5_30", "D-Day 5:30 PM Allocation Notification"
+    MANNING_SHEET = "manning_sheet", "Manning Sheet Allocation Notification"
+    ABSENTEEISM = "absenteeism_prediction", "Absenteeism Prediction Data"
+
 
 class PushNotification(BaseModel):
-    notification_type = models.CharField(max_length=50, choices=NotificationType.choices)
+    notification_type = models.CharField(
+        max_length=50, choices=NotificationType.choices
+    )
     title = models.CharField(max_length=255)
     message = models.TextField()
     is_read = models.BooleanField(default=False)
-    user = models.ForeignKey('accounts.User', on_delete=models.CASCADE, related_name='notifications')
-    data = models.JSONField(null=True, blank=True)  # Additional data for the notification
-    
+    user = models.ForeignKey(
+        "accounts.User", on_delete=models.CASCADE, related_name="notifications"
+    )
+    data = models.JSONField(
+        null=True, blank=True
+    )  # Additional data for the notification
+
     class Meta:
-        db_table = 'push_notifications'
-        ordering = ['-created_at']
+        db_table = "push_notifications"
+        ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.notification_type} - {self.title} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"    
-    
-
+        return f"{self.notification_type} - {self.title} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
 
 
 class ActiveEmployees(BaseModel):
@@ -311,13 +333,13 @@ class ActiveEmployees(BaseModel):
     line = models.CharField(max_length=255, null=True, blank=True, db_index=True)
     section = models.CharField(max_length=255, null=True, blank=True)
     designation = models.CharField(max_length=255, null=True, blank=True)
-    machinist = models.CharField(max_length=255, default='False')
+    machinist = models.CharField(max_length=255, default="False")
     service_years = models.IntegerField(null=True, blank=True)
     status = models.CharField(max_length=255, null=True, blank=True)
     gender = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta:
-        db_table = 'active_employees'
+        db_table = "active_employees"
 
     def __str__(self):
         return f"{self.employee_id} - {self.employee_name}"

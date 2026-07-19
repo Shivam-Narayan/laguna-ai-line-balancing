@@ -1,12 +1,20 @@
-from typing import Tuple, Dict, Any, Optional
+from typing import Any, Dict, Optional, Tuple
+
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
+
 from apps.accounts.models import MultiSessionToken
 
 User = get_user_model()
-from apps.accounts.serializers import RequestPasswordResetSerializer, ResetPasswordSerializer
+from apps.accounts.serializers import (
+    RequestPasswordResetSerializer,
+    ResetPasswordSerializer,
+)
 
-def authenticate_user(email: str, password: str) -> Tuple[Optional[Dict[str, Any]], Optional[str], Optional[str], Optional[str], int]:
+
+def authenticate_user(
+    email: str, password: str
+) -> Tuple[Optional[Dict[str, Any]], Optional[str], Optional[str], Optional[str], int]:
     """Authenticates a user and generates a session token."""
     if not email or not password:
         return None, None, None, "Email and password are required", 400
@@ -21,19 +29,27 @@ def authenticate_user(email: str, password: str) -> Tuple[Optional[Dict[str, Any
         return None, None, None, "Invalid email or password", 401
 
     if not user.status:
-        return None, None, None, "Your account has been deactivated. Please contact an administrator.", 403
+        return (
+            None,
+            None,
+            None,
+            "Your account has been deactivated. Please contact an administrator.",
+            403,
+        )
 
     try:
         refresh = RefreshToken.for_user(user)
         user_details = {
-            'id': user.id,
-            'username': user.username,
-            'email': user.email,
-            'location': user.location,
-            'department': user.department,
-            'status': user.status,
-            'user_type': user.user_type,
-            'redirect_url': '/home' if user.user_type == 0 else '/user-management/users',
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "location": user.location,
+            "department": user.department,
+            "status": user.status,
+            "user_type": user.user_type,
+            "redirect_url": "/home"
+            if user.user_type == 0
+            else "/user-management/users",
         }
         return user_details, str(refresh.access_token), str(refresh), None, 200
     except Exception as e:
@@ -52,7 +68,9 @@ def logout_user(user, email: str) -> Tuple[Optional[str], int]:
     return None, 200
 
 
-def request_password_reset_email(data: Dict[str, Any]) -> Tuple[Optional[Dict[str, Any]], Optional[str], int]:
+def request_password_reset_email(
+    data: Dict[str, Any],
+) -> Tuple[Optional[Dict[str, Any]], Optional[str], int]:
     """Handles password reset request and triggers the email."""
     serializer = RequestPasswordResetSerializer(data=data)
     if serializer.is_valid():
@@ -61,7 +79,9 @@ def request_password_reset_email(data: Dict[str, Any]) -> Tuple[Optional[Dict[st
     return None, "A valid email address is required.", 400
 
 
-def reset_user_password(data: Dict[str, Any]) -> Tuple[Optional[Dict[str, Any]], Optional[Any], int]:
+def reset_user_password(
+    data: Dict[str, Any],
+) -> Tuple[Optional[Dict[str, Any]], Optional[Any], int]:
     """Resets the user's password using the provided token."""
     serializer = ResetPasswordSerializer(data=data)
     if serializer.is_valid():

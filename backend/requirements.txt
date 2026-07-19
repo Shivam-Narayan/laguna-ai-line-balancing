@@ -49,3 +49,8 @@ boto3
 django-storages
 django-allauth
 dj-rest-auth
+ruff
+mypy
+pytest
+pytest-django
+pytest-cov

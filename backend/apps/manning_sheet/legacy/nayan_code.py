@@ -1,30 +1,19 @@
 import logging
+
 logger = logging.getLogger(__name__)
 
 import os
-import django
+from datetime import datetime
 
 # # Setup Django before importing models
 # os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 # django.setup()
-
-import numpy as np
 import pandas as pd
-import concurrent.futures
-import multiprocessing as mp
-
-from functools import partial
-from datetime import datetime
-from multiprocessing import Pool, cpu_count
-from concurrent.futures import ThreadPoolExecutor, as_completed, ProcessPoolExecutor
-
-from django.db import transaction, connection
-
-from config.utils import truncate_table
-from .models import ManningSheetData, ManningGeneralInfo, UnallocatedEmployees
 
 
-def run_manning_allocation(manning_dataframes_dict, emp_fact_df, output_dir="csv_files/"):
+def run_manning_allocation(
+    manning_dataframes_dict, emp_fact_df, output_dir="csv_files/"
+):
     """
     Main function to run the manning allocation process
 
@@ -61,15 +50,17 @@ def run_manning_allocation(manning_dataframes_dict, emp_fact_df, output_dir="csv
 
     # Filter only Primary and Secondary types from employee data
     emp_fact_df_original = emp_fact_df.copy()
-    emp_fact_df_original = emp_fact_df_original[emp_fact_df_original["type"].isin(["Primary", "Secondary"])]
+    emp_fact_df_original = emp_fact_df_original[
+        emp_fact_df_original["type"].isin(["Primary", "Secondary"])
+    ]
 
     # Process each manning dataframe
     all_processed_dfs = []  # To store all processed dataframes for consolidation
     unallocated_collection = {}  # To store unallocated employee data
 
     for df_info in manning_dataframes:
-        suffix = df_info['suffix']
-        period = df_info['period']
+        suffix = df_info["suffix"]
+        period = df_info["period"]
         manning_df = manning_dataframes_dict.get(suffix)
 
         try:
@@ -82,14 +73,14 @@ def run_manning_allocation(manning_dataframes_dict, emp_fact_df, output_dir="csv
 
                 # Process the manning dataframe
                 updated_manning_df, unallocated_employees = process_manning_dataframe(
-                    manning_df,
-                    emp_fact_df_original.copy(),
-                    period
+                    manning_df, emp_fact_df_original.copy(), period
                 )
 
                 updated_manning_df.drop_duplicates(inplace=True, ignore_index=True)
                 # Save the updated manning dataframe
-                output_path = os.path.join(output_dir, f"manning_sheet_{suffix}_with_daily_capacity.csv")
+                output_path = os.path.join(
+                    output_dir, f"manning_sheet_{suffix}_with_daily_capacity.csv"
+                )
                 updated_manning_df.to_csv(output_path, index=False)
 
                 # Store results
@@ -102,17 +93,23 @@ def run_manning_allocation(manning_dataframes_dict, emp_fact_df, output_dir="csv
                 all_processed_dfs.append(updated_manning_df)
 
                 logger.info(f"Successfully processed period {period}:")
-                logger.info(f"  - Created manning sheet with {len(updated_manning_df)} rows")
+                logger.info(
+                    f"  - Created manning sheet with {len(updated_manning_df)} rows"
+                )
                 logger.info(f"  - Output saved to {output_path}")
                 logger.info()
             else:
-                logger.info(f"Warning: Dataframe for period {period} not found, skipping.")
+                logger.info(
+                    f"Warning: Dataframe for period {period} not found, skipping."
+                )
 
         except Exception as e:
             logger.info(f"Error processing period {period}: {e}")
 
     # Process unallocated employee data
-    unallocated_results = process_unallocated_data(unallocated_collection, manning_dataframes, output_dir)
+    unallocated_results = process_unallocated_data(
+        unallocated_collection, manning_dataframes, output_dir
+    )
     results.update(unallocated_results)
 
     # Create consolidated dataframe from all processed dataframes
@@ -122,7 +119,7 @@ def run_manning_allocation(manning_dataframes_dict, emp_fact_df, output_dir="csv
             consolidated_df = pd.concat(all_processed_dfs, ignore_index=True)
 
             # Standardize some columns to uppercase
-            for col in ['OC NO', 'BUYER', 'STYLE', 'COLOR']:
+            for col in ["OC NO", "BUYER", "STYLE", "COLOR"]:
                 if col in consolidated_df.columns:
                     consolidated_df[col] = consolidated_df[col].str.upper()
 
@@ -136,10 +133,14 @@ def run_manning_allocation(manning_dataframes_dict, emp_fact_df, output_dir="csv
 
             # Analyze skill gaps if possible
             if "all_unallocated_employees" in results:
-                skill_gap_results = analyze_skill_gaps(consolidated_df, results["all_unallocated_employees"], output_dir)
+                skill_gap_results = analyze_skill_gaps(
+                    consolidated_df, results["all_unallocated_employees"], output_dir
+                )
                 results.update(skill_gap_results)
 
-            logger.info(f"Successfully created consolidated manning dataframe with {len(consolidated_df)} total rows")
+            logger.info(
+                f"Successfully created consolidated manning dataframe with {len(consolidated_df)} total rows"
+            )
             logger.info(f"Saved to: {consolidated_path}")
         else:
             logger.info("No dataframes were processed successfully for consolidation")
@@ -152,8 +153,9 @@ def run_manning_allocation(manning_dataframes_dict, emp_fact_df, output_dir="csv
     return results
 
 
-
-def get_prioritized_employees(emp_df, employee_used_capacity, line=None, code=None, section=None, emp_type=None):
+def get_prioritized_employees(
+    emp_df, employee_used_capacity, line=None, code=None, section=None, emp_type=None
+):
     """
     Fetch prioritized employees based on constraints
 
@@ -187,30 +189,30 @@ def get_prioritized_employees(emp_df, employee_used_capacity, line=None, code=No
         emp_df_copy.at[idx, "effective_remaining_capacity"] = remaining
 
     # Apply filters
-    query = (emp_df_copy["effective_remaining_capacity"] > 0)
+    query = emp_df_copy["effective_remaining_capacity"] > 0
 
     if line:
-        query &= (emp_df_copy["line"] == line)
-    if code: # Ensure employee only works on assigned CODE
-        query &= (emp_df_copy["code"] == code)
+        query &= emp_df_copy["line"] == line
+    if code:  # Ensure employee only works on assigned CODE
+        query &= emp_df_copy["code"] == code
     if section:
-        query &= (emp_df_copy["section"] == section)
+        query &= emp_df_copy["section"] == section
     if emp_type:
-        query &= (emp_df_copy["type"] == emp_type)
+        query &= emp_df_copy["type"] == emp_type
 
     # Filter and sort
     filtered_df = emp_df_copy[query].copy()
 
     # Sort by TYPE (Primary first) and effective remaining capacity
     filtered_df = filtered_df.sort_values(
-        by=["type", "effective_remaining_capacity"],
-        ascending=[True, False]
+        by=["type", "effective_remaining_capacity"], ascending=[True, False]
     )
 
     return filtered_df
 
 
 ###################------ Change 03-05-2025----------------##################
+
 
 def process_manning_dataframe(manning_df, emp_fact_df, period):
     """
@@ -240,10 +242,21 @@ def process_manning_dataframe(manning_df, emp_fact_df, period):
 
     # Add allocation columns
     allocation_columns = [
-        "ALLOCATED EMP ID", "ALLOCATED EMP NAME", "ALLOCATED CAPACITY",
-        "ALLOCATED_FRM_LINE", "ALLOCATED_FRM_FACTORY", "ALLOCATED_FRM_FLOOR",
-        "SKILL_TYPE", "MACHINE_EMP_FACT", "SHORTAGE_FLAG", "SHORTAGE_REASON", "DESIGNATION",
-        "TARGET@100%", "TARGET@90%", "SPLIT_ORDER_ID", "PERIOD"
+        "ALLOCATED EMP ID",
+        "ALLOCATED EMP NAME",
+        "ALLOCATED CAPACITY",
+        "ALLOCATED_FRM_LINE",
+        "ALLOCATED_FRM_FACTORY",
+        "ALLOCATED_FRM_FLOOR",
+        "SKILL_TYPE",
+        "MACHINE_EMP_FACT",
+        "SHORTAGE_FLAG",
+        "SHORTAGE_REASON",
+        "DESIGNATION",
+        "TARGET@100%",
+        "TARGET@90%",
+        "SPLIT_ORDER_ID",
+        "PERIOD",
     ]
 
     for col in allocation_columns:
@@ -284,33 +297,47 @@ def process_manning_dataframe(manning_df, emp_fact_df, period):
 
         # Process orders for this date
         daily_orders = manning_df[manning_df["PLANNED_DATES"] == date].copy()
-        grouped_orders = daily_orders.groupby(['LINE', 'SECTION', 'CODE'])
+        grouped_orders = daily_orders.groupby(["LINE", "SECTION", "CODE"])
 
         new_rows = []
 
         for (line, section, code), group_orders in grouped_orders:
             logger.info(f"Processing line={line}, section={section}, code={code}")
             group_rows = process_order_group(
-                line, section, code, group_orders, emp_fact_df,
-                employee_used_capacity, date, period
+                line,
+                section,
+                code,
+                group_orders,
+                emp_fact_df,
+                employee_used_capacity,
+                date,
+                period,
             )
             new_rows.extend(group_rows)
 
         # Track unallocated employees
-        unallocated_employees = get_unallocated_employees(emp_fact_df, daily_orders, date, period)
+        unallocated_employees = get_unallocated_employees(
+            emp_fact_df, daily_orders, date, period
+        )
         if unallocated_employees:
             unallocated_df = pd.DataFrame(unallocated_employees)
             unallocated_employees_list.append(unallocated_df)
 
         if new_rows:
             date_df = pd.DataFrame(new_rows)
-            updated_manning_df = pd.concat([updated_manning_df, date_df], ignore_index=True)
+            updated_manning_df = pd.concat(
+                [updated_manning_df, date_df], ignore_index=True
+            )
 
     return updated_manning_df, unallocated_employees_list
 
- #########------------------Change 03-05-2025-------------------############
 
-def process_order_group(line, section, code, group_orders, emp_fact_df, employee_used_capacity, date, period):  # added employee_used_capacity on 03-05-2025
+#########------------------Change 03-05-2025-------------------############
+
+
+def process_order_group(
+    line, section, code, group_orders, emp_fact_df, employee_used_capacity, date, period
+):  # added employee_used_capacity on 03-05-2025
     """
     Process a group of orders with the same line, section, and code
 
@@ -337,7 +364,7 @@ def process_order_group(line, section, code, group_orders, emp_fact_df, employee
         List of dictionaries representing new rows
     """
     # PHASE 1: Calculate total quantity and pre-allocate employees
-    total_planned_qty = group_orders['PLANNED_QTY'].sum()
+    total_planned_qty = group_orders["PLANNED_QTY"].sum()
     logger.info(f"Total quantity for this group: {total_planned_qty}")
 
     # New rows to return
@@ -349,7 +376,7 @@ def process_order_group(line, section, code, group_orders, emp_fact_df, employee
         employee_used_capacity=employee_used_capacity,
         line=line,
         code=code,
-        section=section
+        section=section,
     )
 
     if available_employees.empty:
@@ -362,28 +389,40 @@ def process_order_group(line, section, code, group_orders, emp_fact_df, employee
             any_matching_code = emp_fact_df[emp_fact_df["code"] == code].shape[0] > 0
 
             if not any_matching_code:
-                shortage_row["SHORTAGE_REASON"] = f"No employees with CODE={code} found in any line"
+                shortage_row["SHORTAGE_REASON"] = (
+                    f"No employees with CODE={code} found in any line"
+                )
             else:
                 # Check for employees with matching code in different lines
-                other_lines = set(emp_fact_df[
-                    (emp_fact_df["code"] == code) &
-                    (emp_fact_df["line"] != line)
-                ]["line"].unique())
+                other_lines = set(
+                    emp_fact_df[
+                        (emp_fact_df["code"] == code) & (emp_fact_df["line"] != line)
+                    ]["line"].unique()
+                )
 
                 if other_lines:
-                    shortage_row["SHORTAGE_REASON"] = f"CODE={code} found only in lines: {', '.join(other_lines)}"
+                    shortage_row["SHORTAGE_REASON"] = (
+                        f"CODE={code} found only in lines: {', '.join(other_lines)}"
+                    )
                 else:
                     # Check if there are employees in this line but with zero capacity
-                    zero_capacity = emp_fact_df[
-                        (emp_fact_df["code"] == code) &
-                        (emp_fact_df["line"] == line) &
-                        (emp_fact_df["remaining_capacity"] == 0)
-                    ].shape[0] > 0
+                    zero_capacity = (
+                        emp_fact_df[
+                            (emp_fact_df["code"] == code)
+                            & (emp_fact_df["line"] == line)
+                            & (emp_fact_df["remaining_capacity"] == 0)
+                        ].shape[0]
+                        > 0
+                    )
 
                     if zero_capacity:
-                        shortage_row["SHORTAGE_REASON"] = f"Employees with CODE={code} in LINE={line} have no remaining capacity"
+                        shortage_row["SHORTAGE_REASON"] = (
+                            f"Employees with CODE={code} in LINE={line} have no remaining capacity"
+                        )
                     else:
-                        shortage_row["SHORTAGE_REASON"] = f"No matching employees for LINE={line} and CODE={code}"
+                        shortage_row["SHORTAGE_REASON"] = (
+                            f"No matching employees for LINE={line} and CODE={code}"
+                        )
 
             shortage_row["SPLIT_ORDER_ID"] = ""
             new_rows.append(shortage_row)
@@ -395,7 +434,9 @@ def process_order_group(line, section, code, group_orders, emp_fact_df, employee
 
     for _, emp in available_employees.iterrows():
         emp_id = emp["employee_id"]
-        skill_capacity = emp["average_capacity"]  # Skill-specific capacity (e.g., 100 for Primary, 80 for Secondary)
+        skill_capacity = emp[
+            "average_capacity"
+        ]  # Skill-specific capacity (e.g., 100 for Primary, 80 for Secondary)
         already_used = employee_used_capacity.get(emp_id, 0)
         available_capacity = skill_capacity - already_used
 
@@ -403,21 +444,23 @@ def process_order_group(line, section, code, group_orders, emp_fact_df, employee
             allocation = min(remaining_total_qty, available_capacity)
             allocation = round(allocation, 2)
 
-            #The if statement causing error was improperly nested, and is now fixed
+            # The if statement causing error was improperly nested, and is now fixed
             if allocation > 0:
                 # Save this allocation plan
-                employee_allocations.append({
-                    "EMPLOYEE ID": emp["employee_id"],
-                    "EMPLOYEE NAME": emp["employee_name"],
-                    "ALLOCATION": allocation,
-                    "LINE": emp["line"],
-                    "FACTORY": emp["factory"],
-                    "FLOOR": emp["floor"],
-                    "TYPE": emp["type"],
-                    "MACHINE": emp["machine"],
-                    "DESIGNATION": emp["designation"],
-                    "SKILL_CAPACITY": skill_capacity  # Store for reference
-                })
+                employee_allocations.append(
+                    {
+                        "EMPLOYEE ID": emp["employee_id"],
+                        "EMPLOYEE NAME": emp["employee_name"],
+                        "ALLOCATION": allocation,
+                        "LINE": emp["line"],
+                        "FACTORY": emp["factory"],
+                        "FLOOR": emp["floor"],
+                        "TYPE": emp["type"],
+                        "MACHINE": emp["machine"],
+                        "DESIGNATION": emp["designation"],
+                        "SKILL_CAPACITY": skill_capacity,  # Store for reference
+                    }
+                )
 
                 # Update remaining quantity
                 remaining_total_qty -= allocation
@@ -425,27 +468,31 @@ def process_order_group(line, section, code, group_orders, emp_fact_df, employee
                 employee_used_capacity[emp_id] = already_used + allocation
 
                 emp_fact_df.loc[
-                    (emp_fact_df["employee_id"] == emp["employee_id"]) &
-                    (emp_fact_df["code"] == emp["code"]) &
-                    (emp_fact_df["type"] == emp["type"]),
-                    "remaining_capacity"
+                    (emp_fact_df["employee_id"] == emp["employee_id"])
+                    & (emp_fact_df["code"] == emp["code"])
+                    & (emp_fact_df["type"] == emp["type"]),
+                    "remaining_capacity",
                 ] = available_capacity - allocation
 
                 # Update remaining capacity for all skill types of this employee
                 # Their remaining capacity = their skill capacity - total used
                 emp_fact_df.loc[
-                    emp_fact_df["employee_id"] == emp_id,
-                    "remaining_capacity"
+                    emp_fact_df["employee_id"] == emp_id, "remaining_capacity"
                 ] = emp_fact_df.apply(
-                    lambda row: max(0, row["average_capacity"] - employee_used_capacity[emp_id])
-                    if row["employee_id"] == emp_id else row["remaining_capacity"],
-                    axis=1
+                    lambda row: (
+                        max(0, row["average_capacity"] - employee_used_capacity[emp_id])
+                        if row["employee_id"] == emp_id
+                        else row["remaining_capacity"]
+                    ),
+                    axis=1,
                 )
 
     # Check if we have a shortage after allocation planning
     if remaining_total_qty > 0:
         shortage_qty = remaining_total_qty
-        logger.info(f"WARNING: Group shortage of {shortage_qty} units for {line}/{section}/{code}")
+        logger.info(
+            f"WARNING: Group shortage of {shortage_qty} units for {line}/{section}/{code}"
+        )
 
     # PHASE 2: Distribute the allocations to individual orders
     # Sort orders by quantity (descending) to prioritize larger orders
@@ -463,13 +510,17 @@ def process_order_group(line, section, code, group_orders, emp_fact_df, employee
         if not employee_allocations:
             shortage_row = original_row.copy()
             shortage_row["SHORTAGE_FLAG"] = "Shortage"
-            shortage_row["SHORTAGE_REASON"] = f"No employees available for {line}/{section}/{code}"
+            shortage_row["SHORTAGE_REASON"] = (
+                f"No employees available for {line}/{section}/{code}"
+            )
             new_rows.append(shortage_row)
             continue
 
-        #first_allocation = True
+        # first_allocation = True
         split_count = 0
-        split_order_id = f"{row['ORDER_NO']}_{row['STYLE']}_{line}_{code}_{date.strftime('%Y%m%d')}"
+        split_order_id = (
+            f"{row['ORDER_NO']}_{row['STYLE']}_{line}_{code}_{date.strftime('%Y%m%d')}"
+        )
 
         # Allocate this order using pre-determined employees
         while remaining_qty > 0 and current_emp_index < len(employee_allocations):
@@ -532,7 +583,9 @@ def process_order_group(line, section, code, group_orders, emp_fact_df, employee
             shortage_row["TARGET@90%"] = 0
             shortage_row["SPLIT_ORDER_ID"] = f"{split_order_id}_shortage"
             shortage_row["PERIOD"] = period
-            shortage_row["SHORTAGE_REASON"] = f"Insufficient capacity: Needed {remaining_qty} more units"
+            shortage_row["SHORTAGE_REASON"] = (
+                f"Insufficient capacity: Needed {remaining_qty} more units"
+            )
             shortage_row["ALLOCATED EMP ID"] = None
             shortage_row["ALLOCATED EMP NAME"] = None
             shortage_row["ALLOCATED_FRM_LINE"] = None
@@ -544,6 +597,7 @@ def process_order_group(line, section, code, group_orders, emp_fact_df, employee
             new_rows.append(shortage_row)
 
     return new_rows
+
 
 def get_unallocated_employees(emp_fact_df, daily_orders, date, period):
     """
@@ -616,7 +670,7 @@ def get_unallocated_employees(emp_fact_df, daily_orders, date, period):
                 "UTILIZATION_PCT": utilization_pct,
                 "REASON": reason,
                 "CATEGORY": category,
-                "PERIOD": period  # Include the period information
+                "PERIOD": period,  # Include the period information
             }
 
             unallocated_employees.append(unallocated_record)
@@ -670,8 +724,10 @@ def process_unallocated_data(unallocated_collection, manning_dataframes, output_
             combined_unallocated["PERIOD"] = period
 
         # Save to CSV
-        period_suffix = df_name.split('_')[1] if '_' in df_name else ''
-        output_path = os.path.join(output_dir, f"unallocated_employees_{period_suffix}.csv")
+        period_suffix = df_name.split("_")[1] if "_" in df_name else ""
+        output_path = os.path.join(
+            output_dir, f"unallocated_employees_{period_suffix}.csv"
+        )
         combined_unallocated.to_csv(output_path, index=False)
 
         logger.info(f"Saved unallocated employees for {df_name} to {output_path}")
@@ -693,7 +749,9 @@ def process_unallocated_data(unallocated_collection, manning_dataframes, output_
         # Store in results
         results["all_unallocated_employees"] = all_unallocated
 
-        logger.info(f"\nCreated consolidated unallocated employees dataframe with {len(all_unallocated)} total entries")
+        logger.info(
+            f"\nCreated consolidated unallocated employees dataframe with {len(all_unallocated)} total entries"
+        )
         logger.info(f"Saved to: {consolidated_path}")
 
         # Generate training opportunity report
@@ -701,19 +759,27 @@ def process_unallocated_data(unallocated_collection, manning_dataframes, output_
 
         # Focus on employees with skillset not required
         skillset_not_required = training_opportunities[
-            training_opportunities["CATEGORY"] == "Skillset not required"]
+            training_opportunities["CATEGORY"] == "Skillset not required"
+        ]
 
         # Group by employee to see which employees need cross-training
-        employee_cross_training = skillset_not_required.groupby(
-            ["EMPLOYEE ID", "EMPLOYEE NAME", "LINE", "CODE"]
-        )["DATE"].count().reset_index()
+        employee_cross_training = (
+            skillset_not_required.groupby(
+                ["EMPLOYEE ID", "EMPLOYEE NAME", "LINE", "CODE"]
+            )["DATE"]
+            .count()
+            .reset_index()
+        )
 
         # Rename columns for clarity
-        employee_cross_training.rename(columns={"DATE": "DAYS_UNALLOCATED"}, inplace=True)
+        employee_cross_training.rename(
+            columns={"DATE": "DAYS_UNALLOCATED"}, inplace=True
+        )
 
         # Sort by days unallocated (descending)
         employee_cross_training = employee_cross_training.sort_values(
-            by=["DAYS_UNALLOCATED", "LINE"], ascending=[False, True])
+            by=["DAYS_UNALLOCATED", "LINE"], ascending=[False, True]
+        )
 
         # Store in results
         results["training_opportunities"] = employee_cross_training
@@ -722,7 +788,9 @@ def process_unallocated_data(unallocated_collection, manning_dataframes, output_
         training_path = os.path.join(output_dir, "training_opportunities.csv")
         employee_cross_training.to_csv(training_path, index=False)
 
-        logger.info(f"Created training opportunities report with {len(employee_cross_training)} entries")
+        logger.info(
+            f"Created training opportunities report with {len(employee_cross_training)} entries"
+        )
         logger.info(f"Saved to: {training_path}")
 
     return results
@@ -752,20 +820,22 @@ def analyze_skill_gaps(consolidated_manning_df, all_unallocated_employees, outpu
 
     # Find all shortage rows
     shortages = consolidated_manning_df[
-        consolidated_manning_df["SHORTAGE_FLAG"].str.contains("Shortage")]
+        consolidated_manning_df["SHORTAGE_FLAG"].str.contains("Shortage")
+    ]
 
     if not shortages.empty:
         # Group shortages by code to see which skills have the highest need
-        shortage_by_code = shortages.groupby(["LINE", "CODE"])[
-            "PLANNED_QTY"].sum().reset_index()
+        shortage_by_code = (
+            shortages.groupby(["LINE", "CODE"])["PLANNED_QTY"].sum().reset_index()
+        )
 
         # Sort by quantity (descending)
         shortage_by_code = shortage_by_code.sort_values(
-            by="PLANNED_QTY", ascending=False)
+            by="PLANNED_QTY", ascending=False
+        )
 
         # Rename for clarity
-        shortage_by_code.rename(
-            columns={"PLANNED_QTY": "SHORTAGE_QTY"}, inplace=True)
+        shortage_by_code.rename(columns={"PLANNED_QTY": "SHORTAGE_QTY"}, inplace=True)
 
         # Save shortage analysis
         shortage_path = os.path.join(output_dir, "skill_shortages.csv")
@@ -774,7 +844,9 @@ def analyze_skill_gaps(consolidated_manning_df, all_unallocated_employees, outpu
         # Store in results
         results["skill_shortages"] = shortage_by_code
 
-        logger.info(f"Created skill shortages report with {len(shortage_by_code)} entries")
+        logger.info(
+            f"Created skill shortages report with {len(shortage_by_code)} entries"
+        )
         logger.info(f"Saved to: {shortage_path}")
 
     return results

@@ -1,0 +1,40 @@
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+python_files = ["tests.py", "test_*.py", "*_tests.py"]
+# addopts automatically tells pytest to run coverage
+addopts = "--nomigrations"
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+exclude = [
+    "^manage\\.py$",
+    "^config/wsgi\\.py$",
+    "^config/asgi\\.py$",
+    "^config/settings/.*\\.py$",
+    "^.*/migrations/.*\\.py$",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "migrations",
+    "manage.py",
+    "config/settings/",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+]
+ignore = ["E501", "E402", "E722", "F811"]
+
+[tool.ruff.format]
+quote-style = "double"

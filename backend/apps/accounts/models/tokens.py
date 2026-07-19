@@ -1,17 +1,25 @@
 import uuid
-from datetime import timedelta, datetime
+from datetime import datetime, timedelta
+
 from django.conf import settings
-from apps.core.models import BaseModel
-from django.utils import timezone
 from django.db import models
+from django.utils import timezone
+
+from apps.core.models import BaseModel
+
 from .user import User
 
+
 class PasswordResetToken(BaseModel):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='password_reset_tokens')
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="password_reset_tokens",
+    )
     token = models.CharField(max_length=64, unique=True, db_index=True)
 
     class Meta:
-        db_table = 'accounts_passwordresettoken'
+        db_table = "accounts_passwordresettoken"
 
     def is_expired(self) -> bool:
         """Check if the token is expired (valid for 10 minutes)."""
@@ -20,19 +28,25 @@ class PasswordResetToken(BaseModel):
 
 def default_expiry() -> datetime:
     return timezone.now() + timedelta(days=365)  # 1-year expiry
-    
+
+
 # Function to generate a unique token
 def generate_unique_token() -> str:
-    return uuid.uuid4().hex  
+    return uuid.uuid4().hex
+
 
 # Custom Multi-Session Token Model
 class MultiSessionToken(BaseModel):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='multi_session_tokens')
-    key = models.CharField(max_length=40, unique=True, default=generate_unique_token, db_index=True)
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="multi_session_tokens"
+    )
+    key = models.CharField(
+        max_length=40, unique=True, default=generate_unique_token, db_index=True
+    )
     expiry = models.DateTimeField(default=default_expiry)  # 1-year expiry
 
     class Meta:
-        db_table = 'accounts_multisessiontoken'
+        db_table = "accounts_multisessiontoken"
 
     def is_expired(self) -> bool:
         return timezone.now() > self.expiry

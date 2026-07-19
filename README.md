@@ -271,6 +271,7 @@ curl -X POST http://localhost:8000/manning-sheet/manning-sheets/d-day/generate/
   - Django 4.0+ strict `CSRF_TRUSTED_ORIGINS` validation is automatically mapped to `ALLOWED_HOSTS` to prevent Cross-Site Request Forgery while supporting Nginx/Docker proxies.
   - User deletions are protected by Django `pre_delete` signals to cleanly wipe SimpleJWT tokens (`OutstandingToken`, `BlacklistedToken`), guaranteeing database integrity and preventing foreign key crashes.
 - **Centralized Templates**: Email HTML templates (e.g., CSV exports, Password Resets) are maintained in a global, centralized `backend/templates/` directory to prevent app-level name collisions and simplify rebranding.
+- **Automated Code Quality Pipeline**: Built-in enforcement of industry standards using `Ruff` (linting/formatting), `Mypy` (static type checking), and `Pytest` (automated testing and coverage). The CI/CD pipeline blocks code that fails these strict checks.
 - **Unified Docker Compose**: One `docker-compose.yml` for all environments. The `.env` file controls the behavior — no need for separate dev/prod compose files.
 - **Production-Ready**: Gunicorn + Celery + Nginx with proper static/media/logs separation.
 
