@@ -1,6 +1,56 @@
 # Laguna-AI Backend
 AI line-balancing backend application.
 
+## 🚀 Quick Start for Beginners
+
+Welcome to the team! If you just want to get the application running on your computer as quickly as possible, follow these steps.
+
+### 1. Install Prerequisites
+Make sure you have the following installed on your machine:
+- **[Git](https://git-scm.com/)** (for cloning the repository)
+- **[Docker Desktop](https://www.docker.com/products/docker-desktop/)** (must be installed and running in the background)
+- **[Python 3.10+](https://www.python.org/downloads/)** (helpful for local script execution)
+
+### 2. Clone the Repositories
+We have a separated backend and frontend. You need to clone **both** into the same parent folder. Open your terminal and run:
+
+```bash
+# Create a workspace folder and go into it
+mkdir laguna-workspace
+cd laguna-workspace
+
+# Clone both repositories side-by-side
+git clone https://github.com/Shivam-Narayan/laguna-ai-line-balancing.git
+git clone https://github.com/Shivam-Narayan/laguna-ai-line-balancing-app.git
+```
+
+### 3. Setup Configuration
+Navigate into the backend folder and create your environment file:
+```bash
+cd laguna-ai-line-balancing
+
+# Copy the example environment file
+cp .env.example .env
+```
+*(Note: You can leave the default values in `.env` exactly as they are for local development!)*
+
+### 4. Start the Application!
+We have a helper script that handles all the Docker container setup for you. Run the command for your operating system:
+
+- **Windows (Command Prompt):** `scripts\start.bat --dev`
+- **Windows (PowerShell):** `.\scripts\start.ps1 -Dev`
+- **Mac / Linux:** `bash scripts/start.sh` *(Make sure it is executable: `chmod +x scripts/start.sh`)*
+
+### 5. View the App
+Once the script finishes starting everything up, your local environment is live!
+- **Backend API & Health Check:** [http://localhost:8000](http://localhost:8000)
+- **Interactive API Docs (Swagger):** [http://localhost:8000/swagger/](http://localhost:8000/swagger/)
+- **Database UI (pgAdmin):** [http://localhost:5050](http://localhost:5050) (Login: admin@laguna.com / admin123)
+
+That's it! You're ready to start exploring the code. For deeper technical details, continue reading below.
+
+---
+
 ## Project Structure
 
 ```text

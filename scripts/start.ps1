@@ -171,20 +171,17 @@ function Enable-Venv {
 function Start-DevStaged {
     Write-Colour "[INFO] Starting dev services (staged sequence)..." Blue
 
-    Write-Colour "  Stage 1/4: Core infrastructure (db, redis)..." Cyan
+    Write-Colour "  Stage 1/3: Core infrastructure (db, redis)..." Cyan
     Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml up -d db redis"
     Write-Host "  Waiting for databases to be healthy..."
     Start-Sleep -Seconds 8
 
-    Write-Colour "  Stage 2/4: Backend application..." Cyan
+    Write-Colour "  Stage 2/3: Backend application..." Cyan
     Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml up -d backend"
     Start-Sleep -Seconds 5
 
-    Write-Colour "  Stage 3/4: Developer tools (pgadmin)..." Cyan
+    Write-Colour "  Stage 3/3: Developer tools (pgadmin)..." Cyan
     Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml up -d pgadmin"
-
-    Write-Colour "  Stage 4/4: Reverse proxy (nginx)..." Cyan
-    Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml up -d nginx"
 
     Write-Colour "[OK] All dev services started" Green
 }
@@ -192,7 +189,6 @@ function Start-DevStaged {
 function Start-DevFast {
     Write-Colour "[INFO] Starting dev services (fast mode)..." Blue
     Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml up --force-recreate -d"
-    Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml up -d nginx"
     Write-Colour "[OK] All dev services started" Green
 }
 
