@@ -46,6 +46,7 @@ laguna-ai-line-balancing/             # Repository root
 | Document | Purpose |
 | :--- | :--- |
 | 🏗️ [System Architecture](docs/system_architecture.md) | High-level system design, DDD structure, and Data Pipeline diagrams |
+| 🏛️ [Architecture Patterns](docs/architecture_patterns.md) | In-depth guide on Monolithic vs. Microservices system design principles |
 | 🔐 [SSO Implementation Guide](docs/sso-implementation.md) | Complete setup, configuration, and testing guide for Google SSO |
 | 📖 [API Endpoints Guide](docs/api_endpoints_guide.md) | Frontend integration guide (or visit `/swagger/` when running) |
 | 🐳 [Docker Complete](docs/DOCKER_COMPLETE.md) | Setup, configuration, and environment variable references |
