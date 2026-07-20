@@ -252,6 +252,7 @@ if ($Dev) {
     Write-Host ""
     $port = if ($env:BACKEND_PORT) { $env:BACKEND_PORT } else { "8000" }
     $pgport = if ($env:PGADMIN_PORT) { $env:PGADMIN_PORT } else { "5050" }
+    Write-Colour "  Frontend: http://localhost:5173" Green
     Write-Colour "  Backend:  http://localhost:$port" Green
     Write-Colour "  Swagger:  http://localhost:$port/swagger/" Green
     Write-Colour "  pgAdmin:  http://localhost:$pgport" Green

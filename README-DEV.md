@@ -4,10 +4,10 @@ This document describes the development environment setup and best practices for
 
 ## 🚀 Local Setup
 
-If you are a new developer setting up the project for the first time, ensure you have **Git**, **Docker Desktop**, and **Python 3.10+** installed.
+If you are a new developer setting up the project for the first time, ensure you have **Git**, **Docker Desktop**, **Python 3.10+**, and **Node.js 18+** installed.
 
 ### 1. Clone the Repositories
-Because the frontend and backend run together in development, you must clone them into the same parent workspace:
+Because the frontend and backend run together in development via Docker Compose, you must clone them into the same parent workspace folder side-by-side:
 
 ```bash
 mkdir laguna-workspace
@@ -17,12 +17,18 @@ git clone https://github.com/Shivam-Narayan/laguna-ai-line-balancing-app.git
 ```
 
 ### 2. Configure the Environment
-Navigate into the backend project and initialize the environment file:
+Navigate into the backend and frontend projects and initialize their environment files:
 ```bash
+# Setup Backend Environment
 cd laguna-ai-line-balancing
 cp .env.example .env
+
+# Setup Frontend Environment
+cd ../laguna-ai-line-balancing-app
+cp .env.example .env.local
+cd ../laguna-ai-line-balancing
 ```
-*(The default values in `.env` are pre-configured to work instantly for local development).*
+*(The default values in these environment files are pre-configured to work instantly for local development).*
 
 ### 3. Start the Services
 Start the development environment using our unified startup scripts (which automatically manage the Docker containers and configuration):
@@ -32,9 +38,10 @@ Start the development environment using our unified startup scripts (which autom
 - **Mac / Linux:** `bash scripts/start.sh`
 
 ### 4. Access Points
-Once the script completes, you can access your local environment:
+Once the script completes and the containers are healthy, you can access your local environment:
+- **Frontend Web App:** [http://localhost:5173](http://localhost:5173) (The main user interface)
 - **Backend API:** [http://localhost:8000](http://localhost:8000)
-- **Swagger UI:** [http://localhost:8000/swagger/](http://localhost:8000/swagger/)
+- **Swagger API Docs:** [http://localhost:8000/swagger/](http://localhost:8000/swagger/)
 - **Database UI (pgAdmin):** [http://localhost:5050](http://localhost:5050) (Login: admin@laguna.com / admin123)
 
 ## Backend Architecture & Standards

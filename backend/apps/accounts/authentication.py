@@ -29,34 +29,32 @@ class CookieJWTAuthentication(JWTAuthentication):
         return reason
 
     def authenticate(self, request: Request) -> Optional[Tuple[Any, Token]]:
-        # 1. Try to extract the token from the HttpOnly cookie
-        raw_token = request.COOKIES.get("access_token")
-        is_cookie = True
-
-        # 2. Fall back to the standard Authorization header
-        if not raw_token:
-            is_cookie = False
-            header = self.get_header(request)
-            if header is None:
-                return None
-
+        # 1. Check the standard Authorization header FIRST
+        header = self.get_header(request)
+        logger.error(f"Auth Header: {header}")
+        if header is not None:
             raw_token = self.get_raw_token(header)
-            if raw_token is None:
-                return None
+            logger.error(f"Raw Token from Header: {raw_token}")
+            is_cookie = False
+        else:
+            # 2. Fall back to the HttpOnly cookie
+            raw_token = request.COOKIES.get("access_token")
+            logger.error(f"Raw Token from Cookie: {raw_token is not None}")
+            is_cookie = True
+
+        if raw_token is None:
+            logger.error("No raw token found. Returning None.")
+            return None
 
         # 3. Validate the token and return (user, token)
         try:
             validated_token = self.get_validated_token(raw_token)
-
+            
             # 4. Enforce CSRF if the token came from the browser cookie
             if is_cookie:
                 csrf_reason = self._check_csrf(request)
                 if csrf_reason:
-                    # CSRF failed — do NOT hard-raise. Instead, return None so
-                    # AllowAny views (SSO login, logout) proceed as anonymous,
-                    # while IsAuthenticated views will deny access via the
-                    # permission check (returning 401, not 403).
-                    logger.debug(
+                    logger.error(
                         "CSRF check failed for cookie auth on %s: %s",
                         request.path,
                         csrf_reason,
@@ -64,8 +62,6 @@ class CookieJWTAuthentication(JWTAuthentication):
                     return None
 
             return self.get_user(validated_token), validated_token
-        except Exception:
-            # If the token is invalid or expired, return None to fall back to AnonymousUser
-            # This allows AllowAny endpoints (like Swagger) to load without returning 401
+        except Exception as e:
+            logger.error(f"Token validation failed: {str(e)}")
             return None
-

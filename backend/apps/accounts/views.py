@@ -189,7 +189,10 @@ def login(request):
         logger.warning(f"Failed login attempt for email: {email} - {error_msg}")
         return error_response(error=error_msg, status=status_code)
 
-    response_data = {"user_details": user_details}
+    response_data = {
+        "user_details": user_details,
+        "access_token": access_token
+    }
 
     response = success_response(
         data=response_data, message="Login Successful", status=status.HTTP_200_OK
