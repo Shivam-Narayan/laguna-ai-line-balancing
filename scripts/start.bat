@@ -472,6 +472,6 @@ call :activate_venv
 
 echo [INFO] Running test suite...
 cd /d "%BACKEND_DIR%"
-python manage.py test
+pytest --cov=. --cov-report=term-missing
 echo [OK] Tests complete
 goto :eof

@@ -574,7 +574,12 @@ def run_get_absenteeism_forecast(forecast_period, line):
         except (ValueError, TypeError):
             forecast_period = 7
 
-        line = line.strip().upper()
+        if not line:
+            return Response(
+                {"error": "Line parameter is required"}, status=400
+            )
+            
+        line = str(line).strip().upper()
         if line != "ALL" and not line.startswith("LINE "):
             return Response(
                 {"error": "Line parameter must be in format 'LINE X'"}, status=400
@@ -693,18 +698,16 @@ def run_get_absenteeism_forecast(forecast_period, line):
 
 
 def run_absenteeism_prediction_trigger():
-    if True:
-        import threading
+    import threading
 
-        viaAPI = True
-        # Run the heavy ML process in the background to prevent 504 Gateway Time-out
-        thread = threading.Thread(target=run_absenteeism_prediction, args=(viaAPI,))
-        thread.start()
+    viaAPI = True
+    # Run the heavy ML process in the background to prevent 504 Gateway Time-out
+    thread = threading.Thread(target=run_absenteeism_prediction, args=(viaAPI,))
+    thread.start()
 
-        return success_response(
-            message="Prediction generation has started in the background. It will take a few minutes to complete."
-        )
-    return error_response(error="Invalid request method.", status=405)
+    return success_response(
+        message="Prediction generation has started in the background. It will take a few minutes to complete."
+    )
 
 
 def run_absenteeism_prediction_data(
@@ -731,12 +734,12 @@ def run_absenteeism_prediction_data(
 
         prediction_response = prepare_prediction_data(line_no, forecast_period)
 
-        if prediction_response.data["status"] == "error":
+        if prediction_response.data.get("status") == "error":
             return prediction_response
 
         if not is_export:
             updatedResponse = {
-                "data": prediction_response.data["data"],
+                "data": prediction_response.data.get("data", {}),
                 "message": "Data fetched successfully",
                 "status": "success",
             }
@@ -753,7 +756,7 @@ def run_absenteeism_prediction_data(
             )
 
         elif is_export:
-            excel_data = generate_prediction_data(prediction_response.data["data"])
+            excel_data = generate_prediction_data(prediction_response.data.get("data", {}))
             if not export_type:
                 return error_response(
                     error="Type (excel/email) of data to export not provided",

@@ -34,7 +34,9 @@ class Absenteeism(BaseModel):
     class Meta:
         db_table = "absenteeism_master"
         ordering = ["-date"]  # Orders by latest date first
-        unique_together = ("date", "empcode")
+        constraints = [
+            models.UniqueConstraint(fields=["date", "empcode"], name="unique_absenteeism_date_empcode")
+        ]
 
     def __str__(self):
         return f"{self.name} ({self.empcode}) - {self.date}"
@@ -42,8 +44,8 @@ class Absenteeism(BaseModel):
 
 class PredictionData(BaseModel):
     objects = models.Manager()
-    date = models.DateField(verbose_name="Date")
-    empcode = models.CharField(max_length=20, verbose_name="Employee Code")
+    date = models.DateField(verbose_name="Date", db_index=True)
+    empcode = models.CharField(max_length=20, verbose_name="Employee Code", db_index=True)
     name = models.CharField(max_length=100, verbose_name="Employee Name")
     department = models.CharField(
         max_length=100, verbose_name="Department", db_index=True
@@ -55,6 +57,9 @@ class PredictionData(BaseModel):
 
     class Meta:
         db_table = "absenteeism_data"
+        constraints = [
+            models.UniqueConstraint(fields=["date", "empcode"], name="unique_prediction_data_date_empcode")
+        ]
 
     def __str__(self):
         return f"{self.name} ({self.empcode}) - {self.date}"
@@ -62,11 +67,11 @@ class PredictionData(BaseModel):
 
 class AbsenteeismPrediction(BaseModel):
     objects = models.Manager()
-    datetime = models.DateField()
+    datetime = models.DateField(db_index=True)
     day_of_week = models.CharField(max_length=25, default="NA")
     predicted_absent_count = models.FloatField()
-    line = models.CharField(max_length=100)
-    section = models.CharField(max_length=100)
+    line = models.CharField(max_length=100, db_index=True)
+    section = models.CharField(max_length=100, db_index=True)
     forecast_period = models.IntegerField()
     historical_mean = models.FloatField()
     historical_std = models.FloatField()
@@ -74,6 +79,12 @@ class AbsenteeismPrediction(BaseModel):
 
     class Meta:
         db_table = "absenteeism_prediction"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["datetime", "line", "section", "forecast_period"],
+                name="unique_absenteeism_prediction"
+            )
+        ]
 
     def __str__(self):
         return f"{self.datetime} - {self.line} - {self.section}"

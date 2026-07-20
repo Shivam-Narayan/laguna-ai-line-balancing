@@ -49,3 +49,53 @@ class AbsenteeismPredictionModelTest(TestCase):
         )
         self.assertEqual(record.line, "Line 1")
         self.assertEqual(str(record), f"{date.today()} - Line 1 - Assembly")
+
+    def test_prediction_data_duplicate_blocked(self):
+        from django.db import IntegrityError
+        # Insert first record
+        PredictionData.objects.create(
+            date=date.today(),
+            empcode="DUP123",
+            name="Jane Smith",
+            department="IT",
+            section="Backend",
+            attendance="P",
+        )
+        # Attempting to insert a duplicate with the same date and empcode should raise IntegrityError
+        with self.assertRaises(IntegrityError):
+            PredictionData.objects.create(
+                date=date.today(),
+                empcode="DUP123", # Same empcode
+                name="Duplicate Jane",
+                department="IT",
+                section="Backend",
+                attendance="A",
+            )
+
+    def test_absenteeism_prediction_duplicate_blocked(self):
+        from django.db import IntegrityError
+        # Insert first record
+        AbsenteeismPrediction.objects.create(
+            datetime=date.today(),
+            day_of_week="Monday",
+            predicted_absent_count=5.5,
+            line="Line 1",
+            section="Assembly",
+            forecast_period=7,
+            historical_mean=5.0,
+            historical_std=1.2,
+            deviation_from_mean=0.5,
+        )
+        # Attempting to insert a duplicate should raise IntegrityError
+        with self.assertRaises(IntegrityError):
+            AbsenteeismPrediction.objects.create(
+                datetime=date.today(),
+                day_of_week="Monday",
+                predicted_absent_count=10.0, # Different prediction, but same target
+                line="Line 1",
+                section="Assembly",
+                forecast_period=7,
+                historical_mean=5.0,
+                historical_std=1.2,
+                deviation_from_mean=0.5,
+            )

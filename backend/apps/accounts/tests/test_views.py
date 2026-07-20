@@ -202,8 +202,8 @@ class AuthViewTests(TestCase):
         login_response = self.client.post(
             reverse("login"),
             {
-                "email": "view@example.com",
-                "password": "StrongPass123!",
+                "email": "temp@example.com",
+                "password": "pwd",
             },
             format="json",
         )
@@ -213,3 +213,78 @@ class AuthViewTests(TestCase):
             reverse("delete_user", kwargs={"user_id": temp_user.id})
         )
         self.assertEqual(response.status_code, 200)
+
+    def test_csrf_enforcement(self):
+        """
+        Verify that POST/PUT/DELETE requests fail without a CSRF token
+        and succeed when a valid CSRF token is provided in the headers.
+        """
+        # Instantiate a client that actually enforces CSRF (Django Test Client disables it by default)
+        csrf_client = APIClient(enforce_csrf_checks=True)
+        
+        # 1. Login to get the access_token and csrftoken cookies
+        login_response = csrf_client.post(
+            reverse("login"),
+            {
+                "email": "view@example.com",
+                "password": "StrongPass123!",
+            },
+            format="json",
+        )
+        csrf_client.cookies = login_response.cookies
+        
+        # 2. Attempt a POST request WITHOUT the X-CSRFToken header
+        # Django's CSRFCheck will block this with a 403 Forbidden
+        response_without_csrf = csrf_client.post(
+            reverse("logout"),
+            format="json"
+        )
+        # Without CSRF, cookie auth gracefully falls back to anonymous (401 Unauthorized),
+        # rather than hard-blocking with 403. This allows AllowAny endpoints
+        # (like SSO login) to proceed while still protecting authenticated views.
+        self.assertEqual(response_without_csrf.status_code, 401)
+        
+        # 3. Attempt a POST request WITH the valid X-CSRFToken header
+        csrf_token = login_response.cookies.get('csrftoken').value
+        response_with_csrf = csrf_client.post(
+            reverse("logout"),
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_token
+        )
+        self.assertEqual(response_with_csrf.status_code, 200)
+
+    def test_update_user_idor_blocked(self):
+        # Create a second user
+        victim = User.objects.create_user(
+            username="victim",
+            email="victim@example.com",
+            password="pwd",
+        )
+        login_response = self.client.post(
+            reverse("login"),
+            {"email": "view@example.com", "password": "StrongPass123!"},
+            format="json",
+        )
+        self.client.cookies = login_response.cookies
+
+        # Try to update the victim's profile as the first user
+        response = self.client.put(
+            reverse("update_user", kwargs={"user_id": victim.id}),
+            {"department": "Hacked"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_fetch_logs_unauthorized(self):
+        # Login as a regular user (not superuser)
+        login_response = self.client.post(
+            reverse("login"),
+            {"email": "view@example.com", "password": "StrongPass123!"},
+            format="json",
+        )
+        self.client.cookies = login_response.cookies
+
+        # Try to fetch server logs
+        response = self.client.get(reverse("fetch_logs", kwargs={"log_filename": "server"}))
+        # Should be forbidden for non-admins
+        self.assertEqual(response.status_code, 403)

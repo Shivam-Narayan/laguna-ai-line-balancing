@@ -26,6 +26,8 @@ logger = logging.getLogger("general")
 # Suppress all warnings
 warnings.filterwarnings("ignore")
 
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "dynamic_absenteeism_model.pkl")
+
 
 def get_prediction_data():
     # Query all data from the PredictionData table
@@ -553,8 +555,7 @@ def train_dynamic_model(merged_data, feature_importance_threshold=0.01):
     metrics_final = evaluate_model_performance(y_test_imp, y_pred_imp)
 
     # Save model and all statistics
-    model_path = "absenteeism/models/dynamic_absenteeism_model.pkl"
-    os.makedirs(os.path.dirname(model_path), exist_ok=True)
+    os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
     joblib.dump(
         {
             "model": final_model,
@@ -564,7 +565,7 @@ def train_dynamic_model(merged_data, feature_importance_threshold=0.01):
             "feature_importances": feature_importances.to_dict(),
             "historical_stats": historical_stats,
         },
-        model_path,
+        MODEL_PATH,
     )
 
     return {
@@ -586,7 +587,7 @@ def predict_with_dynamic_model(
     Improved prediction function with better handling of variations.
     """
     if model_data is None:
-        model_data = joblib.load("absenteeism/models/dynamic_absenteeism_model.pkl")
+        model_data = joblib.load(MODEL_PATH)
     final_model = model_data["model"]
     # Disable multi-threading during inference to eliminate massive overhead for single-row predictions
     if hasattr(final_model, "n_jobs"):
@@ -798,7 +799,7 @@ def consolidated_predictions(future_weather, merged_data, model_data=None):
 
     # Load model data from file only if not passed in-memory
     if model_data is None:
-        model_data = joblib.load("absenteeism/models/dynamic_absenteeism_model.pkl")
+        model_data = joblib.load(MODEL_PATH)
     historical_stats = model_data.get("historical_stats", {})
 
     for _, combo in line_section_combos.iterrows():
@@ -960,7 +961,7 @@ def model_prediction():
         }
         # Fall back to loading from file if model not in training_result
         if model_data["model"] is None:
-            model_data = joblib.load("absenteeism/models/dynamic_absenteeism_model.pkl")
+            model_data = joblib.load(MODEL_PATH)
         consolidated_df = consolidated_predictions(
             df_next15_wf, merged_data, model_data=model_data
         )

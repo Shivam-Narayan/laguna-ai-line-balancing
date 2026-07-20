@@ -5,6 +5,7 @@ Run with: python manage.py test apps.accounts.tests.test_services
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from unittest.mock import patch
 
 from apps.accounts.services.auth_service import authenticate_user
 from apps.accounts.services.location_service import verify_geofence
@@ -34,7 +35,8 @@ class AuthServiceTest(TestCase):
 
     def test_login_wrong_email(self):
         _, _, _, error, code = authenticate_user("wrong@example.com", "StrongPass123!")
-        self.assertEqual(code, 404)
+        # Returns 401 (not 404) to prevent username enumeration attacks
+        self.assertEqual(code, 401)
 
     def test_login_wrong_password(self):
         _, _, _, error, code = authenticate_user("auth@example.com", "wrongpass")
@@ -48,6 +50,14 @@ class AuthServiceTest(TestCase):
         self.assertEqual(code, 200)
         self.assertIsNotNone(access)
         self.assertIsNotNone(refresh)
+
+    @patch("django.contrib.auth.models.AbstractBaseUser.set_password")
+    def test_login_timing_attack_mitigation(self, mock_set_password):
+        """Test that invalid emails trigger the password hasher to prevent timing attacks"""
+        _, _, _, error, code = authenticate_user("nonexistent@example.com", "SomePassword123!")
+        self.assertEqual(code, 401)
+        # The mitigation MUST run the dummy hasher!
+        mock_set_password.assert_called_once_with("SomePassword123!")
 
 
 class UserServiceTest(TestCase):
@@ -137,6 +147,22 @@ class LocationServiceTest(TestCase):
         # Valid logout
         msg, code = logout_user(self.user, self.user.email)
         self.assertEqual(code, 200)
+
+    def test_geofence_null_island(self):
+        # User is exactly at 0.0, 0.0 (Null Island)
+        self.user.latitude = 0.0
+        self.user.longitude = 0.0
+        self.user.save()
+        # They should be allowed if they are physically there
+        within, msg, code = verify_geofence(self.user, 0.0, 0.0)
+        self.assertTrue(within)
+        self.assertEqual(code, 200)
+
+    def test_geofence_invalid_boundaries(self):
+        # Passing 999.0 should be strictly rejected with a 400, not processed mathematically
+        within, msg, code = verify_geofence(self.user, 999.0, 999.0)
+        self.assertFalse(within)
+        self.assertEqual(code, 400)
 
     def test_get_all_users(self):
         from apps.accounts.services.user_service import get_all_users

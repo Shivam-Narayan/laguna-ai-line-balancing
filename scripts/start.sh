@@ -310,7 +310,7 @@ case "$COMMAND" in
         activate_venv
         echo "Running test suite..."
         cd "$BACKEND_DIR"
-        $PYTHON_CMD manage.py test
+        pytest --cov=. --cov-report=term-missing
         echo "Tests complete."
         exit 0
         ;;

@@ -44,6 +44,33 @@ class UserModelTest(TestCase):
     def test_default_status_is_active(self):
         self.assertTrue(self.user.status)
 
+    def test_user_is_active_matches_status(self):
+        """Test that user.is_active properly reflects user.status"""
+        self.user.status = False
+        self.assertFalse(self.user.is_active)
+        self.user.status = True
+        self.assertTrue(self.user.is_active)
+
+    def test_create_superuser_invalid_flags(self):
+        """Test that passing is_staff=False to create_superuser throws a ValueError"""
+        with self.assertRaises(ValueError):
+            User.objects.create_superuser(
+                username="fakestaff",
+                email="fakestaff@example.com",
+                password="pwd",
+                is_staff=False
+            )
+
+    def test_last_login_update_signal(self):
+        """Test that Django's built-in update_last_login signal doesn't crash"""
+        from django.contrib.auth.models import update_last_login
+        
+        try:
+            # Manually trigger the signal that runs during standard login
+            update_last_login(None, user=self.user)
+            # If we get here without a ValueError or AttributeError, the test passes.
+        except ValueError:
+            self.fail("update_last_login raised a ValueError due to missing last_login field.")
 
 class MultiSessionTokenTest(TestCase):
     def setUp(self):
@@ -61,6 +88,24 @@ class MultiSessionTokenTest(TestCase):
         self.assertEqual(token.user, self.user)
         self.assertFalse(token.is_expired())
         self.assertTrue(len(token.key) > 0)
+
+    def test_refresh_token_extends_expiry(self):
+        """Test that calling refresh_token on an active token extends its expiry"""
+        token = MultiSessionToken.objects.create(user=self.user)
+        original_expiry = token.expiry
+        original_key = token.key
+        
+        # Simulate time passing but not expiring
+        token.expiry = timezone.now() + timedelta(days=1)
+        token.save()
+        
+        # Refresh it
+        token.refresh_token()
+        
+        # Verify expiry was pushed forward
+        self.assertGreater(token.expiry, original_expiry)
+        # Verify key remains the same (Option A)
+        self.assertEqual(token.key, original_key)
 
 
 class PasswordResetTokenTest(TestCase):
@@ -134,3 +179,25 @@ class EndpointLockTest(TestCase):
         # Different user tries
         with self.assertRaises(ValidationError):
             EndpointLock.acquire_lock(LockType.DATA_UPDATE, self.user2, self.url_name)
+
+    def test_concurrent_lock_creation_fails(self):
+        """Test that the database prevents creating two active locks for the same endpoint (simulating a race condition)"""
+        from django.db import IntegrityError
+        
+        # Create first active lock at the DB level (simulating thread 1)
+        EndpointLock.objects.create(
+            lock_type=LockType.DATA_UPDATE,
+            locked_by=self.user1,
+            url_name=self.url_name,
+            is_active=True
+        )
+        
+        # Create second active lock at the DB level (simulating thread 2 bypassing acquire_lock due to race condition)
+        # This MUST fail with an IntegrityError if the UniqueConstraint is properly configured.
+        with self.assertRaises(IntegrityError):
+            EndpointLock.objects.create(
+                lock_type=LockType.DATA_UPDATE,
+                locked_by=self.user2,
+                url_name=self.url_name,
+                is_active=True
+            )

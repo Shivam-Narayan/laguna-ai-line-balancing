@@ -378,15 +378,9 @@ if ($Superuser) {
 
 if ($Test) {
     Assert-Python; Enable-Venv
-    if ($Test) {
-        Assert-Python; Enable-Venv
-        if ( $Test) {
-            Assert-Python; Enable-Venv
-            Write-Colour "[INFO] Running test suite..." Blue
-            Push-Location $BackendDir
-            python manage.py test
-            Pop-Location
-            Write-Colour "[OK] Tests complete" Green
-        }
-    }
+    Write-Colour "[INFO] Running test suite..." Blue
+    Push-Location $BackendDir
+    pytest --cov=. --cov-report=term-missing
+    Pop-Location
+    Write-Colour "[OK] Tests complete" Green
 }

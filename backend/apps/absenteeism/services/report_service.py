@@ -227,10 +227,12 @@ def fetch_absenteeism_report_data():
                 )
 
             actual_present_count = sorted(
-                actual_present_count, key=lambda x: section_order.index(x["section"])
+                actual_present_count, 
+                key=lambda x: section_order.index(x["section"]) if x["section"] in section_order else 999
             )
             actual_absent_count = sorted(
-                actual_absent_count, key=lambda x: section_order.index(x["section"])
+                actual_absent_count, 
+                key=lambda x: section_order.index(x["section"]) if x["section"] in section_order else 999
             )
 
             present_emp_count = sum(item["count"] for item in actual_present_count)
@@ -245,6 +247,9 @@ def fetch_absenteeism_report_data():
             else:
                 actual_absenteeism_percentage = 0
 
+            if individual_line not in absenteeism_data:
+                absenteeism_data[individual_line] = {}
+                
             absenteeism_data[individual_line]["actual_absent_count"] = (
                 actual_absent_count
             )
@@ -299,7 +304,7 @@ def absenteeism_report(line_no, today):
         )
         total_employee_list = list(total_employee_queryset)
         total_employee_list = sorted(
-            total_employee_list, key=lambda x: section_order.index(x["section"])
+            total_employee_list, key=lambda x: section_order.index(x["section"]) if x["section"] in section_order else 999
         )
 
         total_employee_count = {
@@ -316,18 +321,17 @@ def absenteeism_report(line_no, today):
         for item in predicted_absent_queryset:
             item["section"] = item["section"].title()
         predicted_absent_count = sorted(
-            predicted_absent_queryset, key=lambda x: section_order.index(x["section"])
+            predicted_absent_queryset, key=lambda x: section_order.index(x["section"]) if x["section"] in section_order else 999
         )
 
         # Calculate absenteeism percentage by section
-        predicted_absenteeism_percentage = {
-            item["section"]: round(
-                (item["count"] / total_employee_count[item["section"]] * 100), 1
-            )
-            if total_emp_count
-            else 0
-            for item in predicted_absent_queryset
-        }
+        predicted_absenteeism_percentage = {}
+        for item in predicted_absent_queryset:
+            count = total_employee_count.get(item["section"], 0)
+            if count > 0:
+                predicted_absenteeism_percentage[item["section"]] = round((item["count"] / count * 100), 1)
+            else:
+                predicted_absenteeism_percentage[item["section"]] = 0
 
         actual_absent_queryset = (
             AttendanceMaster.objects.filter(**attendance_filter)
@@ -336,18 +340,17 @@ def absenteeism_report(line_no, today):
             .annotate(count=Count(Case(When(~Q(status="P"), then=1))))
         )
         actual_absent_count = sorted(
-            actual_absent_queryset, key=lambda x: section_order.index(x["section"])
+            actual_absent_queryset, key=lambda x: section_order.index(x["section"]) if x["section"] in section_order else 999
         )
 
         # Calculate absenteeism percentage by section
-        actual_absenteeism_percentage = {
-            item["section"]: round(
-                (item["count"] / total_employee_count[item["section"]] * 100), 1
-            )
-            if total_emp_count
-            else 0
-            for item in actual_absent_count
-        }
+        actual_absenteeism_percentage = {}
+        for item in actual_absent_count:
+            count = total_employee_count.get(item["section"], 0)
+            if count > 0:
+                actual_absenteeism_percentage[item["section"]] = round((item["count"] / count * 100), 1)
+            else:
+                actual_absenteeism_percentage[item["section"]] = 0
 
         response = {
             "total_employee_count": total_employee_count,

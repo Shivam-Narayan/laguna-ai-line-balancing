@@ -1,20 +1,18 @@
 from typing import Any, Dict, Optional, Tuple
+import logging
 
 from django.contrib.auth import get_user_model
 from rest_framework.exceptions import ValidationError
-
-from apps.accounts.utils.validators import validate_password
-
-User = get_user_model()
-import logging
 
 from apps.accounts.serializers import (
     RegisterUserSerializer,
     UpdateUserSerializer,
     UserSerializer,
 )
+from apps.accounts.utils.validators import validate_password
 
 logger = logging.getLogger(__name__)
+User = get_user_model()
 
 
 def register_new_user(
@@ -72,7 +70,7 @@ def update_user_details(
     except User.DoesNotExist:
         return None, "User not found.", 404
 
-    serializer = UpdateUserSerializer(user, data=data)
+    serializer = UpdateUserSerializer(user, data=data, partial=True)
     if serializer.is_valid():
         updated_user = serializer.save()
         user_details = {

@@ -54,7 +54,9 @@ laguna-ai-line-balancing/             # Repository root
 | 🚑 [Operations Runbook](docs/runbook.md) | Troubleshooting, log extraction, and database backup procedures |
 | 🤖 [CI/CD Pipeline](docs/ci_cd_pipeline.md) | GitHub Actions automation and deployment protections |
 | 🛠️ [Scripts & Automation](docs/scripts_guide.md) | Explains the `scripts/` folder, standalone `.bat` files, and the master `start.bat` |
-| 🧪 [Testing Guide](backend/TESTING.md) | How to run the automated test suite, mock services, and TDD guidelines |
+| 🧹 [Code Quality Guide](docs/CODE_QUALITY_GUIDE.md) | Rationale behind Option A, Linter/Formatter instructions, and end-to-end checks |
+| 🧪 [Testing Guide](docs/TESTING.md) | How to run the automated test suite and overview of testing methodologies |
+| 🎯 [TDD Guide](docs/TDD_GUIDE.md) | Step-by-step tutorial on Test-Driven Development (Red-Green-Refactor) and mocking for developers |
 
 ---
 
@@ -267,10 +269,12 @@ curl -X POST http://localhost:8000/manning-sheet/manning-sheets/d-day/generate/
 ## Key Features & Architectural Standards
 - **Authentication & SSO**: Fully functional JWT-based authentication with integrated Google SSO (OAuth 2.0). Utilizes `dj-rest-auth` and `django-allauth` to allow seamless login and automatic linking of Google profiles to existing local accounts without disrupting the user flow.
 - **Strict Service Layer Architecture**: All features are organized under separate apps in the `backend/apps/` directory, adhering strictly to Domain-Driven Design. Heavy business logic (Pandas/ETL/ML/Database transactions) is isolated in `services/`, keeping `views.py` incredibly thin and focused only on HTTP routing.
+- **TDD (Test-Driven Development) & Service Hardening**: The absenteeism micro-services (`prediction_service`, `report_service`, `export_service`, `prediction_orchestrator`, `data_ingestion_service`) have been fortified against silent failures and edge-cases (KeyErrors, missing data, ZeroDivision errors) with 100% test coverage using Python `unittest.mock`. 
 - **Modular Environment Settings**: The configuration is split into `settings/base.py`, `settings/development.py`, and `settings/production.py` to keep environments safely isolated. An automated `__init__.py` loader dynamically routes to the correct module based on your `ENVIRONMENT` variable.
 - **Production-Grade Security**: 
   - Django 4.0+ strict `CSRF_TRUSTED_ORIGINS` validation is automatically mapped to `ALLOWED_HOSTS` to prevent Cross-Site Request Forgery while supporting Nginx/Docker proxies.
   - User deletions are protected by Django `pre_delete` signals to cleanly wipe SimpleJWT tokens (`OutstandingToken`, `BlacklistedToken`), guaranteeing database integrity and preventing foreign key crashes.
+  - Machine Learning Model state files (`.pkl`) enforce strict absolute path resolution natively anchored to their application directory to completely prevent random directory scaffolding or unauthorized file injections regardless of the Server execution context.
 - **Centralized Templates**: Email HTML templates (e.g., CSV exports, Password Resets) are maintained in a global, centralized `backend/templates/` directory to prevent app-level name collisions and simplify rebranding.
 - **Automated Code Quality Pipeline**: Built-in enforcement of industry standards using `Ruff` (linting/formatting), `Mypy` (static type checking), and `Pytest` (automated testing and coverage). The CI/CD pipeline blocks code that fails these strict checks.
 - **Unified Docker Compose**: One `docker-compose.yml` for all environments. The `.env` file controls the behavior — no need for separate dev/prod compose files.

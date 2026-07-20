@@ -1,5 +1,5 @@
 from django.contrib import admin
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.urls import include, path
 from drf_spectacular.views import (
     SpectacularAPIView,
@@ -29,3 +29,13 @@ urlpatterns = [
     path("api/auth/social/", include("dj_rest_auth.registration.urls")),
     path("api/auth/google/", GoogleLoginView.as_view(), name="google_login"),
 ]
+
+def custom_404(request, exception=None):
+    return JsonResponse({'error': 'Not found.'}, status=404)
+
+def custom_500(request):
+    return JsonResponse({'error': 'Internal Server Error'}, status=500)
+
+handler404 = custom_404
+handler500 = custom_500
+

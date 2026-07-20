@@ -1,5 +1,5 @@
 from math import atan2, cos, radians, sin, sqrt
-from typing import Tuple
+from typing import Tuple, Any
 
 EARTH_RADIUS_METERS = 6371000
 
@@ -22,7 +22,7 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     return EARTH_RADIUS_METERS * c
 
 
-def verify_geofence(user, current_lat, current_lon) -> Tuple[bool, str, int]:
+def verify_geofence(user: Any, current_lat: float, current_lon: float) -> Tuple[bool, str, int]:
     """Verifies if a user is within the allowed geofence radius of their assigned location."""
     try:
         current_lat = float(current_lat)
@@ -30,10 +30,13 @@ def verify_geofence(user, current_lat, current_lon) -> Tuple[bool, str, int]:
     except (TypeError, ValueError):
         return False, "Required Latitude and Longitude must be valid numbers.", 400
 
+    if not (-90.0 <= current_lat <= 90.0) or not (-180.0 <= current_lon <= 180.0):
+        return False, "Invalid GPS boundaries provided.", 400
+
     user_lat = user.latitude
     user_lon = user.longitude
 
-    if not user_lat or not user_lon:
+    if user_lat is None or user_lon is None:
         return (
             False,
             "User Latitude and Longitude values are empty in the database.",

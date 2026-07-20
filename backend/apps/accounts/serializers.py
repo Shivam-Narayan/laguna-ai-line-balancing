@@ -19,6 +19,28 @@ ENVIRONMENT = os.getenv("ENVIRONMENT")
 User = get_user_model()
 
 
+class SSOUserDetailsSerializer(serializers.ModelSerializer):
+    """
+    Serializer used by dj-rest-auth's JWT response to return user details
+    after a Google SSO login. This ensures the frontend receives the same
+    user fields (user_type, location, department, etc.) that it gets from
+    our standard /auth/login/ endpoint.
+    """
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "username",
+            "email",
+            "location",
+            "department",
+            "user_type",
+            "status",
+        ]
+        read_only_fields = fields
+
+
 class UserSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(validators=[validate_email])
 
@@ -55,6 +77,7 @@ class RegisterUserSerializer(serializers.Serializer):
     latitude = serializers.FloatField(required=False)
     longitude = serializers.FloatField(required=False)
     send_mail = serializers.BooleanField(required=False, allow_null=True, default=False)
+    created_at = serializers.DateTimeField(required=False, read_only=True)
 
     def validate_email(self, value: str) -> str:
 

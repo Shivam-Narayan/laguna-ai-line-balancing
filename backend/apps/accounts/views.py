@@ -11,9 +11,14 @@ from rest_framework.decorators import (
     authentication_classes,
     permission_classes,
 )
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenRefreshView
+
+from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
+from allauth.socialaccount.providers.oauth2.client import OAuth2Client
+from dj_rest_auth.registration.views import SocialLoginView
 
 from apps.accounts.authentication import CookieJWTAuthentication
 from apps.accounts.serializers import (
@@ -52,8 +57,8 @@ User = get_user_model()
 @permission_classes([IsAuthenticated])
 def check_geofence(request):
     try:
-        current_lat = float(request.POST.get("latitude"))
-        current_lon = float(request.POST.get("longitude"))
+        current_lat = float(request.data.get("latitude"))
+        current_lon = float(request.data.get("longitude"))
     except (TypeError, ValueError):
         return error_response(
             {"status": "Invalid Latitude and Longitude values (Float type)"},
@@ -122,6 +127,12 @@ def get_user_by_id(request, user_id):
 @authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def update_user(request, user_id):
+    if str(request.user.id) != str(user_id) and not request.user.is_superuser:
+        return error_response(
+            error="You do not have permission to perform this action.",
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
     # Copy request.data to avoid mutating the immutable QueryDict
     mutable_data = request.data.copy()
     mutable_data.pop("username", None)
@@ -140,6 +151,12 @@ def update_user(request, user_id):
 @authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def delete_user(request, user_id):
+    if str(request.user.id) != str(user_id) and not request.user.is_superuser:
+        return error_response(
+            error="You do not have permission to perform this action.",
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
     user_details, error_msg, status_code = delete_user_account(user_id)
     if error_msg:
         return error_response(error=error_msg, status=status_code)
@@ -180,8 +197,9 @@ def login(request):
 
     logger.info(f"User logged in successfully: {email}")
 
-    cookie_samesite = "None" if settings.IS_PRODUCTION else "Lax"
-    cookie_secure = settings.IS_PRODUCTION
+    is_production = getattr(settings, "IS_PRODUCTION", False)
+    cookie_samesite = "None" if is_production else "Lax"
+    cookie_secure = is_production
 
     response.set_cookie(
         key="access_token",
@@ -212,9 +230,6 @@ def protected_endpoint(request):
         data=request.user.username,
         status=status.HTTP_200_OK,
     )
-
-
-from rest_framework_simplejwt.views import TokenRefreshView
 
 
 class CookieTokenRefreshView(TokenRefreshView):
@@ -382,7 +397,7 @@ def change_password(request):
 
 @api_view(["GET", "POST"])
 @authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminUser])
 def fetch_logs(request, log_filename):
     """
     API to fetch or clear log files.
@@ -404,13 +419,9 @@ def fetch_logs(request, log_filename):
     return FileResponse(open(log_path, "rb"), content_type="text/plain")
 
 
-# SSO Login View for Google
-from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
-from allauth.socialaccount.providers.oauth2.client import OAuth2Client
-from dj_rest_auth.registration.views import SocialLoginView
-
-
 class GoogleLoginView(SocialLoginView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
     adapter_class = GoogleOAuth2Adapter
     client_class = OAuth2Client
     # The callback URL must match exactly what is registered in Google Cloud Console
@@ -419,3 +430,4 @@ class GoogleLoginView(SocialLoginView):
         getattr(settings, "DEV_FRONTED_URL", "http://localhost:5173")
         + "/auth/callback/google"
     )
+

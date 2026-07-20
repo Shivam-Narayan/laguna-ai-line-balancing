@@ -1,13 +1,12 @@
 import uuid
 from typing import Any, Optional
 
-from django.db import models, transaction
+from django.db import models, transaction, IntegrityError
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
+from django.conf import settings
 from apps.core.models import BaseModel
-
-from .user import User
 
 
 class LockType(models.TextChoices):
@@ -21,7 +20,7 @@ class EndpointLock(BaseModel):
 
     lock_type = models.CharField(max_length=50, choices=LockType.choices)
     locked_by = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="endpoint_locks"
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="endpoint_locks"
     )
     locked_at = models.DateTimeField(default=timezone.now)
     is_active = models.BooleanField(default=True, db_index=True)
@@ -34,10 +33,17 @@ class EndpointLock(BaseModel):
 
     class Meta:
         db_table = "accounts_endpointlock"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["lock_type", "url_name"],
+                condition=models.Q(is_active=True),
+                name="unique_active_lock",
+            )
+        ]
 
     @classmethod
     def acquire_lock(
-        cls, lock_type: str, user: User, url_name: str, request: Optional[Any] = None
+        cls, lock_type: str, user: Any, url_name: str, request: Optional[Any] = None
     ) -> "EndpointLock":
         """
         Acquire or update a lock for a specific endpoint and user.
@@ -101,10 +107,17 @@ class EndpointLock(BaseModel):
                     }
                 )
 
-            return cls.objects.create(**lock_details)
+            try:
+                return cls.objects.create(**lock_details)
+            except IntegrityError:
+                # If a race condition occurred and another thread just created an active lock,
+                # the database's UniqueConstraint will throw an IntegrityError.
+                raise ValidationError(
+                    "Endpoint is currently locked by another user. Please try again later."
+                )
 
     @classmethod
-    def release_lock(cls, lock_type: str, user: User, url_name: str) -> int:
+    def release_lock(cls, lock_type: str, user: Any, url_name: str) -> int:
         """
         Release the lock for a specific endpoint.
         Returns the number of locks released.

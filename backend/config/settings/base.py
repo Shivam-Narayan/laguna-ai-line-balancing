@@ -16,6 +16,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 PRODUCTION_URL = os.getenv('PRODUCTION_URL')
 SERVER_URL = os.getenv('SERVER_URL')
 
+# Environment Flag
+ENVIRONMENT = os.getenv('ENVIRONMENT', 'development')
+IS_PRODUCTION = ENVIRONMENT == 'production'
+
 # Application definition
 INSTALLED_APPS = [
     # Default Django Apps
@@ -56,6 +60,7 @@ MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
+    'config.middleware.EnsureCSRFCookieMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -103,6 +108,7 @@ REST_FRAMEWORK = {
         'apps.accounts.authentication.CookieJWTAuthentication',
     ],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'EXCEPTION_HANDLER': 'config.exceptions.custom_exception_handler',
 }
 
 AUTH_USER_MODEL = 'accounts.User'
@@ -171,7 +177,7 @@ CELERY_TASK_SERIALIZER = 'json'
 SITE_ID = 1
 ACCOUNT_EMAIL_VERIFICATION = 'none'
 ACCOUNT_LOGIN_METHODS = {'email'}
-ACCOUNT_SIGNUP_FIELDS = ['email', 'password1', 'password2']
+ACCOUNT_SIGNUP_FIELDS = ['email', 'password1*', 'password2*']
 ACCOUNT_UNIQUE_EMAIL = True
 ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 
@@ -182,6 +188,9 @@ REST_AUTH = {
     'USE_JWT': True,
     'JWT_AUTH_COOKIE': 'access_token',
     'JWT_AUTH_REFRESH_COOKIE': 'refresh_token',
+    'JWT_AUTH_SAMESITE': 'None' if IS_PRODUCTION else 'Lax',
+    'JWT_AUTH_SECURE': IS_PRODUCTION,
+    'USER_DETAILS_SERIALIZER': 'apps.accounts.serializers.SSOUserDetailsSerializer',
 }
 
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')

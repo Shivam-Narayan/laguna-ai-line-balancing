@@ -22,31 +22,31 @@ Ensure your virtual environment is activated before running tests.
 
 ### Run all tests in the project:
 ```bash
-python manage.py test
+pytest
 ```
 
 ### Run tests for a specific app:
 ```bash
-python manage.py test apps.accounts
-python manage.py test apps.absenteeism
-python manage.py test apps.data_engine
-python manage.py test apps.manning_sheet
+pytest apps/accounts/
+pytest apps/absenteeism/
+pytest apps/data_engine/
+pytest apps/manning_sheet/
 ```
 
 ### Run a specific test file:
 ```bash
-python manage.py test apps.accounts.tests.test_views
+pytest apps/accounts/tests/test_views.py
 ```
 
 ### Run a specific test class or method:
 ```bash
-python manage.py test apps.accounts.tests.test_views.AuthViewTests
-python manage.py test apps.accounts.tests.test_views.AuthViewTests.test_login_success
+pytest apps/accounts/tests/test_views.py::AuthViewTests
+pytest apps/accounts/tests/test_views.py::AuthViewTests::test_login_success
 ```
 
-### Run tests with increased verbosity (to see test names):
+### Run tests with coverage report:
 ```bash
-python manage.py test -v 2
+pytest --cov=. --cov-report=term-missing
 ```
 
 ## 3. Testing Strategy
@@ -59,12 +59,16 @@ python manage.py test -v 2
 ### Views (`test_views.py`)
 - **Authentication:** Most endpoints in this project require `CookieJWTAuthentication`. Test setups should explicitly mock a login and attach the resulting cookies to the `APIClient`.
 - **Mocking Heavy Services:** Because apps like `absenteeism` and `manning_sheet` rely on heavy Pandas data transformations and machine learning orchestrators, we use `unittest.mock.patch` to mock these service functions in view tests.
-  - *Example:* Instead of actually processing an uploaded Excel file in the view test, we mock `run_upload_absenteesim_data` to return a `200 OK` response. This isolates the test to only verify API routing, HTTP methods, and authentication.
+  - *Example 1:* Instead of actually processing an uploaded Excel file in the view test, we mock `run_upload_absenteesim_data` to return a `200 OK` response. This isolates the test to only verify API routing, HTTP methods, and authentication.
+  - *Example 2:* When testing `prediction_orchestrator.py` or `report_service.py`, we heavily mock `joblib.dump`, `RandomForestRegressor`, and internal API requests using `@patch`. This prevents expensive ML computations from slowing down the CI/CD pipeline while still guaranteeing 100% test coverage over data-extraction edge cases (like `KeyError` or `ZeroDivisionError`).
 
 ### Services (`test_services.py`)
 - When testing service-level logic (e.g., `auth_service.py`), do **not** mock the logic. Test the actual Python functions by passing in dummy data or instantiated models.
 
 ## 4. Best Practices for Future Development
+
+> [!TIP]
+> For a step-by-step tutorial on how to fix bugs using the Red-Green-Refactor testing approach, see the **[TDD Guide](TDD_GUIDE.md)**!
 
 1. **Test-Driven Development (TDD):** When creating a new endpoint, write the view test first (expecting it to fail), then write the view logic.
 2. **Missing Required Fields:** If you add new required fields to `User` or other core models, you must update the `setUp()` methods across all test files to prevent `IntegrityError` failures during test database creation.

@@ -4,12 +4,12 @@ from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.accounts.models import MultiSessionToken
-
-User = get_user_model()
 from apps.accounts.serializers import (
     RequestPasswordResetSerializer,
     ResetPasswordSerializer,
 )
+
+User = get_user_model()
 
 
 def authenticate_user(
@@ -23,6 +23,8 @@ def authenticate_user(
         user = User.objects.get(email=email.strip().lower())
     except User.DoesNotExist:
         # Standard security practice: Do not reveal if the email exists or not to prevent username enumeration.
+        # Mitigation: Run the password hasher anyway to prevent timing attacks.
+        User().set_password(password)
         return None, None, None, "Invalid email or password", 401
 
     if not user.check_password(password):

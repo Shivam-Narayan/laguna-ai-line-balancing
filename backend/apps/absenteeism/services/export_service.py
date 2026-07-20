@@ -1,3 +1,4 @@
+import base64
 import logging
 from datetime import datetime
 
@@ -19,7 +20,6 @@ from ..utils import (
 from .prediction_orchestrator import prepare_prediction_data
 
 logger = logging.getLogger("general")
-prediction_response = {}
 
 
 def run_export_data():
@@ -48,7 +48,6 @@ def run_export_data():
         try:
             response = HttpResponse(content_type="text/csv")
             response["Content-Disposition"] = 'attachment; filename="absent.csv"'
-            response["Success-Message"] = "Absent CSV file generated successfully."
             df.to_csv(response, index=False)  # type: ignore
             return response
         except Exception as e:
@@ -121,8 +120,6 @@ def run_send_csv_via_email(email):
         email_subject = "Download Absenteeism CSV File"
         file_name = "absent.csv"
 
-        import base64
-
         from apps.absenteeism.tasks import send_email_task
 
         encoded_csv = base64.b64encode(csv_data.getvalue()).decode()
@@ -166,13 +163,14 @@ def scheduler_prediction_data_email(line_no, forecast_period):
             f"Running Prediction Data(Scheduler) at {str(datetime.now())} hours!"
         )
         prediction_response = prepare_prediction_data(line_no, forecast_period)
-        excel_data = generate_prediction_data(prediction_response.data["data"])
 
-        if prediction_response.data["status"] == "error":
+        if prediction_response.data.get("status") == "error":
             logger.info(
-                f"Error ({prediction_response.status_code}) in preparing prediction data: {prediction_response.data['error']}"
+                f"Error ({prediction_response.status_code}) in preparing prediction data: {prediction_response.data.get('error')}"
             )
             return prediction_response
+            
+        excel_data = generate_prediction_data(prediction_response.data.get("data", {}))
 
         userEmails = list(
             User.objects.filter(send_mail=True, status=True).values_list(

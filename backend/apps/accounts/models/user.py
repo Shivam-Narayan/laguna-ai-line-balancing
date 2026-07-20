@@ -39,6 +39,12 @@ class CustomUserManager(BaseUserManager):
     ) -> "User":
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
+
+        if extra_fields.get("is_staff") is not True:
+            raise ValueError("Superuser must have is_staff=True.")
+        if extra_fields.get("is_superuser") is not True:
+            raise ValueError("Superuser must have is_superuser=True.")
+
         return self.create_user(username, email, password, **extra_fields)
 
 
@@ -48,7 +54,7 @@ class UserType(models.IntegerChoices):
 
 
 class User(AbstractBaseUser, PermissionsMixin, BaseModel):
-    last_login = None  # Intentionally disabled — we do not track last login
+    last_login = models.DateTimeField(blank=True, null=True)
     is_staff = models.BooleanField(default=False)  # Required for Django Admin access
     username = models.CharField(max_length=150)
     email = models.EmailField(unique=True, max_length=255, db_index=True)
@@ -73,6 +79,10 @@ class User(AbstractBaseUser, PermissionsMixin, BaseModel):
         max_digits=9, decimal_places=6, blank=True, null=True
     )
     send_mail = models.BooleanField(default=False)
+
+    @property
+    def is_active(self):
+        return self.status
 
     class Meta:
         db_table = "accounts_user"

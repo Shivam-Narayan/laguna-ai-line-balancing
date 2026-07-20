@@ -175,7 +175,7 @@ def run_upload_absenteesim_data(file, month, year):
                     date__year=year, date__month=month_number
                 ).delete()
 
-                Absenteeism.objects.bulk_create(absenteeism_objects)
+                Absenteeism.objects.bulk_create(absenteeism_objects, ignore_conflicts=True)
 
                 # Automatically preprocess the data so it's ready for forecasts
                 try:
@@ -249,7 +249,7 @@ def process_absenteeism_data():
 
                 if len(prediction_data_objects) >= batch_size:
                     PredictionData.objects.bulk_create(
-                        prediction_data_objects, batch_size=batch_size
+                        prediction_data_objects, batch_size=batch_size, ignore_conflicts=True
                     )
                     prediction_data_objects.clear()
 
@@ -258,7 +258,7 @@ def process_absenteeism_data():
 
         if prediction_data_objects:
             PredictionData.objects.bulk_create(
-                prediction_data_objects, batch_size=batch_size
+                prediction_data_objects, batch_size=batch_size, ignore_conflicts=True
             )
 
         return True, "Records processed and saved successfully."
@@ -328,8 +328,8 @@ def run_upload_prediction_data(uploaded_file):
             )
             records.append(record)
 
-        # Bulk create the records for efficiency
-        AbsenteeismPrediction.objects.bulk_create(records)
+        # Bulk create the records for efficiency (ignoring duplicate conflicts)
+        AbsenteeismPrediction.objects.bulk_create(records, ignore_conflicts=True)
 
         return success_response(
             message="Data uploaded successfully", status=status.HTTP_201_CREATED

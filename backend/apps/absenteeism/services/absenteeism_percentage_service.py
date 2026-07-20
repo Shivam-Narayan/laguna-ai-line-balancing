@@ -5,53 +5,48 @@ from datetime import timedelta
 
 import pandas as pd
 
+from django.conf import settings
+from django.core.cache import cache
+
 logger = logging.getLogger(__name__)
 
-
 def load_active_employees():
-    """Load and process the active employees CSV file"""
+    """Load and process the active employees CSV file, returning a cached dictionary"""
+    # Try to fetch from Redis/RAM cache first
+    cached_counts = cache.get("active_employees_line_counts")
+    if cached_counts is not None:
+        return cached_counts
+
     try:
-        # Update path to look in utils directory
-        csv_path = os.path.join(
-            os.path.dirname(
-                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            ),
-            "csv_files",
-            "Active_Employees.csv",
-        )
+        csv_path = os.path.join(settings.BASE_DIR, "csv_files", "Active_Employees.csv")
         logger.info(f"Attempting to read Active Employees from: {csv_path}")
 
         if not os.path.exists(csv_path):
-            # Try alternate location
-            csv_path = os.path.join(
-                os.path.dirname(
-                    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                ),
-                "csv_files",
-                "Active_Employees.csv",
-            )
-            logger.info(f"Trying alternate path: {csv_path}")
-
-            if not os.path.exists(csv_path):
-                logger.error("Active_Employees.csv not found in any expected location")
-                return pd.DataFrame(columns=["Line", "Total_Employees"])
+            logger.error("Active_Employees.csv not found.")
+            return {}
 
         df = pd.read_csv(csv_path)
 
-        # Process department to extract line and section
+        # Process department to extract line
         df["Line"] = df["Department"].str.extract(r"(LINE \d+)")[0]
-        df["Section"] = df["Department"].str.replace(r"LINE \d+ ", "", regex=True)
 
-        # Count employees per line only
-        emp_counts = df.groupby("Line").size().reset_index(name="Total_Employees")
-        return emp_counts
+        # Group by Line and count employees
+        counts_series = df.groupby("Line").size()
+        
+        # Convert to dictionary (e.g. {"LINE 1": 150, "LINE 2": 120})
+        counts_dict = counts_series.to_dict()
+        
+        # Cache for 24 hours (86400 seconds)
+        cache.set("active_employees_line_counts", counts_dict, timeout=86400)
+        
+        return counts_dict
     except Exception as e:
         logger.error(f"Error loading active employees: {str(e)}")
-        return pd.DataFrame(columns=["Line", "Total_Employees"])
-
+        return {}
 
 def get_working_days(start_date, period_days):
     """Generate working days (Mon-Fri) for the given period"""
+    from datetime import timedelta
     dates = []
     current_date = start_date
     while len(dates) < period_days:
@@ -59,88 +54,6 @@ def get_working_days(start_date, period_days):
             dates.append(current_date)
         current_date += timedelta(days=1)
     return dates
-
-
-def calculate_line_percentages_older_version(data, date, selected_line="ALL"):
-    date_data = data[data["date"] == date]
-    if not date_data.empty:
-        # Group by Line to calculate percentage for each line
-        line_groups = date_data.groupby("Line")
-        line_percentages = []
-
-        for line_name, line_group in line_groups:
-            # Skip lines that don't match selected line
-            if selected_line != "ALL" and line_name != selected_line:
-                continue
-
-            line_absent_count = line_group["Absent"].sum()
-            line_total_employees = (
-                line_group["Total_Employees"].iloc[0]
-                if "Total_Employees" in line_group.columns
-                else len(line_group)
-            )
-
-            if pd.notna(line_total_employees) and line_total_employees > 0:
-                line_percentage = (line_absent_count / line_total_employees) * 100
-                line_percentages.append(line_percentage)
-
-        # For single line, return its percentage directly
-        if selected_line != "ALL":
-            return round(line_percentages[0], 1) if line_percentages else 0.0
-        # For all lines, calculate average
-        return (
-            round(sum(line_percentages) / len(line_percentages), 1)
-            if line_percentages
-            else 0.0
-        )
-    else:
-        # Handle similar dates if exact date not found
-        similar_data = data[
-            (data["date"].apply(lambda d: d.month) == date.month)
-            & (abs(data["date"].apply(lambda d: d.day) - date.day) <= 3)
-        ]
-        if not similar_data.empty:
-            # Modified code for similar dates
-            similar_data = data[
-                (data["date"].apply(lambda d: d.month) == date.month)
-                & (abs(data["date"].apply(lambda d: d.day) - date.day) <= 3)
-            ]
-            if not similar_data.empty:
-                # Calculate percentage for each date separately
-                date_percentages = []
-                for single_date in similar_data["date"].unique():
-                    day_data = similar_data[similar_data["date"] == single_date]
-                    line_groups = day_data.groupby("Line")
-                    day_percentages = []
-
-                    for _, line_group in line_groups:
-                        line_absent_count = line_group["Absent"].sum()
-                        line_total_employees = (
-                            line_group["Total_Employees"].iloc[0]
-                            if "Total_Employees" in line_group.columns
-                            else len(line_group)
-                        )
-
-                        if pd.notna(line_total_employees) and line_total_employees > 0:
-                            line_percentage = (
-                                line_absent_count / line_total_employees
-                            ) * 100
-                            day_percentages.append(line_percentage)
-
-                    if day_percentages:
-                        date_percentages.append(
-                            sum(day_percentages) / len(day_percentages)
-                        )
-
-            # Take average of all similar dates
-            return (
-                round(sum(date_percentages) / len(date_percentages), 1)
-                if date_percentages
-                else 0.0
-            )
-        else:
-            return 0.0
-
 
 # Define a function to calculate absenteeism percentages
 def calculate_line_percentages(data_for_date, emp_counts, target_line="ALL"):

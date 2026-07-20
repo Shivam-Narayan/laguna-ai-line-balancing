@@ -7,8 +7,6 @@ from django.utils import timezone
 
 from apps.core.models import BaseModel
 
-from .user import User
-
 
 class PasswordResetToken(BaseModel):
     user = models.ForeignKey(
@@ -38,7 +36,7 @@ def generate_unique_token() -> str:
 # Custom Multi-Session Token Model
 class MultiSessionToken(BaseModel):
     user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="multi_session_tokens"
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="multi_session_tokens"
     )
     key = models.CharField(
         max_length=40, unique=True, default=generate_unique_token, db_index=True
@@ -52,11 +50,9 @@ class MultiSessionToken(BaseModel):
         return timezone.now() > self.expiry
 
     def refresh_token(self) -> None:
-        """Refresh token validity if expired"""
-        if self.is_expired():
-            self.key = generate_unique_token()
-            self.expiry = timezone.now() + timedelta(days=365)
-            self.save()
+        """Refresh token validity (extends expiry by 1 year from now)"""
+        self.expiry = timezone.now() + timedelta(days=365)
+        self.save(update_fields=['expiry', 'updated_at'])
 
     def __str__(self) -> str:
         return f"{self.user.email} - {self.key}"
