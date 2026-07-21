@@ -18,6 +18,9 @@ from rest_framework.throttling import UserRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 
+from config.logger import configure_logging
+logger = configure_logging(logger_name="accounts_view_logger")
+
 from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
 from allauth.socialaccount.providers.oauth2.client import OAuth2Client
 from dj_rest_auth.registration.views import SocialLoginView
@@ -187,6 +190,8 @@ class LoginThrottle(UserRateThrottle):
 def login(request):
     email = request.data.get("email")
     password = request.data.get("password")
+    
+    logger.info(f"TESTING HYBRID LOGGER: Login attempt received for email: {email}")
 
     user_details, access_token, refresh_token, error_msg, status_code = (
         authenticate_user(email, password)

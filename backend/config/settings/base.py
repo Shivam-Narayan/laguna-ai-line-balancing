@@ -118,6 +118,7 @@ REST_FRAMEWORK = {
         'anon': '60/minute',
         'user': '1000/minute',
         'login_attempts': '5/minute',
+        'dj_rest_auth': '10/minute',
     },
 }
 
