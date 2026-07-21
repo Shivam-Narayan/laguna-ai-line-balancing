@@ -3,9 +3,6 @@ import logging
 import os
 import sys
 
-
-
-
 def configure_logging(logger_name="", log_level=None):
     """
     Configure logging for the specified logger with the given log level,
