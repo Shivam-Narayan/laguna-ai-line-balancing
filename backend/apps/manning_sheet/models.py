@@ -120,6 +120,9 @@ class ManningSheetData(BaseModel):
 
     class Meta:
         db_table = "manning_sheet_data"
+        indexes = [
+            models.Index(fields=['line', 'planned_dates'], name='idx_manning_line_dates'),
+        ]
 
     def __str__(self):
         return f"{self.order_no} - {self.style} - {self.line}"
@@ -192,6 +195,9 @@ class DDayData(BaseModel):
 
     class Meta:
         db_table = "dday_manning_data"
+        indexes = [
+            models.Index(fields=['line', 'planned_dates'], name='idx_dday_line_dates'),
+        ]
 
     def __str__(self):
         return f"{self.order_no} - {self.operation}"

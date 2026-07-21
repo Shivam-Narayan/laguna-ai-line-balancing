@@ -249,7 +249,7 @@ def run_generate_employee_master():
             for row in df_employee_master.to_dict("records")
         ]
         truncate_table(EmployeeMaster)
-        EmployeeMaster.objects.bulk_create(records)
+        EmployeeMaster.objects.bulk_create(records, batch_size=1000)
 
         logger.info(f"Data saved successfully at {str(datetime.now())} hours!")
         logger.info("***************************************************\n\n")

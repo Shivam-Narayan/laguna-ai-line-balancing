@@ -2784,7 +2784,9 @@ def run_intraday_allocation_enhanced(
         logger.info("Running 12:45 PM allocation with morning output evaluation")
 
         try:
-            morning_manning = pd.DataFrame(list(DDayData.objects.all().values()))
+            morning_manning = pd.DataFrame(
+                list(DDayData.objects.filter(planned_dates__date=allocation_date.date()).values())
+            )
             logger.info("Loaded morning Dday allocation..........")
         except Exception as e:
             logger.info(f"Could not load morning allocation, starting fresh: {e}")

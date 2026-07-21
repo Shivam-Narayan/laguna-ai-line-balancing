@@ -103,7 +103,10 @@ def manning_sheet_generation(request):
         ManningSheetData.objects.all().delete()
         manning_sheet_df = {}
 
-        queryset_lp = LoadingPlan.objects.all().values()
+        queryset_lp = LoadingPlan.objects.values(
+            "oc_no", "order_no", "buyer", "style", "fabric_article", 
+            "line", "week", "planned_dates", "planned_qty", "smv"
+        )
         # Convert QuerySet to DataFrame
         df_load_plan_transformed = pd.DataFrame.from_records(queryset_lp)
 
@@ -1185,7 +1188,7 @@ def run_generate_emp_fact():
             for _, row in df_emp_fact.iterrows()
         ]
         truncate_table(EMPFact)
-        EMPFact.objects.bulk_create(records)
+        EMPFact.objects.bulk_create(records, batch_size=1000)
 
         logger.info(f"Data saved successfully at {str(datetime.now())} hours!")
         logger.info("***************************************************\n\n")
@@ -1974,7 +1977,7 @@ def run_generate_style_ob(viaAPI):
         def insert_chunk(chunk_dicts):
             instances = [StyleOB(**d) for d in chunk_dicts]
             with transaction.atomic():
-                StyleOB.objects.bulk_create(instances)
+                StyleOB.objects.bulk_create(instances, batch_size=1000)
 
         chunked_data = [
             data_dicts[i : i + CHUNK_SIZE]

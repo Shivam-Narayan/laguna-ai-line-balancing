@@ -910,7 +910,7 @@ def run_emp_fact_file_upload(file):
             ]
 
             EMPFact.objects.all().delete()
-            EMPFact.objects.bulk_create(records)
+            EMPFact.objects.bulk_create(records, batch_size=1000)
 
             return success_response(
                 message="File processed and data saved successfully",
@@ -951,7 +951,7 @@ def run_wip_file_upload(file):
             ]
 
             WIPData.objects.all().delete()
-            WIPData.objects.bulk_create(records)
+            WIPData.objects.bulk_create(records, batch_size=1000)
 
             return success_response(
                 message="File processed and data saved successfully",
@@ -1212,7 +1212,7 @@ def fetch_and_transform_emp_attendance(run_type=None):
 
             # Use a single transaction for the chunk
             with transaction.atomic():
-                AttendanceMaster.objects.bulk_create(model_instances)
+                AttendanceMaster.objects.bulk_create(model_instances, batch_size=1000)
 
         if run_type is not None and run_type == "noon":
             raw_data = []
@@ -1409,7 +1409,7 @@ def fetch_and_transform_empdetails():
 
             # Use a single transaction for the chunk
             with transaction.atomic():
-                ActiveEmployees.objects.bulk_create(model_instances)
+                ActiveEmployees.objects.bulk_create(model_instances, batch_size=1000)
 
         return success_response(
             message="RockHR Data for Active Employees processed and uploaded to Database",
@@ -2306,7 +2306,7 @@ def insert_consolidated_df(consolidated_df):
     def insert_chunk(chunk_dicts):
         instances = [ManningSheetData(**d) for d in chunk_dicts]
         with transaction.atomic():
-            ManningSheetData.objects.bulk_create(instances)
+            ManningSheetData.objects.bulk_create(instances, batch_size=1000)
 
     # Step 1: Convert DataFrame rows to list of dicts (sequentially to preserve row order)
     data_dicts = [row_to_dict(row) for row in consolidated_df.to_dict("records")]
@@ -2371,7 +2371,7 @@ def insert_all_unallocated_employees(all_unallocated_employees, df_active_employ
     def insert_chunk(chunk_dicts):
         instances = [UnallocatedEmployees(**d) for d in chunk_dicts]
         with transaction.atomic():
-            UnallocatedEmployees.objects.bulk_create(instances)
+            UnallocatedEmployees.objects.bulk_create(instances, batch_size=1000)
 
     chunked_data = [
         data_dicts[i : i + CHUNK_SIZE] for i in range(0, len(data_dicts), CHUNK_SIZE)
@@ -2493,7 +2493,7 @@ def run_upload_active_employees(file):
             chunk_dicts = data_dicts[i : i + CHUNK_SIZE]
             model_instances = [ActiveEmployees(**d) for d in chunk_dicts]
             with transaction.atomic():
-                ActiveEmployees.objects.bulk_create(model_instances)
+                ActiveEmployees.objects.bulk_create(model_instances, batch_size=1000)
 
         # Automatically generate the Employee Master table so the UI updates immediately
         try:

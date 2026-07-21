@@ -137,7 +137,7 @@ def run_upload_historical_weather_data(file):
                 objects_to_create.append(weather_data)
 
             # Bulk insert all records
-            HistoricalWeather.objects.bulk_create(objects_to_create)
+            HistoricalWeather.objects.bulk_create(objects_to_create, batch_size=1000)
 
             return success_response(message="Data uploaded successfully", status=200)
 
@@ -269,7 +269,7 @@ def run_add_local_holiday_calender(file):
             for row in holiday_df.to_dict("records")
         ]
         truncate_table(LocalHolidayCalendar)
-        LocalHolidayCalendar.objects.bulk_create(records)
+        LocalHolidayCalendar.objects.bulk_create(records, batch_size=1000)
 
         return success_response(
             message="Local Holiday Calender added successfully.",
@@ -320,7 +320,7 @@ def run_add_payable_working_days():
             for row in holiday_df.to_dict("records")
         ]
         truncate_table(PayableWorkingDays)
-        PayableWorkingDays.objects.bulk_create(records)
+        PayableWorkingDays.objects.bulk_create(records, batch_size=1000)
 
         return success_response(
             message="Payable Working days added successfully.",

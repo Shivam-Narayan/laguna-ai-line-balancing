@@ -862,7 +862,7 @@ def create_bulk_push_notifications(notification_type, title, message, users, dat
             notifications.append(notification)
 
         # Bulk create all notifications at once
-        return PushNotification.objects.bulk_create(notifications)
+        return PushNotification.objects.bulk_create(notifications, batch_size=1000)
 
 
 def get_notification_type_by_time():

@@ -1663,7 +1663,7 @@ def process_general_info(df_manning, df_emp_fact, period):
                 chunk_dicts = data_dicts[i : i + CHUNK_SIZE]
                 model_instances = [ManningGeneralInfo(**d) for d in chunk_dicts]
                 with transaction.atomic():
-                    ManningGeneralInfo.objects.bulk_create(model_instances)
+                    ManningGeneralInfo.objects.bulk_create(model_instances, batch_size=1000)
         return results
     except Exception as e:
         logger.info(f"Error in process_general_info function: {e}")
