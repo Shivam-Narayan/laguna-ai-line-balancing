@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
 
+
 logger = logging.getLogger(__name__)
 
 def custom_exception_handler(exc, context):
@@ -25,6 +26,7 @@ def custom_exception_handler(exc, context):
             data = {'error': 'Permission denied.'}
             return Response(data, status=403)
         
+
         # Log the unhandled exception
         logger.error(f"Unhandled Exception: {str(exc)}", exc_info=exc)
         
