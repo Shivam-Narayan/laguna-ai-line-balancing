@@ -1291,9 +1291,6 @@ def run_manning_generation(viaAPI, PERIOD):
         # Merge with Style OB and create manning dataframes
         manning_df = create_manning_dataframes(result_dfs, df_style_ob)
 
-        # from .manning_generation_single_threading_v6 import filter_by_date_ranges_v6, process_single_manning_df_v6, run_manning_allocation_v6
-        # filtered_dfs = filter_by_date_ranges_v6(df_load_plan_transformed, today, date_thresholds, PERIOD)
-        # manning_df = process_single_manning_df_v6(filtered_dfs, df_style_ob)
 
         consolidated_manning_df = []
         all_unallocated_employees = []
@@ -1447,9 +1444,6 @@ def run_dday_generation(viaAPI):
                 error="Database error occurred.",
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-
-        # from .dday_generation_v2 import get_run_type_for_testing
-        # run_type = get_run_type_for_testing(use_fake_time=True, fake_time_str="08:50")
 
         logger.info(f"\nPerforming {run_type} allocation run for {current_date}")
         manning, stats, tracking = run_intraday_allocation_enhanced(
