@@ -1,31 +1,32 @@
-import os
-import joblib
 import logging
-import requests
+import os
+import typing
 import warnings
+from datetime import date, timedelta
+from io import StringIO
+
+import joblib
 import numpy as np
 import pandas as pd
-
+import requests
 from django.db import transaction
-
-import typing
-from io import StringIO
-from datetime import datetime, date, timedelta
-from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.utils.class_weight import compute_sample_weight
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from urllib3.util.retry import Retry
+
+from apps.data_engine.models import EmployeeMaster, HistoricalWeather
 
 from ..models import PredictionData
-from apps.data_engine.models import HistoricalWeather, EmployeeMaster
 
-
-logger = logging.getLogger('general')
+logger = logging.getLogger("general")
 
 # Suppress all warnings
 warnings.filterwarnings("ignore")
+
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "dynamic_absenteeism_model.pkl")
 
 
 def get_prediction_data():
@@ -37,19 +38,28 @@ def get_prediction_data():
 
     # Create a Pandas DataFrame from the list of dictionaries
     df_Absentism = pd.DataFrame(data)
-    df_Absentism.dropna(subset=['date','attendance'], inplace=True)
-    df_Absentism.dropna(how = 'all')
-    df_Absentism = df_Absentism.rename(columns={'date': 'Dates','department': 'Line', 'attendance' : 'Status', 'section' : 'Section', 'name' : 'Name', 'empcode' : 'Empcode'})
-    df_Absentism['Dates'] = pd.to_datetime(df_Absentism['Dates'])
-    df_Absentism['Empcode'] = pd.to_numeric(df_Absentism['Empcode'], errors='coerce')
+    df_Absentism.dropna(subset=["date", "attendance"], inplace=True)
+    df_Absentism.dropna(how="all")
+    df_Absentism = df_Absentism.rename(
+        columns={
+            "date": "Dates",
+            "department": "Line",
+            "attendance": "Status",
+            "section": "Section",
+            "name": "Name",
+            "empcode": "Empcode",
+        }
+    )
+    df_Absentism["Dates"] = pd.to_datetime(df_Absentism["Dates"])
+    df_Absentism["Empcode"] = pd.to_numeric(df_Absentism["Empcode"], errors="coerce")
     # Drop rows where 'Empcode' is NaN (optional)
-    df_Absentism = df_Absentism.dropna(subset=['Empcode'])
+    df_Absentism = df_Absentism.dropna(subset=["Empcode"])
     # Convert to integers
-    df_Absentism['Empcode'] = df_Absentism['Empcode'].astype(int)
-    df_Absentism = df_Absentism[df_Absentism['Status'].isin(['A'])]
-    df_Absentism = df_Absentism.sort_values(by='Dates', ascending=True)
-    duplicate_check = ['Dates', 'Empcode', 'Name', 'Line', 'Section', 'Status']
-    df_Absentism = df_Absentism.drop_duplicates(subset=duplicate_check, keep='first')
+    df_Absentism["Empcode"] = df_Absentism["Empcode"].astype(int)
+    df_Absentism = df_Absentism[df_Absentism["Status"].isin(["A"])]
+    df_Absentism = df_Absentism.sort_values(by="Dates", ascending=True)
+    duplicate_check = ["Dates", "Empcode", "Name", "Line", "Section", "Status"]
+    df_Absentism = df_Absentism.drop_duplicates(subset=duplicate_check, keep="first")
     # df_Absentism['Absence'] = df_Absentism['Status'].apply(lambda x: 1 if x == 'A' else 0)
     # #print(df_Absentism.head())
 
@@ -68,12 +78,13 @@ def get_emp_master_data():
     return df_emp_master
 
 
-
 def get_historical_weather_data():
-    today = date.today() # Today's date
-    startDate = date(2022, 1, 1) # Hardcoded to 1 Jan 2022
-    endDate = today - timedelta(days=1) # As we don't have attendance data for today so fetching last day
-    historical_weather_filter = {'datetime__range': (startDate, endDate)}
+    today = date.today()  # Today's date
+    startDate = date(2022, 1, 1)  # Hardcoded to 1 Jan 2022
+    endDate = today - timedelta(
+        days=1
+    )  # As we don't have attendance data for today so fetching last day
+    historical_weather_filter = {"datetime__range": (startDate, endDate)}
 
     # Query all data from the PredictionData table
     queryset = HistoricalWeather.objects.filter(**historical_weather_filter)
@@ -81,43 +92,48 @@ def get_historical_weather_data():
 
     if not data:
         import numpy as np
+
         # Generate fake data for testing purposes if DB is empty
         fake_data = []
         for i in range((endDate - startDate).days + 1):
             d = startDate + timedelta(days=i)
-            fake_data.append({
-                'datetime': d,
-                'tempmax': np.random.uniform(25.0, 35.0),
-                'tempmin': np.random.uniform(15.0, 25.0),
-                'humidity': np.random.uniform(40.0, 80.0),
-                'precip': np.random.uniform(0.0, 5.0),
-                'conditions': 'Clear',
-                'stations': 'fake_station'
-            })
+            fake_data.append(
+                {
+                    "datetime": d,
+                    "tempmax": np.random.uniform(25.0, 35.0),
+                    "tempmin": np.random.uniform(15.0, 25.0),
+                    "humidity": np.random.uniform(40.0, 80.0),
+                    "precip": np.random.uniform(0.0, 5.0),
+                    "conditions": "Clear",
+                    "stations": "fake_station",
+                }
+            )
         df_past_wf = pd.DataFrame(fake_data)
     else:
         df_past_wf = pd.DataFrame(data)
 
-    df_past_wf.dropna(how='all', inplace=True)
+    df_past_wf.dropna(how="all", inplace=True)
 
-    df_past_wf['datetime'] = pd.to_datetime(df_past_wf['datetime'])
-    df_past_wf = df_past_wf.drop_duplicates(subset='datetime', keep='last') # add this line
-    if 'stations' in df_past_wf.columns:
-        df_past_wf = df_past_wf.drop(columns=['stations'])
+    df_past_wf["datetime"] = pd.to_datetime(df_past_wf["datetime"])
+    df_past_wf = df_past_wf.drop_duplicates(
+        subset="datetime", keep="last"
+    )  # add this line
+    if "stations" in df_past_wf.columns:
+        df_past_wf = df_past_wf.drop(columns=["stations"])
 
     return df_past_wf
-
 
 
 def get_future_weather_data():
     try:
         api_url = "https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/bangalore/next60days?unitGroup=us&include=days&key=H2FT4UP7KXRYK9L5N3E36X3N6&contentType=csv"
 
-
         # Setup retries
         session = requests.Session()
-        retries = Retry(total=3, backoff_factor=2, status_forcelist=[429, 500, 502, 503, 504])
-        session.mount('https://', HTTPAdapter(max_retries=typing.cast(int, retries)))
+        retries = Retry(
+            total=3, backoff_factor=2, status_forcelist=[429, 500, 502, 503, 504]
+        )
+        session.mount("https://", HTTPAdapter(max_retries=typing.cast(int, retries)))
 
         response = session.get(api_url, timeout=30, verify=False)
         response.raise_for_status()
@@ -128,7 +144,7 @@ def get_future_weather_data():
         df_next60_wf = pd.read_csv(StringIO(response.text))
 
         # Convert to plain list and delete records from the database if they exist
-        dates_list = df_next60_wf['datetime'].dropna().unique().tolist()
+        dates_list = df_next60_wf["datetime"].dropna().unique().tolist()
         # Step 1: Delete existing records in DB for the same dates
         HistoricalWeather.objects.filter(datetime__in=dates_list).delete()
 
@@ -141,29 +157,32 @@ def get_future_weather_data():
         # HistoricalWeather.objects.filter(datetime__lt=cutoff_date).delete()
 
         # Replace NaN values with defaults for numeric fields
-        df_next60_wf.fillna({
-            'severerisk': 0,
-            'precip': 0,
-            'precipprob': 0,
-            'precipcover': 0,
-            'snow': 0,
-            'snowdepth': 0,
-            'windgust': 0,
-            'windspeed': 0,
-            'winddir': 0,
-            'sealevelpressure': 0,
-            'cloudcover': 0,
-            'visibility': 0,
-            'solarradiation': 0,
-            'solarenergy': 0,
-            'uvindex': 0,
-            'moonphase': 0,
-        }, inplace=True)
+        df_next60_wf.fillna(
+            {
+                "severerisk": 0,
+                "precip": 0,
+                "precipprob": 0,
+                "precipcover": 0,
+                "snow": 0,
+                "snowdepth": 0,
+                "windgust": 0,
+                "windspeed": 0,
+                "winddir": 0,
+                "sealevelpressure": 0,
+                "cloudcover": 0,
+                "visibility": 0,
+                "solarradiation": 0,
+                "solarenergy": 0,
+                "uvindex": 0,
+                "moonphase": 0,
+            },
+            inplace=True,
+        )
 
         # Prepare objects for bulk create
         def safe_strip(value):
             return value.strip() if isinstance(value, str) else value
-            
+
         def safe_int(val: typing.Any) -> typing.Optional[int]:
             if val is None or pd.isna(val):
                 return None
@@ -171,42 +190,42 @@ def get_future_weather_data():
                 return int(float(val))
             except (ValueError, TypeError):
                 return None
-        
+
         objects_to_create = [
             HistoricalWeather(
-                name=safe_strip(row.get('name')),
-                datetime=row.get('datetime'),
-                tempmax=row.get('tempmax'),
-                tempmin=row.get('tempmin'),
-                temp=row.get('temp'),
-                feelslikemax=row.get('feelslikemax'),
-                feelslikemin=row.get('feelslikemin'),
-                feelslike=row.get('feelslike'),
-                dew=row.get('dew'),
-                humidity=row.get('humidity'),
-                precip=row.get('precip', 0),
-                precipprob=row.get('precipprob', 0),
-                precipcover=row.get('precipcover', 0),
-                preciptype=safe_strip(row.get('preciptype')),
-                snow=row.get('snow', 0),
-                snowdepth=row.get('snowdepth', 0),
-                windgust=row.get('windgust'),
-                windspeed=row.get('windspeed'),
-                winddir=row.get('winddir'),
-                sealevelpressure=row.get('sealevelpressure'),
-                cloudcover=row.get('cloudcover'),
-                visibility=row.get('visibility'),
-                solarradiation=row.get('solarradiation'),
-                solarenergy=row.get('solarenergy'),
-                uvindex=row.get('uvindex'),
-                severerisk=safe_int(row.get('severerisk')),
-                sunrise=row.get('sunrise'),
-                sunset=row.get('sunset'),
-                moonphase=row.get('moonphase'),
-                conditions=safe_strip(row.get('conditions')),
-                description=safe_strip(row.get('description')),
-                icon=safe_strip(row.get('icon')),
-                stations=safe_strip(row.get('stations'))
+                name=safe_strip(row.get("name")),
+                datetime=row.get("datetime"),
+                tempmax=row.get("tempmax"),
+                tempmin=row.get("tempmin"),
+                temp=row.get("temp"),
+                feelslikemax=row.get("feelslikemax"),
+                feelslikemin=row.get("feelslikemin"),
+                feelslike=row.get("feelslike"),
+                dew=row.get("dew"),
+                humidity=row.get("humidity"),
+                precip=row.get("precip", 0),
+                precipprob=row.get("precipprob", 0),
+                precipcover=row.get("precipcover", 0),
+                preciptype=safe_strip(row.get("preciptype")),
+                snow=row.get("snow", 0),
+                snowdepth=row.get("snowdepth", 0),
+                windgust=row.get("windgust"),
+                windspeed=row.get("windspeed"),
+                winddir=row.get("winddir"),
+                sealevelpressure=row.get("sealevelpressure"),
+                cloudcover=row.get("cloudcover"),
+                visibility=row.get("visibility"),
+                solarradiation=row.get("solarradiation"),
+                solarenergy=row.get("solarenergy"),
+                uvindex=row.get("uvindex"),
+                severerisk=safe_int(row.get("severerisk")),
+                sunrise=row.get("sunrise"),
+                sunset=row.get("sunset"),
+                moonphase=row.get("moonphase"),
+                conditions=safe_strip(row.get("conditions")),
+                description=safe_strip(row.get("description")),
+                icon=safe_strip(row.get("icon")),
+                stations=safe_strip(row.get("stations")),
             )
             for _, row in df_next60_wf.iterrows()
         ]
@@ -217,142 +236,192 @@ def get_future_weather_data():
 
         logger.info(f"Inserted {len(objects_to_create)} future weather records.")
 
-        df_next60_wf = df_next60_wf.drop(columns=['stations'], errors='ignore')
+        df_next60_wf = df_next60_wf.drop(columns=["stations"], errors="ignore")
         return df_next60_wf
     except Exception as e:
         logger.error(f"Running except get_future_weather_data: {e}")
         return None
-        
+
 
 def prepare_training_data():
     df_Absentism = get_prediction_data()
-    df_emp_master = get_emp_master_data()   
-    active_emp_df = df_Absentism[df_Absentism['Empcode'].isin(df_emp_master['emp_code'])]
-    
-    df_past_wf = get_historical_weather_data()  
+    df_emp_master = get_emp_master_data()
+    active_emp_df = df_Absentism[
+        df_Absentism["Empcode"].isin(df_emp_master["emp_code"])
+    ]
+
+    df_past_wf = get_historical_weather_data()
     df_next15_wf = get_future_weather_data()
-    
+
     # Fallback if weather API rate limit is exceeded
     if df_next15_wf is None:
-        logger.warning("Weather API failed (likely 429 rate limit). Using fallback weather data for next 60 days.")
+        logger.warning(
+            "Weather API failed (likely 429 rate limit). Using fallback weather data for next 60 days."
+        )
         today = date.today()
         future_dates = [today + timedelta(days=i) for i in range(70)]
-        df_next15_wf = pd.DataFrame({
-            'datetime': future_dates,
-            'tempmax': df_past_wf['tempmax'].mean() if not df_past_wf.empty else 85.0,
-            'tempmin': df_past_wf['tempmin'].mean() if not df_past_wf.empty else 65.0,
-            'humidity': df_past_wf['humidity'].mean() if not df_past_wf.empty else 60.0,
-            'precip': 0.0,
-            'conditions': 'Clear'
-        })
-        
+        df_next15_wf = pd.DataFrame(
+            {
+                "datetime": future_dates,
+                "tempmax": df_past_wf["tempmax"].mean()
+                if not df_past_wf.empty
+                else 85.0,
+                "tempmin": df_past_wf["tempmin"].mean()
+                if not df_past_wf.empty
+                else 65.0,
+                "humidity": df_past_wf["humidity"].mean()
+                if not df_past_wf.empty
+                else 60.0,
+                "precip": 0.0,
+                "conditions": "Clear",
+            }
+        )
+
     # Filter relevant columns from weather data
-    weather_columns = ['datetime', 'tempmax', 'tempmin', 'humidity', 'precip', 'conditions']
+    weather_columns = [
+        "datetime",
+        "tempmax",
+        "tempmin",
+        "humidity",
+        "precip",
+        "conditions",
+    ]
     df_past_wf = df_past_wf[weather_columns]
     # Ensure future weather has the correct columns and no extra ones
     df_next15_wf = df_next15_wf[weather_columns]
 
-    
     # Group attendance dataset by ['Dates', 'Line', 'Section',...etc...] and calculate total absent count
     attendance_grouped = (
-        df_Absentism[df_Absentism['Status'] == 'A']
-        .groupby(['Dates','Line', 'Section']) #Add Operations and Machinist TYPE if required ()
-        .agg({'Status': 'count'})
+        df_Absentism[df_Absentism["Status"] == "A"]
+        .groupby(
+            ["Dates", "Line", "Section"]
+        )  # Add Operations and Machinist TYPE if required ()
+        .agg({"Status": "count"})
         .reset_index()
-        .rename(columns={'Status': 'Absent_Count'})
+        .rename(columns={"Status": "Absent_Count"})
     )
 
     # Merge grouped attendance data with weather+skills data
     merged_data = pd.merge(
-        attendance_grouped.astype({'Dates': 'datetime64[ns]'}),
+        attendance_grouped.astype({"Dates": "datetime64[ns]"}),
         df_past_wf,
-        left_on='Dates',
-        right_on='datetime',
-        how='inner'
+        left_on="Dates",
+        right_on="datetime",
+        how="inner",
     )
     # Drop redundant datetime column after merge
-    merged_data.drop(columns=['datetime'], inplace=True)
+    merged_data.drop(columns=["datetime"], inplace=True)
 
     merged_data.columns = [
-    'Dates','Line', 'Section',
-    'Absent_Count', 'tempmax', 'tempmin', 'humidity', 'precip', 'conditions'
+        "Dates",
+        "Line",
+        "Section",
+        "Absent_Count",
+        "tempmax",
+        "tempmin",
+        "humidity",
+        "precip",
+        "conditions",
     ]
     return merged_data, df_next15_wf
-    
-    
+
+
 # train the model dynamically using the merged historical data
 def train_dynamic_model(merged_data, feature_importance_threshold=0.01):
     """
     Train the absenteeism prediction model with improved feature engineering
     and better handling of variations in the data.
     """
-    #print("\nStarting model training...")
+    # print("\nStarting model training...")
 
     # Rename 'Dates' to 'datetime' if needed
-    if 'Dates' in merged_data.columns:
-        merged_data.rename(columns={'Dates': 'datetime'}, inplace=True)
+    if "Dates" in merged_data.columns:
+        merged_data.rename(columns={"Dates": "datetime"}, inplace=True)
 
     # Convert datetime and create base features
-    merged_data['datetime'] = pd.to_datetime(merged_data['datetime'])
+    merged_data["datetime"] = pd.to_datetime(merged_data["datetime"])
 
     # Add seasonality features
-    #print("\nAdding time-based features...")
-    merged_data['month'] = merged_data['datetime'].dt.month
-    merged_data['day_of_week'] = merged_data['datetime'].dt.dayofweek
-    merged_data['is_weekend'] = (merged_data['day_of_week'] >= 5).astype(int)
-    merged_data['quarter'] = merged_data['datetime'].dt.quarter
-    merged_data['year'] = merged_data['datetime'].dt.year
+    # print("\nAdding time-based features...")
+    merged_data["month"] = merged_data["datetime"].dt.month
+    merged_data["day_of_week"] = merged_data["datetime"].dt.dayofweek
+    merged_data["is_weekend"] = (merged_data["day_of_week"] >= 5).astype(int)
+    merged_data["quarter"] = merged_data["datetime"].dt.quarter
+    merged_data["year"] = merged_data["datetime"].dt.year
 
     # Add cyclic encoding for time features
-    merged_data['month_sin'] = np.sin(2 * np.pi * merged_data['month'] / 12)
-    merged_data['month_cos'] = np.cos(2 * np.pi * merged_data['month'] / 12)
-    merged_data['day_of_week_sin'] = np.sin(2 * np.pi * merged_data['day_of_week'] / 7)
-    merged_data['day_of_week_cos'] = np.cos(2 * np.pi * merged_data['day_of_week'] / 7)    
+    merged_data["month_sin"] = np.sin(2 * np.pi * merged_data["month"] / 12)
+    merged_data["month_cos"] = np.cos(2 * np.pi * merged_data["month"] / 12)
+    merged_data["day_of_week_sin"] = np.sin(2 * np.pi * merged_data["day_of_week"] / 7)
+    merged_data["day_of_week_cos"] = np.cos(2 * np.pi * merged_data["day_of_week"] / 7)
 
     # Add shorter rolling statistics with multiple windows
-    #print("Adding rolling statistics...")
+    # print("Adding rolling statistics...")
     for window in [3, 5, 7, 14, 30, 60]:
-        merged_data[f'rolling_mean_{window}d'] = merged_data.groupby(['Line', 'Section'])['Absent_Count'].transform(
-            lambda x: x.rolling(window=window, min_periods=1).mean())
-        merged_data[f'rolling_std_{window}d'] = merged_data.groupby(['Line', 'Section'])['Absent_Count'].transform(
-            lambda x: x.rolling(window=window, min_periods=1).std())
-        merged_data[f'rolling_max_{window}d'] = merged_data.groupby(['Line', 'Section'])['Absent_Count'].transform(
-            lambda x: x.rolling(window=window, min_periods=1).max())
+        merged_data[f"rolling_mean_{window}d"] = merged_data.groupby(
+            ["Line", "Section"]
+        )["Absent_Count"].transform(
+            lambda x: x.rolling(window=window, min_periods=1).mean()
+        )
+        merged_data[f"rolling_std_{window}d"] = merged_data.groupby(
+            ["Line", "Section"]
+        )["Absent_Count"].transform(
+            lambda x: x.rolling(window=window, min_periods=1).std()
+        )
+        merged_data[f"rolling_max_{window}d"] = merged_data.groupby(
+            ["Line", "Section"]
+        )["Absent_Count"].transform(
+            lambda x: x.rolling(window=window, min_periods=1).max()
+        )
 
     # Add trend features
-    #print("Adding trend features...")
-    merged_data['trend_3d'] = merged_data['rolling_mean_3d'] - merged_data['rolling_mean_7d']
-    merged_data['trend_5d'] = merged_data['rolling_mean_5d'] - merged_data['rolling_mean_14d']
-    merged_data['trend_30d'] = merged_data['rolling_mean_30d'] - merged_data['rolling_mean_60d']
+    # print("Adding trend features...")
+    merged_data["trend_3d"] = (
+        merged_data["rolling_mean_3d"] - merged_data["rolling_mean_7d"]
+    )
+    merged_data["trend_5d"] = (
+        merged_data["rolling_mean_5d"] - merged_data["rolling_mean_14d"]
+    )
+    merged_data["trend_30d"] = (
+        merged_data["rolling_mean_30d"] - merged_data["rolling_mean_60d"]
+    )
 
     # Add day-of-week specific statistics
-    #print("Adding day-of-week statistics...")
-    merged_data['dow_mean'] = merged_data.groupby(['Line', 'Section', 'day_of_week'])['Absent_Count'].transform('mean')
-    merged_data['dow_max'] = merged_data.groupby(['Line', 'Section', 'day_of_week'])['Absent_Count'].transform('max')
+    # print("Adding day-of-week statistics...")
+    merged_data["dow_mean"] = merged_data.groupby(["Line", "Section", "day_of_week"])[
+        "Absent_Count"
+    ].transform("mean")
+    merged_data["dow_max"] = merged_data.groupby(["Line", "Section", "day_of_week"])[
+        "Absent_Count"
+    ].transform("max")
 
     # Add lag features by Line and Section
-    #print("Adding lag features...")
+    # print("Adding lag features...")
     for lag in range(1, 8):
-        merged_data[f'lag_{lag}d'] = merged_data.groupby(['Line', 'Section'])['Absent_Count'].shift(lag)
+        merged_data[f"lag_{lag}d"] = merged_data.groupby(["Line", "Section"])[
+            "Absent_Count"
+        ].shift(lag)
 
     # Add weather interactions
-    #print("Adding weather interactions...")
-    merged_data['temp_humidity'] = merged_data['tempmax'] * merged_data['humidity']
-    merged_data['temp_precip'] = merged_data['tempmax'] * merged_data['precip']
-    
+    # print("Adding weather interactions...")
+    merged_data["temp_humidity"] = merged_data["tempmax"] * merged_data["humidity"]
+    merged_data["temp_precip"] = merged_data["tempmax"] * merged_data["precip"]
+
     # Calculate historical statistics before one-hot encoding
-    #print("Calculating historical statistics...")
-    stats_df = merged_data.groupby(['Line', 'Section'])['Absent_Count'].agg([
-        ('mean', 'mean'),
-        ('std', 'std'),
-        ('p25', lambda x: x.quantile(0.25)),
-        ('p75', lambda x: x.quantile(0.75)),
-        ('max', 'max'),
-        ('min', 'min'),
-        ('median', 'median'),
-        ('skew', 'skew'),
-        ('kurt', lambda x: x.kurtosis())
-    ])
+    # print("Calculating historical statistics...")
+    stats_df = merged_data.groupby(["Line", "Section"])["Absent_Count"].agg(
+        [
+            ("mean", "mean"),
+            ("std", "std"),
+            ("p25", lambda x: x.quantile(0.25)),
+            ("p75", lambda x: x.quantile(0.75)),
+            ("max", "max"),
+            ("min", "min"),
+            ("median", "median"),
+            ("skew", "skew"),
+            ("kurt", lambda x: x.kurtosis()),
+        ]
+    )
 
     # Convert the index to strings for proper dictionary lookup later
     stats_df.index = stats_df.index.map(lambda x: (str(x[0]), str(x[1])))
@@ -361,55 +430,85 @@ def train_dynamic_model(merged_data, feature_importance_threshold=0.01):
     historical_stats = {col: stats_df[col].to_dict() for col in stats_df.columns}
 
     # One-hot encode categorical variables
-    #print("Encoding categorical features...")
-    merged_data = pd.get_dummies(merged_data, columns=['Line', 'Section', 'conditions'], drop_first=False)
+    # print("Encoding categorical features...")
+    merged_data = pd.get_dummies(
+        merged_data, columns=["Line", "Section", "conditions"], drop_first=False
+    )
 
     # Define feature groups
-    weather_features = ['tempmax', 'tempmin', 'humidity', 'precip', 'temp_humidity', 'temp_precip'] + [col for col in merged_data.columns if col.startswith('conditions_')]
-    time_features = ['month_sin', 'month_cos', 'day_of_week_sin', 'day_of_week_cos', 'is_weekend', 'quarter', 'year', 'dow_mean', 'dow_max']
-    rolling_features = [col for col in merged_data.columns if 'rolling_' in col]
-    trend_features = ['trend_3d', 'trend_5d','trend_30d']
-    lag_features = [col for col in merged_data.columns if 'lag_' in col]
-    line_section_features = [col for col in merged_data.columns if col.startswith(('Line_', 'Section_'))]
+    weather_features = [
+        "tempmax",
+        "tempmin",
+        "humidity",
+        "precip",
+        "temp_humidity",
+        "temp_precip",
+    ] + [col for col in merged_data.columns if col.startswith("conditions_")]
+    time_features = [
+        "month_sin",
+        "month_cos",
+        "day_of_week_sin",
+        "day_of_week_cos",
+        "is_weekend",
+        "quarter",
+        "year",
+        "dow_mean",
+        "dow_max",
+    ]
+    rolling_features = [col for col in merged_data.columns if "rolling_" in col]
+    trend_features = ["trend_3d", "trend_5d", "trend_30d"]
+    lag_features = [col for col in merged_data.columns if "lag_" in col]
+    line_section_features = [
+        col for col in merged_data.columns if col.startswith(("Line_", "Section_"))
+    ]
 
     # Combine all features
-    combined_features = weather_features + time_features + rolling_features + trend_features + lag_features + line_section_features
+    combined_features = (
+        weather_features
+        + time_features
+        + rolling_features
+        + trend_features
+        + lag_features
+        + line_section_features
+    )
 
     # Prepare training data
     merged_data.dropna(inplace=True)
     X = merged_data[combined_features]
-    y = merged_data['Absent_Count']
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    y = merged_data["Absent_Count"]
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
 
     # Compute sample weights based on target variable distribution
-    #print("\nComputing sample weights...")
+    # print("\nComputing sample weights...")
     sample_weights = compute_sample_weight(
-        class_weight='balanced',
-        y=pd.qcut(y_train, q=5, labels=False, duplicates='drop')
+        class_weight="balanced",
+        y=pd.qcut(y_train, q=5, labels=False, duplicates="drop"),
     )
 
     # Function to evaluate model performance
     def evaluate_model_performance(y_true, y_pred):
         return {
-            'MSE': mean_squared_error(y_true, y_pred),
-            'RMSE': np.sqrt(mean_squared_error(y_true, y_pred)),
-            'MAE': mean_absolute_error(y_true, y_pred),
-            'R2': r2_score(y_true, y_pred),
-            'Within_One_Person_%': np.mean(abs(y_true - y_pred) <= 1) * 100
+            "MSE": mean_squared_error(y_true, y_pred),
+            "RMSE": np.sqrt(mean_squared_error(y_true, y_pred)),
+            "MAE": mean_absolute_error(y_true, y_pred),
+            "R2": r2_score(y_true, y_pred),
+            "Within_One_Person_%": np.mean(abs(y_true - y_pred) <= 1) * 100,
         }
-    
+
     # Train initial model with improved parameters
-    #print("\nTraining initial model...")
+    # print("\nTraining initial model...")
     model = RandomForestRegressor(
-        n_estimators=300, #200
-        min_samples_leaf=2, #1
-        max_depth=25, #20
-        min_samples_split=3, #2,
-        max_features=typing.cast(float, 'sqrt'),
+        n_estimators=300,  # 200
+        min_samples_leaf=2,  # 1
+        max_depth=25,  # 20
+        min_samples_split=3,  # 2,
+        max_features=typing.cast(float, "sqrt"),
         bootstrap=True,
         random_state=42,
         n_jobs=-1,
-        verbose=1
+        verbose=1,
     )
     model.fit(X_train, y_train, sample_weight=sample_weights)
 
@@ -418,16 +517,14 @@ def train_dynamic_model(merged_data, feature_importance_threshold=0.01):
     metrics_all = evaluate_model_performance(y_test, y_pred)
 
     # Feature importance analysis
-    feature_importances = pd.DataFrame({
-        'Feature': combined_features,
-        'Importance': model.feature_importances_
-    }).sort_values('Importance', ascending=False)
-
+    feature_importances = pd.DataFrame(
+        {"Feature": combined_features, "Importance": model.feature_importances_}
+    ).sort_values("Importance", ascending=False)
 
     important_features = feature_importances[
-        feature_importances['Importance'] >= feature_importance_threshold
-    ]['Feature'].tolist()
-    
+        feature_importances["Importance"] >= feature_importance_threshold
+    ]["Feature"].tolist()
+
     # Train final model with important features
     X_important = merged_data[important_features]
     X_train_imp, X_test_imp, y_train_imp, y_test_imp = train_test_split(
@@ -436,121 +533,135 @@ def train_dynamic_model(merged_data, feature_importance_threshold=0.01):
 
     # Compute sample weights for final model
     final_sample_weights = compute_sample_weight(
-        class_weight='balanced',
-        y=pd.qcut(y_train_imp, q=5, labels=False, duplicates='drop')
+        class_weight="balanced",
+        y=pd.qcut(y_train_imp, q=5, labels=False, duplicates="drop"),
     )
 
     final_model = RandomForestRegressor(
-        n_estimators=300, #200,
-        min_samples_leaf=2,#1,
-        max_depth=25,#20,
-        min_samples_split=3,#2,
-        max_features=typing.cast(float, 'sqrt'),
+        n_estimators=300,  # 200,
+        min_samples_leaf=2,  # 1,
+        max_depth=25,  # 20,
+        min_samples_split=3,  # 2,
+        max_features=typing.cast(float, "sqrt"),
         bootstrap=True,
         random_state=42,
         n_jobs=-1,
-        verbose=0
+        verbose=0,
     )
     final_model.fit(X_train_imp, y_train_imp, sample_weight=final_sample_weights)
 
     # Evaluate final model
     y_pred_imp = final_model.predict(X_test_imp)
     metrics_final = evaluate_model_performance(y_test_imp, y_pred_imp)
-        
+
     # Save model and all statistics
-    model_path = "absenteeism/models/dynamic_absenteeism_model.pkl"
-    os.makedirs(os.path.dirname(model_path), exist_ok=True)
-    joblib.dump({
-        'model': final_model,
-        'features': important_features,
-        'metrics_all_features': metrics_all,
-        'metrics_important_features': metrics_final,
-        'feature_importances': feature_importances.to_dict(),
-        'historical_stats': historical_stats
-    }, model_path)
+    os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
+    joblib.dump(
+        {
+            "model": final_model,
+            "features": important_features,
+            "metrics_all_features": metrics_all,
+            "metrics_important_features": metrics_final,
+            "feature_importances": feature_importances.to_dict(),
+            "historical_stats": historical_stats,
+        },
+        MODEL_PATH,
+    )
 
     return {
-        'model': final_model,
-        'features': important_features,
-        'important_features': important_features,
-        'metrics_all_features': metrics_all,
-        'metrics_important_features': metrics_final,
-        'feature_importances': feature_importances,
-        'historical_stats': historical_stats
-    }   
-        
-    
+        "model": final_model,
+        "features": important_features,
+        "important_features": important_features,
+        "metrics_all_features": metrics_all,
+        "metrics_important_features": metrics_final,
+        "feature_importances": feature_importances,
+        "historical_stats": historical_stats,
+    }
+
+
 # Function to predict absenteeism using future weather forecast
-def predict_with_dynamic_model(future_weather, forecast_days, lags, line, section, model_data=None):
+def predict_with_dynamic_model(
+    future_weather, forecast_days, lags, line, section, model_data=None
+):
     """
     Improved prediction function with better handling of variations.
     """
     if model_data is None:
-        model_data = joblib.load("absenteeism/models/dynamic_absenteeism_model.pkl")
-    final_model = model_data['model']
+        model_data = joblib.load(MODEL_PATH)
+    final_model = model_data["model"]
     # Disable multi-threading during inference to eliminate massive overhead for single-row predictions
-    if hasattr(final_model, 'n_jobs'):
+    if hasattr(final_model, "n_jobs"):
         final_model.n_jobs = 1
-        
-    important_features = model_data['features']
-    historical_stats = model_data.get('historical_stats', {})
+
+    important_features = model_data["features"]
+    historical_stats = model_data.get("historical_stats", {})
 
     # Get historical statistics using string keys for proper lookup
     line_section_key = (str(line), str(section))
-    hist_mean = historical_stats['mean'].get(line_section_key, 1.5)
-    hist_std = historical_stats['std'].get(line_section_key, 0.5)
-    hist_p25 = historical_stats['p25'].get(line_section_key, 1.0)
-    hist_p75 = historical_stats['p75'].get(line_section_key, 2.0)
-    hist_max = historical_stats['max'].get(line_section_key, 3.0)
+    hist_mean = historical_stats["mean"].get(line_section_key, 1.5)
+    hist_std = historical_stats["std"].get(line_section_key, 0.5)
+    hist_p25 = historical_stats["p25"].get(line_section_key, 1.0)
+    hist_p75 = historical_stats["p75"].get(line_section_key, 2.0)
+    hist_max = historical_stats["max"].get(line_section_key, 3.0)
 
     # Load future weather data
-    future_weather.rename(columns={'Dates': 'datetime'}, inplace=True)
-    future_weather['datetime'] = pd.to_datetime(future_weather['datetime'])
+    future_weather.rename(columns={"Dates": "datetime"}, inplace=True)
+    future_weather["datetime"] = pd.to_datetime(future_weather["datetime"])
     available_days = len(future_weather)
 
     # Add seasonality features
-    future_weather['month'] = future_weather['datetime'].dt.month
-    future_weather['day_of_week'] = future_weather['datetime'].dt.dayofweek
-    future_weather['is_weekend'] = (future_weather['day_of_week'] >= 5).astype(int)
-    future_weather['quarter'] = future_weather['datetime'].dt.quarter
-    future_weather['year'] = future_weather['datetime'].dt.year
-    
+    future_weather["month"] = future_weather["datetime"].dt.month
+    future_weather["day_of_week"] = future_weather["datetime"].dt.dayofweek
+    future_weather["is_weekend"] = (future_weather["day_of_week"] >= 5).astype(int)
+    future_weather["quarter"] = future_weather["datetime"].dt.quarter
+    future_weather["year"] = future_weather["datetime"].dt.year
+
     # Add cyclic encoding
-    future_weather['month_sin'] = np.sin(2 * np.pi * future_weather['month'] / 12)
-    future_weather['month_cos'] = np.cos(2 * np.pi * future_weather['month'] / 12)
-    future_weather['day_of_week_sin'] = np.sin(2 * np.pi * future_weather['day_of_week'] / 7)
-    future_weather['day_of_week_cos'] = np.cos(2 * np.pi * future_weather['day_of_week'] / 7)
+    future_weather["month_sin"] = np.sin(2 * np.pi * future_weather["month"] / 12)
+    future_weather["month_cos"] = np.cos(2 * np.pi * future_weather["month"] / 12)
+    future_weather["day_of_week_sin"] = np.sin(
+        2 * np.pi * future_weather["day_of_week"] / 7
+    )
+    future_weather["day_of_week_cos"] = np.cos(
+        2 * np.pi * future_weather["day_of_week"] / 7
+    )
 
     # Add weather interactions
-    future_weather['temp_humidity'] = future_weather['tempmax'] * future_weather['humidity']
-    future_weather['temp_precip'] = future_weather['tempmax'] * future_weather['precip']
+    future_weather["temp_humidity"] = (
+        future_weather["tempmax"] * future_weather["humidity"]
+    )
+    future_weather["temp_precip"] = future_weather["tempmax"] * future_weather["precip"]
 
     # Add Line and Section one-hot encoded features
     for feature in important_features:
-        if feature.startswith('Line_'):
-            feature_line = feature.split('Line_')[1]
+        if feature.startswith("Line_"):
+            feature_line = feature.split("Line_")[1]
             if str(line) == str(feature_line):
                 future_weather[feature] = 1
             else:
                 future_weather[feature] = 0
-        elif feature.startswith('Section_'):
-            feature_section = feature.split('Section_')[1]
+        elif feature.startswith("Section_"):
+            feature_section = feature.split("Section_")[1]
             if str(section) == str(feature_section):
                 future_weather[feature] = 1
             else:
                 future_weather[feature] = 0
-                
+
     # Create predictions DataFrame
     dates = []
-    current_date = future_weather['datetime'].iloc[0]
+    current_date = future_weather["datetime"].iloc[0]
     while len(dates) < forecast_days:
         if current_date.dayofweek != 6:  # 6 represents Sunday
             dates.append(current_date)
         current_date += pd.Timedelta(days=1)
-    predictions_df = pd.DataFrame({'datetime': dates})
-    date_range = pd.date_range(start=future_weather['datetime'].iloc[0],
-                              periods=len(dates) + len(dates)//6 + 1,  # Add extra days to account for skipped Sundays
-                              freq='D')
+    predictions_df = pd.DataFrame({"datetime": dates})
+    date_range = pd.date_range(
+        start=future_weather["datetime"].iloc[0],
+        periods=len(dates)
+        + len(dates) // 6
+        + 1,  # Add extra days to account for skipped Sundays
+        freq="D",
+    )
 
     # Initialize predictions list and rolling values
     predictions = []
@@ -565,58 +676,82 @@ def predict_with_dynamic_model(future_weather, forecast_days, lags, line, sectio
             for feature in important_features:
                 if feature in weather_row:
                     input_features[feature] = weather_row[feature]
-                elif feature.startswith('conditions_') and feature in weather_row:
+                elif feature.startswith("conditions_") and feature in weather_row:
                     input_features[feature] = weather_row[feature]
-                elif feature == 'temp_humidity':
-                    input_features[feature] = weather_row['tempmax'] * weather_row['humidity']
-                elif feature == 'temp_precip':
-                    input_features[feature] = weather_row['tempmax'] * weather_row['precip']
+                elif feature == "temp_humidity":
+                    input_features[feature] = (
+                        weather_row["tempmax"] * weather_row["humidity"]
+                    )
+                elif feature == "temp_precip":
+                    input_features[feature] = (
+                        weather_row["tempmax"] * weather_row["precip"]
+                    )
 
             # Fill seasonality features
-            seasonality_features = ['month_sin', 'month_cos', 'day_of_week_sin', 'day_of_week_cos',
-                                  'is_weekend', 'quarter', 'year']
+            seasonality_features = [
+                "month_sin",
+                "month_cos",
+                "day_of_week_sin",
+                "day_of_week_cos",
+                "is_weekend",
+                "quarter",
+                "year",
+            ]
             for feature in seasonality_features:
                 if feature in important_features:
                     input_features[feature] = weather_row[feature]
-                    
+
             # Calculate rolling statistics for different windows
             for window in [3, 5, 7, 14, 30, 60]:
-                if f'rolling_mean_{window}d' in important_features:
-                    input_features[f'rolling_mean_{window}d'] = np.mean(rolling_values[-window:])
-                if f'rolling_std_{window}d' in important_features:
-                    input_features[f'rolling_std_{window}d'] = np.std(rolling_values[-window:]) if len(rolling_values) > 1 else 0
-                if f'rolling_min_{window}d' in important_features:
-                    input_features[f'rolling_min_{window}d'] = np.min(rolling_values[-window:])
-                if f'rolling_max_{window}d' in important_features:
+                if f"rolling_mean_{window}d" in important_features:
+                    input_features[f"rolling_mean_{window}d"] = np.mean(
+                        rolling_values[-window:]
+                    )
+                if f"rolling_std_{window}d" in important_features:
+                    input_features[f"rolling_std_{window}d"] = (
+                        np.std(rolling_values[-window:])
+                        if len(rolling_values) > 1
+                        else 0
+                    )
+                if f"rolling_min_{window}d" in important_features:
+                    input_features[f"rolling_min_{window}d"] = np.min(
+                        rolling_values[-window:]
+                    )
+                if f"rolling_max_{window}d" in important_features:
                     mean_3d = np.mean(rolling_values[-3:])
                     mean_7d = np.mean(rolling_values[-7:])
-                    input_features['trend_3d'] = mean_3d - mean_7d
-                if 'trend_5d' in important_features:
+                    input_features["trend_3d"] = mean_3d - mean_7d
+                if "trend_5d" in important_features:
                     mean_5d = np.mean(rolling_values[-5:])
                     mean_14d = np.mean(rolling_values[-14:])
-                    input_features['trend_5d'] = mean_5d - mean_14d
+                    input_features["trend_5d"] = mean_5d - mean_14d
             else:
-                if 'trend_3d' in important_features:
-                    input_features['trend_3d'] = 0
-                if 'trend_5d' in important_features:
-                    input_features['trend_5d'] = 0
-        
-        
+                if "trend_3d" in important_features:
+                    input_features["trend_3d"] = 0
+                if "trend_5d" in important_features:
+                    input_features["trend_5d"] = 0
+
             # For days beyond weather forecast, use last known values and focus on patterns
             # input_features = {feature: 0 for feature in important_features}
 
             # Use cyclic encoding for extrapolated dates
             current_date_ts = typing.cast(pd.Timestamp, date_range[day])
-            input_features['month_sin'] = np.sin(2 * np.pi * current_date_ts.month / 12)
-            input_features['month_cos'] = np.cos(2 * np.pi * current_date_ts.month / 12)
-            input_features['day_of_week_sin'] = np.sin(2 * np.pi * current_date_ts.dayofweek / 7)
-            input_features['day_of_week_cos'] = np.cos(2 * np.pi * current_date_ts.dayofweek / 7)
-            input_features['is_weekend'] = int(current_date_ts.dayofweek >= 5)
-            input_features['quarter'] = current_date_ts.quarter
-            input_features['year'] = current_date_ts.year                
-                                
+            input_features["month_sin"] = np.sin(2 * np.pi * current_date_ts.month / 12)
+            input_features["month_cos"] = np.cos(2 * np.pi * current_date_ts.month / 12)
+            input_features["day_of_week_sin"] = np.sin(
+                2 * np.pi * current_date_ts.dayofweek / 7
+            )
+            input_features["day_of_week_cos"] = np.cos(
+                2 * np.pi * current_date_ts.dayofweek / 7
+            )
+            input_features["is_weekend"] = int(current_date_ts.dayofweek >= 5)
+            input_features["quarter"] = current_date_ts.quarter
+            input_features["year"] = current_date_ts.year
+
         # Convert dictionary to list maintaining feature order
-        input_features_list = [input_features[feature] for feature in important_features]
+        input_features_list = [
+            input_features[feature] for feature in important_features
+        ]
 
         # Make base prediction
         base_prediction = final_model.predict([input_features_list])[0]
@@ -624,30 +759,39 @@ def predict_with_dynamic_model(future_weather, forecast_days, lags, line, sectio
         # Add trend-based adjustment
         if len(rolling_values) >= 3:
             recent_trend = np.mean(np.diff(rolling_values[-3:]))
-            trend_adjustment = recent_trend * 0.1  # Small adjustment based on recent trend
+            trend_adjustment = (
+                recent_trend * 0.1
+            )  # Small adjustment based on recent trend
         else:
             trend_adjustment = 0
 
         # Calculate adaptive standard deviation
-        std_dev = min(hist_std, 0.15 * base_prediction)  # Reduced from 0.2 to 0.15 for more stability
+        std_dev = min(
+            hist_std, 0.15 * base_prediction
+        )  # Reduced from 0.2 to 0.15 for more stability
 
         # Add controlled randomization with trend adjustment
         prediction = np.random.normal(base_prediction + trend_adjustment, std_dev)
 
         # Ensure prediction stays within historical bounds
-        lower_bound = max(1, hist_p25 * 0.9)  # Don't go below 1 or too far below 25th percentile
-        upper_bound = min(hist_max, hist_p75 * 1.1)  # Don't exceed historical max or too far above 75th percentile
+        lower_bound = max(
+            1, hist_p25 * 0.9
+        )  # Don't go below 1 or too far below 25th percentile
+        upper_bound = min(
+            hist_max, hist_p75 * 1.1
+        )  # Don't exceed historical max or too far above 75th percentile
         prediction = np.clip(prediction, lower_bound, upper_bound)
         prediction = np.round(prediction)
         predictions.append(prediction)
         rolling_values.append(prediction)  # Update rolling values for next prediction
 
-    predictions_df['Predicted_Absent_Count'] = predictions
-    return predictions_df        
-    
+    predictions_df["Predicted_Absent_Count"] = predictions
+    return predictions_df
+
+
 def consolidated_predictions(future_weather, merged_data, model_data=None):
     # Get unique Line-Section combinations from training data
-    line_section_combos = merged_data[['Line', 'Section']].drop_duplicates()
+    line_section_combos = merged_data[["Line", "Section"]].drop_duplicates()
 
     # Initialize list to store predictions
     all_predictions = []
@@ -655,31 +799,31 @@ def consolidated_predictions(future_weather, merged_data, model_data=None):
 
     # Load model data from file only if not passed in-memory
     if model_data is None:
-        model_data = joblib.load("absenteeism/models/dynamic_absenteeism_model.pkl")
-    historical_stats = model_data.get('historical_stats', {})
+        model_data = joblib.load(MODEL_PATH)
+    historical_stats = model_data.get("historical_stats", {})
 
     for _, combo in line_section_combos.iterrows():
-        line = str(combo['Line'])  # Convert to string to match historical stats keys
-        section = str(combo['Section'])
+        line = str(combo["Line"])  # Convert to string to match historical stats keys
+        section = str(combo["Section"])
 
         # Get historical statistics for this combination
-        hist_mean = historical_stats['mean'].get((line, section))
-        hist_std = historical_stats['std'].get((line, section))
+        hist_mean = historical_stats["mean"].get((line, section))
+        hist_std = historical_stats["std"].get((line, section))
 
         if hist_mean is None or hist_std is None:
             continue
-        
+
         # Filter data for current line and section
         line_section_data = merged_data[
-            (merged_data['Line'].astype(str) == line) &
-            (merged_data['Section'].astype(str) == section)
+            (merged_data["Line"].astype(str) == line)
+            & (merged_data["Section"].astype(str) == section)
         ]
 
         if len(line_section_data) == 0:
             continue
 
         # Get initial lags for this line/section
-        initial_lags = line_section_data['Absent_Count'].tail(7).tolist()
+        initial_lags = line_section_data["Absent_Count"].tail(7).tolist()
 
         # Generate predictions once for the maximum forecast period
         max_forecast = max(forecast_days_list)
@@ -689,7 +833,7 @@ def consolidated_predictions(future_weather, merged_data, model_data=None):
             initial_lags.copy(),
             line,
             section,
-            model_data=model_data
+            model_data=model_data,
         )
 
         # Slice the full predictions for each specific forecast period
@@ -697,33 +841,39 @@ def consolidated_predictions(future_weather, merged_data, model_data=None):
             predictions = full_predictions.head(forecast_days).copy()
 
             predictions_df = predictions.copy()
-            predictions_df['Line'] = line
-            predictions_df['Section'] = section
-            predictions_df['forecast_period'] = forecast_days
+            predictions_df["Line"] = line
+            predictions_df["Section"] = section
+            predictions_df["forecast_period"] = forecast_days
 
             # Add historical statistics for reference
-            predictions_df['historical_mean'] = hist_mean
-            predictions_df['historical_std'] = hist_std
+            predictions_df["historical_mean"] = hist_mean
+            predictions_df["historical_std"] = hist_std
 
             # Calculate deviation from historical mean
-            predictions_df['deviation_from_mean'] = (
-                predictions_df['Predicted_Absent_Count'] - hist_mean
+            predictions_df["deviation_from_mean"] = (
+                predictions_df["Predicted_Absent_Count"] - hist_mean
             ) / hist_std
 
             all_predictions.append(predictions_df)
-    
+
     # Combine all predictions
     consolidated_df = pd.concat(all_predictions, ignore_index=True)
 
     # Calculate summary statistics
-    summary_stats = consolidated_df.groupby(['Line', 'Section']).agg({
-        'Predicted_Absent_Count': ['mean', 'min', 'max'],
-        'deviation_from_mean': ['mean', 'min', 'max']
-    }).round(2)
+    summary_stats = (
+        consolidated_df.groupby(["Line", "Section"])
+        .agg(
+            {
+                "Predicted_Absent_Count": ["mean", "min", "max"],
+                "deviation_from_mean": ["mean", "min", "max"],
+            }
+        )
+        .round(2)
+    )
 
     # Fix multi-level column names
     summary_stats.columns = [f"{col[0]}_{col[1]}" for col in summary_stats.columns]
-             
+
     if consolidated_df is not None:
         # original_days = [7, 15, 30, 45, 60]
         # extended_days = [8, 17, 35, 52, 70]  # Days including skipped Sundays
@@ -732,67 +882,91 @@ def consolidated_predictions(future_weather, merged_data, model_data=None):
         all_dataframes = []
         for days in forecast_days_list:
             logger.info(f"\nSaving {days}-day predictions...")
-            period_df = consolidated_df[consolidated_df['forecast_period'] == days].copy()
- 
-            
-            datetime_series = typing.cast(pd.Series, pd.to_datetime(period_df['datetime']))
-            period_df['date'] = datetime_series.dt.date
-            period_df['day_of_week'] = datetime_series.dt.day_name()
+            period_df = consolidated_df[
+                consolidated_df["forecast_period"] == days
+            ].copy()
+
+            datetime_series = typing.cast(
+                pd.Series, pd.to_datetime(period_df["datetime"])
+            )
+            period_df["date"] = datetime_series.dt.date
+            period_df["day_of_week"] = datetime_series.dt.day_name()
 
             columns_order = [
-                'date', 'day_of_week', 'line', 'section',
-                'predicted_absent_count', 'historical_mean', 'historical_std',
-                'deviation_from_mean'
+                "date",
+                "day_of_week",
+                "line",
+                "section",
+                "predicted_absent_count",
+                "historical_mean",
+                "historical_std",
+                "deviation_from_mean",
             ]
-  
-            remaining_cols = [col for col in period_df.columns if col not in columns_order]
+
+            remaining_cols = [
+                col for col in period_df.columns if col not in columns_order
+            ]
 
             # Append to the list
-            all_dataframes.append(period_df)   
+            all_dataframes.append(period_df)
         final_dataframe = pd.concat(all_dataframes, ignore_index=True)
-        
+
     # period_df['date'] = pd.to_datetime(period_df['datetime'])
     # Commenting below 2 lines as we're including today's data also
     # today = pd.Timestamp.now().date()
     # final_dataframe = final_dataframe[final_dataframe['date'] != today]
 
     replacement_map = {8: 7, 17: 15, 35: 30, 52: 45, 70: 60}
-    final_dataframe['forecast_period'] = final_dataframe['forecast_period'].replace(replacement_map)
+    final_dataframe["forecast_period"] = final_dataframe["forecast_period"].replace(
+        replacement_map
+    )
 
     # Calculate Saturday of month (returns 0 for non-Saturdays)
-    final_dataframe['saturday_of_month'] = final_dataframe.apply(
-        lambda x: (x['date'].day - 1) // 7 + 1 if x['day_of_week'].strip() == 'Saturday' else 0,
-        axis=1
+    final_dataframe["saturday_of_month"] = final_dataframe.apply(
+        lambda x: (
+            (x["date"].day - 1) // 7 + 1
+            if x["day_of_week"].strip() == "Saturday"
+            else 0
+        ),
+        axis=1,
     )
 
     # Filter out rows where day_of_week is 'Sunday' or 'sunday'
-    final_dataframe = final_dataframe[~final_dataframe['day_of_week'].str.lower().eq('sunday')]
-
     final_dataframe = final_dataframe[
-        ~((final_dataframe['day_of_week'] == 'Saturday') & (~final_dataframe['saturday_of_month'].isin([1, 5])))
+        ~final_dataframe["day_of_week"].str.lower().eq("sunday")
     ]
 
-    final_dataframe = final_dataframe.drop('saturday_of_month', axis=1)        
+    final_dataframe = final_dataframe[
+        ~(
+            (final_dataframe["day_of_week"] == "Saturday")
+            & (~final_dataframe["saturday_of_month"].isin([1, 5]))
+        )
+    ]
 
-    return final_dataframe    
-    
+    final_dataframe = final_dataframe.drop("saturday_of_month", axis=1)
+
+    return final_dataframe
+
+
 def model_prediction():
     try:
-        logger.info(f"Running try get_prediction_data\n")
-        merged_data, df_next15_wf = prepare_training_data()        
+        logger.info("Running try get_prediction_data\n")
+        merged_data, df_next15_wf = prepare_training_data()
         training_result = train_dynamic_model(merged_data)
         # Build in-memory model data dict to avoid file corruption issues
         model_data = {
-            'model': training_result['model'] if 'model' in training_result else None,
-            'features': training_result['important_features'],
-            'historical_stats': training_result['historical_stats']
+            "model": training_result["model"] if "model" in training_result else None,
+            "features": training_result["important_features"],
+            "historical_stats": training_result["historical_stats"],
         }
         # Fall back to loading from file if model not in training_result
-        if model_data['model'] is None:
-            model_data = joblib.load("absenteeism/models/dynamic_absenteeism_model.pkl")
-        consolidated_df = consolidated_predictions(df_next15_wf, merged_data, model_data=model_data)
+        if model_data["model"] is None:
+            model_data = joblib.load(MODEL_PATH)
+        consolidated_df = consolidated_predictions(
+            df_next15_wf, merged_data, model_data=model_data
+        )
         logger.info("Completed Consolidated Predictions")
-        logger.info(f"Completed get_prediction_data\n")
+        logger.info("Completed get_prediction_data\n")
         return consolidated_df
     except Exception as e:
         logger.exception(f"Running except get_prediction_data: {e} \n")

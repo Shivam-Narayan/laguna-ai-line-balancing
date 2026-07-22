@@ -2,27 +2,63 @@
 
 This document describes the development environment setup and best practices for the Laguna AI project.
 
-## Local Setup
-1. Copy `.env.example` to `.env` and fill in the values:
-   ```bash
-   cp .env.example .env
-   ```
-2. Start the development environment using the unified startup scripts (which automatically manage the modular `docker-compose.yml` and `docker-compose.override.yml` files):
+## 🚀 Local Setup
 
-   **Windows (Command Prompt):**
-   ```cmd
-   scripts\start.bat --dev
-   ```
-   **Windows (PowerShell):**
-   ```powershell
-   .\scripts\start.ps1 -Dev
-   ```
-   **Linux / macOS:**
-   ```bash
-   chmod +x scripts/start.sh
-   ./scripts/start.sh
-   ```
-3. Access the backend services at `http://localhost:8000` (Swagger UI at `/swagger/`).
+If you are a new developer setting up the project for the first time, ensure you have **Git**, **Docker Desktop**, **Python 3.10+**, and **Node.js 18+** installed.
+
+### 1. Clone the Repositories
+Because the frontend and backend run together in development via Docker Compose, you must clone them into the same parent workspace folder side-by-side:
+
+```bash
+mkdir laguna-workspace
+cd laguna-workspace
+git clone https://github.com/Shivam-Narayan/laguna-ai-line-balancing.git
+git clone https://github.com/Shivam-Narayan/laguna-ai-line-balancing-app.git
+```
+
+### 2. Configure the Environment
+Navigate into the backend and frontend projects and initialize their environment files:
+```bash
+# Setup Backend Environment
+cd laguna-ai-line-balancing
+cp .env.example .env
+
+# Setup Frontend Environment
+cd ../laguna-ai-line-balancing-app
+cp .env.example .env.local
+cd ../laguna-ai-line-balancing
+```
+*(The default values in these environment files are pre-configured to work instantly for local development).*
+
+### 3. Start the Services
+Start the environments using our unified startup scripts (which automatically manage the Docker containers and configuration):
+
+**For Development (Strictly Dev):**
+- **Windows (Command Prompt):** `scripts\start.bat --dev`
+- **Windows (PowerShell):** `.\scripts\start.ps1 -Dev`
+- **Mac / Linux:** `bash scripts/start.sh --dev`
+
+**For Production (Strictly Prod):**
+- **Windows (Command Prompt):** `scripts\start.bat --prod`
+- **Windows (PowerShell):** `.\scripts\start.ps1 -Prod`
+- **Mac / Linux:** `bash scripts/start.sh --prod`
+
+#### Important Start Flags (Universal across all platforms):
+- **`--dev`**: Starts **Strictly Development**. Merges `docker-compose.yml` and `docker-compose.override.yml`. Runs the database, Redis, Django, React, and local GUI tools (pgAdmin on 5050 & Redis Commander on 8082). It intentionally skips Celery so you can run it manually to see prints/logs in your IDE.
+- **`--prod`**: Starts **Strictly Production**. Merges `docker-compose.yml` and `docker-compose.prod.yml`. Runs everything *including* the Nginx reverse proxy, Celery background workers, and the custom Scheduler. It skips all development GUI tools.
+- **`(No flag or 'all')`**: Starts **Full-Stack Local Testing**. Merges all three files together, giving you the full production environment (Celery/Nginx) alongside the development GUI tools simultaneously.
+
+#### Utility Flags:
+- **`--down`**: Safely stops and removes all containers.
+- **`--logs`**: Streams the live terminal output from all running containers.
+- **`--shell`**: Drops you into a Django Python shell inside the backend container.
+
+### 4. Access Points
+Once the script completes and the containers are healthy, you can access your local environment:
+- **Frontend Web App:** [http://localhost:5173](http://localhost:5173) (The main user interface)
+- **Backend API:** [http://localhost:8000](http://localhost:8000)
+- **Swagger API Docs:** [http://localhost:8000/swagger/](http://localhost:8000/swagger/)
+- **Database UI (pgAdmin):** [http://localhost:5050](http://localhost:5050) (Login: admin@laguna.com / admin123)
 
 ## Backend Architecture & Standards
 
@@ -36,6 +72,17 @@ All Django models must strictly adhere to the following enterprise standards:
 - **Explicit Table Names:** Always explicitly define the table name using `db_table = 'appname_modelname'` inside the `Meta` class.
 - **Explicit Indexing:** Set `db_index=True` on fields that are frequently queried or filtered against (e.g., Foreign Keys, dates, emails, status flags).
 - **Modern Enum Choices:** Never use raw tuples for choices. Always use `models.TextChoices` or `models.IntegerChoices`.
+
+### 3. Code Quality Tools
+This project strictly enforces code quality through automated tools configured in `backend/pyproject.toml`.
+Before submitting a pull request, run the following from the `backend/` directory:
+- **Linting & Formatting (Ruff)**: 
+  - `python -m ruff check .` (finds errors)
+  - `python -m ruff format .` (auto-fixes styling)
+- **Type Checking (Mypy)**: 
+  - `python -m mypy .` (ensures type hints are valid)
+- **Testing (Pytest)**: 
+  - `pytest --cov=. --cov-report=term-missing` (runs tests and shows coverage)
 
 ## Version Management and Collaboration Guide
 

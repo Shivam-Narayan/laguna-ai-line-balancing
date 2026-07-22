@@ -1,14 +1,17 @@
-from django.test import TestCase
 from datetime import date
+
+from django.test import TestCase
 from django.utils import timezone
+
 from apps.data_engine.models import (
-    LocalHolidayCalendar,
-    HistoricalWeather,
-    EmployeeMaster,
     AttendanceMaster,
+    EmployeeMaster,
+    EmployeeStatus,
+    HistoricalWeather,
+    LocalHolidayCalendar,
     PayableWorkingDays,
-    EmployeeStatus
 )
+
 
 class LocalHolidayCalendarModelTest(TestCase):
     def test_creation(self):
@@ -18,16 +21,16 @@ class LocalHolidayCalendarModelTest(TestCase):
             year=2026,
             day=18,
             week=29,
-            event='Test Holiday',
-            leave_type='full'
+            event="Test Holiday",
+            leave_type="full",
         )
-        self.assertEqual(record.event, 'Test Holiday')
+        self.assertEqual(record.event, "Test Holiday")
 
 
 class HistoricalWeatherModelTest(TestCase):
     def test_creation(self):
         record = HistoricalWeather.objects.create(
-            name='Test City',
+            name="Test City",
             datetime=date.today(),
             tempmax=30.0,
             tempmin=20.0,
@@ -52,22 +55,22 @@ class HistoricalWeatherModelTest(TestCase):
             sunrise=timezone.now(),
             sunset=timezone.now(),
             moonphase=0.5,
-            conditions='Clear',
-            description='Clear sky',
-            icon='clear-day',
-            stations='ST1'
+            conditions="Clear",
+            description="Clear sky",
+            icon="clear-day",
+            stations="ST1",
         )
-        self.assertEqual(record.name, 'Test City')
+        self.assertEqual(record.name, "Test City")
 
 
 class EmployeeMasterModelTest(TestCase):
     def test_creation(self):
         record = EmployeeMaster.objects.create(
             emp_code=1001,
-            emp_name='Alice Smith',
+            emp_name="Alice Smith",
             date_of_joining=date.today(),
-            designation='Engineer',
-            status=EmployeeStatus.ACTIVE
+            designation="Engineer",
+            status=EmployeeStatus.ACTIVE,
         )
         self.assertEqual(record.emp_code, 1001)
 
@@ -76,16 +79,16 @@ class AttendanceMasterModelTest(TestCase):
     def test_creation(self):
         record = AttendanceMaster.objects.create(
             employee_id=1001,
-            employee_name='Alice Smith',
-            line='L1',
-            factory='F1',
-            floor='FL1',
-            section='S1',
+            employee_name="Alice Smith",
+            line="L1",
+            factory="F1",
+            floor="FL1",
+            section="S1",
             attendance_date=date.today(),
             last_updated=timezone.now().time(),
-            status='P',
-            type='Primary',
-            early_departure=False
+            status="P",
+            type="Primary",
+            early_departure=False,
         )
         self.assertEqual(record.employee_id, 1001)
         self.assertEqual(str(record), f"Alice Smith - {date.today()}")
@@ -94,10 +97,6 @@ class AttendanceMasterModelTest(TestCase):
 class PayableWorkingDaysModelTest(TestCase):
     def test_creation(self):
         record = PayableWorkingDays.objects.create(
-            date=date.today(),
-            month=7,
-            year=2026,
-            day=18,
-            week=29
+            date=date.today(), month=7, year=2026, day=18, week=29
         )
         self.assertEqual(record.month, 7)

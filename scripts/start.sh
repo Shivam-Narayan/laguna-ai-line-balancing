@@ -1,379 +1,305 @@
 #!/bin/bash
+# ============================================================================
+# Laguna AI Line Balancing — Startup Script (Linux/Mac Bash)
+# ============================================================================
+# Usage: scripts/start.sh [OPTION]
+# Run with -h or --help for details.
+# ============================================================================
 
-# Function to display usage information
-show_help() {
-    echo "Usage: $0 [OPTION]"
-    echo "Manage Docker services for the Laguna AI Line Balancing platform."
-    echo
-    echo "Options:"
-    echo "  --update         Rebuild Laguna backend image and start services"
-    echo "  --update-all     Rebuild all images and start services"
-    echo "  --down           Stop and remove all services"
-    echo "  --staged         Enable staged startup sequence (recommended for production)"
-    echo "  --fast           Disable staged startup sequence (recommended for development)"
-    echo "  --local          Start Django dev server locally (no Docker)"
-    echo "  --migrate        Run database migrations"
-    echo "  --makemigrations Create new migration files"
-    echo "  --shell          Open Django interactive shell"
-    echo "  --superuser      Create a Django superuser"
-    echo "  --test           Run the test suite"
-    echo "  --backup         Backup PostgreSQL database"
-    echo "  --restore FILE   Restore database from a backup file"
-    echo "  -h, --help       Display this help message"
-    echo
-    echo "Examples:"
-    echo "  $0                      # Start or restart all services (staged)"
-    echo "  $0 --fast               # Quick start without staged startup"
-    echo "  $0 --down               # Stop and remove all services"
-    echo "  $0 --update             # Rebuild backend and start services"
-    echo "  $0 --local              # Run Django locally without Docker"
-    echo "  $0 --migrate            # Run Django migrations"
-    echo
-    echo "If no option is provided, the script will start or restart services with current images."
-}
-
+# ── Project root (one level up from scripts/) ─────────────────────────────
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKEND_DIR="${PROJECT_ROOT}/backend"
+ENV_FILE="${PROJECT_ROOT}/.env"
 
-# Function to determine Docker Compose command
-determine_docker_compose_command() {
-    if command -v docker compose &>/dev/null; then
-        echo "docker compose"
-    elif command -v docker-compose &>/dev/null; then
-        echo "docker-compose"
-    else
-        echo "Docker Compose is not installed." >&2
-        exit 1
-    fi
-}
-
-# Function to load environment variables
-initialize_env() {
-    if [ -f "${PROJECT_ROOT}/.env" ]; then
-        echo "Loading environment variables from ${PROJECT_ROOT}/.env"
-        set -a
-        source "${PROJECT_ROOT}/.env"
-        set +a
-    elif [ -f "${PROJECT_ROOT}/.env.example" ]; then
-        echo "No .env file found. Copying .env.example → .env"
-        cp "${PROJECT_ROOT}/.env.example" "${PROJECT_ROOT}/.env"
-        set -a
-        source "${PROJECT_ROOT}/.env"
-        set +a
-        echo "Please review and update ${PROJECT_ROOT}/.env with your settings."
-    else
-        echo "Warning: .env file not found. Using defaults."
-    fi
-
-    # Determine if we're in dev mode
-    if [ -n "$ENVIRONMENT" ] && [ "$ENVIRONMENT" = "development" ]; then
-        export DEV_MODE=true
-        echo "Running in development mode"
-    else
-        export DEV_MODE=false
-    fi
-}
-
-# Function to check Docker is available
-check_docker() {
-    if ! command -v docker &>/dev/null; then
-        echo "Error: Docker is not installed."
-        exit 1
-    fi
-    if ! docker info &>/dev/null 2>&1; then
-        echo "Error: Docker daemon is not running. Please start Docker Desktop."
-        exit 1
-    fi
-    echo "Docker is available."
-}
-
-# Function to check Python is available
-check_python() {
-    if command -v python3 &>/dev/null; then
-        PYTHON_CMD="python3"
-    elif command -v python &>/dev/null; then
-        PYTHON_CMD="python"
-    else
-        echo "Error: Python is not installed."
-        exit 1
-    fi
-    echo "Python: $($PYTHON_CMD --version)"
-}
-
-# Function to activate virtual environment
-activate_venv() {
-    local venv_dir="${PROJECT_ROOT}/.venv"
-    if [ -d "$venv_dir" ]; then
-        echo "Activating virtual environment..."
-        source "${venv_dir}/bin/activate" 2>/dev/null || source "${venv_dir}/Scripts/activate" 2>/dev/null || true
-    else
-        echo "Warning: No .venv found at ${venv_dir}. Using system Python."
-    fi
-}
-
-# Function to remove all project-related Docker images
-remove_project_images() {
-    echo "Removing all local Docker images for current project..."
-    $DOCKER_COMPOSE_CMD --profile dev --profile prod config | grep 'image:' | awk '{ print $2 }' | sort | uniq | xargs -r docker rmi
-}
-
-# Function to remove only Laguna backend Docker images
-remove_backend_images() {
-    echo "Removing Laguna backend Docker images..."
-    $DOCKER_COMPOSE_CMD --profile dev --profile prod images -q backend backend_prod 2>/dev/null | xargs -r docker rmi || true
-}
-
-# Function to start services quickly (development mode)
-start_services_quick() {
-    echo "Starting Docker Compose services (quick mode)..."
-    $DOCKER_COMPOSE_CMD -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml up --force-recreate -d
-    if [ $? -ne 0 ]; then
-        echo "Failed to start services."
-        exit 1
-    fi
-    echo "All services started."
-}
-
-# Function to start services gracefully (production mode)
-start_services_staged() {
-    echo "Starting services in staged sequence..."
-
-    # Stage 1: Core Infrastructure
-    echo "Stage 1: Starting databases and cache (db, redis)..."
-    $DOCKER_COMPOSE_CMD up --force-recreate -d db redis
-    echo "Waiting for databases to initialize..."
-    sleep 10
-
-    # Stage 2: Backend Application (dev)
-    echo "Stage 2: Starting dev backend (Django runserver)..."
-    $DOCKER_COMPOSE_CMD -f docker-compose.yml -f docker-compose.override.yml up --force-recreate -d backend
-    sleep 5
-
-    # Stage 3: Backend Application (prod)
-    echo "Stage 3: Starting prod backend (gunicorn)..."
-    $DOCKER_COMPOSE_CMD -f docker-compose.yml -f docker-compose.prod.yml up --force-recreate -d backend
-    sleep 5
-
-    # Stage 4: Background Workers
-    echo "Stage 4: Starting background workers (celery)..."
-    $DOCKER_COMPOSE_CMD -f docker-compose.yml -f docker-compose.prod.yml up --force-recreate -d celery
-    sleep 3
-
-    # Stage 5: Developer Tools
-    echo "Stage 5: Starting developer tools (pgadmin)..."
-    $DOCKER_COMPOSE_CMD -f docker-compose.yml -f docker-compose.override.yml up --force-recreate -d pgadmin
-
-    # Stage 6: Reverse Proxy
-    echo "Stage 6: Starting reverse proxy (nginx)..."
-    $DOCKER_COMPOSE_CMD -f docker-compose.yml -f docker-compose.prod.yml up --force-recreate -d nginx
-    sleep 3
-
-    echo "All services started successfully."
-}
-
-# Function to stop services
-stop_services() {
-    echo "Stopping Docker Compose services..."
-    $DOCKER_COMPOSE_CMD --profile dev --profile prod --profile scheduler stop
-    echo "Removing stopped containers..."
-    $DOCKER_COMPOSE_CMD --profile dev --profile prod --profile scheduler rm -f
-}
-
-# Function to backup database
-backup_database() {
-    local backup_file="${PROJECT_ROOT}/backup_$(date +%Y%m%d_%H%M%S).sql"
-    echo "Backing up database..."
-    $DOCKER_COMPOSE_CMD exec -T db pg_dump -U "${DB_USER:-postgres}" "${DB_NAME:-Laguna}" > "$backup_file"
-    echo "Backup saved to ${backup_file}"
-}
-
-# Function to restore database
-restore_database() {
-    local backup_file="$1"
-    if [ -z "$backup_file" ]; then
-        echo "Error: Backup file path not provided."
-        echo "Usage: $0 --restore <backup-file.sql>"
-        exit 1
-    fi
-    if [ ! -f "$backup_file" ]; then
-        echo "Error: File not found: ${backup_file}"
-        exit 1
-    fi
-
-    echo "Restoring database from ${backup_file}..."
-    $DOCKER_COMPOSE_CMD exec -T db psql -U "${DB_USER:-postgres}" "${DB_NAME:-Laguna}" < "$backup_file"
-    echo "Database restored."
-}
-
-# Set the Docker Compose command
-DOCKER_COMPOSE_CMD=$(determine_docker_compose_command)
-
-# Parse command line arguments
-STAGED_MODE=true  # Default to true
+# ── Parse arguments ───────────────────────────────────────────────────────
 COMMAND=""
+STAGED_MODE=false
 RESTORE_FILE=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --staged)
-            STAGED_MODE=true
-            ;;
-        --fast)
-            STAGED_MODE=false
-            ;;
-        --update|--update-all|--down)
-            COMMAND="$1"
-            ;;
-        --local|--migrate|--makemigrations|--shell|--superuser|--test|--backup)
-            COMMAND="$1"
-            ;;
-        --restore)
-            COMMAND="--restore"
-            RESTORE_FILE="$2"
-            shift
-            ;;
-        -h|--help)
-            show_help
-            exit 0
-            ;;
-        *)
-            echo "Unknown option: $1"
-            show_help
-            exit 1
-            ;;
+        --staged)         STAGED_MODE=true; shift ;;
+        --fast)           STAGED_MODE=false; shift ;;
+        --dev)            COMMAND="dev"; shift ;;
+        --prod)           COMMAND="prod"; shift ;;
+        --build)          COMMAND="build"; shift ;;
+        --down)           COMMAND="down"; shift ;;
+        --clean)          COMMAND="clean"; shift ;;
+        --logs)           COMMAND="logs"; shift ;;
+        --status)         COMMAND="status"; shift ;;
+        --local)          COMMAND="local"; shift ;;
+        --migrate)        COMMAND="migrate"; shift ;;
+        --makemigrations) COMMAND="makemigrations"; shift ;;
+        --shell)          COMMAND="shell"; shift ;;
+        --superuser)      COMMAND="superuser"; shift ;;
+        --test)           COMMAND="test"; shift ;;
+        --backup)         COMMAND="backup"; shift ;;
+        --restore)        COMMAND="restore"; RESTORE_FILE="$2"; shift 2 ;;
+        -h|--help)        COMMAND="help"; shift ;;
+        *)                echo "[ERROR] Unknown option: $1"; COMMAND="help"; break ;;
     esac
-    shift
 done
 
-# Initialize environment
-initialize_env
+# ── Functions ─────────────────────────────────────────────────────────────
+show_banner() {
+    echo ""
+    echo "  ======================================================"
+    echo "       Laguna AI  -  Line Balancing Platform"
+    echo "  ======================================================"
+    echo ""
+}
 
-export COMPOSE_FILE="docker-compose.yml"
-
-# Handle --down command early (before other setup)
-if [ "$COMMAND" = "--down" ]; then
-    echo "Stopping and removing all platform containers..."
-    $DOCKER_COMPOSE_CMD -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml down
+show_help() {
+    show_banner
+    echo "Usage: scripts/start.sh [OPTION]"
+    echo ""
+    echo "Docker Commands:"
+    echo "  --dev              Start development services  (db + redis + backend + app + pgadmin)"
+    echo "  --prod             Start production services   (db + redis + backend + app + celery + scheduler + nginx)"
+    echo "  --build            Rebuild Docker images and start dev services"
+    echo "  --down             Stop and remove all containers"
+    echo "  --clean            Stop, remove containers, and delete volumes (WARNING: Data Loss)"
+    echo "  --logs             Follow log output for all services"
+    echo "  --status           Show status of all running containers"
+    echo ""
+    echo "Local Django Commands (Requires local Python env):"
+    echo "  --local            Start Django dev server locally (no Docker)"
+    echo "  --migrate          Run database migrations locally"
+    echo "  --makemigrations   Create new migration files locally"
+    echo "  --shell            Open Django interactive shell locally"
+    echo "  --superuser        Create a Django superuser locally"
+    echo "  --test             Run the pytest suite locally"
+    echo ""
+    echo "Database Commands:"
+    echo "  --backup           Backup PostgreSQL database to a .sql file"
+    echo "  --restore <file>   Restore database from a backup file"
+    echo ""
     exit 0
+}
+
+load_env() {
+    if [ -f "$ENV_FILE" ]; then
+        set -a
+        source "$ENV_FILE"
+        set +a
+    elif [ -f "${PROJECT_ROOT}/.env.example" ]; then
+        echo "[WARN] No .env file found. Copying .env.example to .env"
+        cp "${PROJECT_ROOT}/.env.example" "$ENV_FILE"
+        set -a
+        source "$ENV_FILE"
+        set +a
+    else
+        echo "[WARN] No .env file found. Using defaults."
+    fi
+}
+
+check_docker() {
+    if ! command -v docker &>/dev/null; then
+        echo "[ERROR] Docker is not installed."
+        exit 1
+    fi
+    if ! docker info &>/dev/null 2>&1; then
+        echo "[ERROR] Docker daemon is not running. Please start Docker Desktop."
+        exit 1
+    fi
+    echo "[OK] Docker is available"
+}
+
+determine_docker_compose() {
+    if command -v docker compose &>/dev/null; then
+        DC="docker compose"
+    elif command -v docker-compose &>/dev/null; then
+        DC="docker-compose"
+    else
+        echo "[ERROR] Docker Compose is not installed."
+        exit 1
+    fi
+}
+
+# ── Script Execution ──────────────────────────────────────────────────────
+
+if [ "$COMMAND" = "help" ]; then
+    show_help
 fi
 
-# Handle local commands (no Docker required)
-case "$COMMAND" in
-    --local)
-        check_python
-        activate_venv
-        echo "Starting Django development server..."
-        echo ""
-        echo "  Server:   http://127.0.0.1:8000"
-        echo "  Swagger:  http://127.0.0.1:8000/swagger/"
-        echo "  Redoc:    http://127.0.0.1:8000/redoc/"
-        echo ""
-        cd "$BACKEND_DIR"
-        $PYTHON_CMD manage.py runserver
-        exit 0
-        ;;
-    --migrate)
-        check_python
-        activate_venv
-        echo "Running database migrations..."
-        cd "$BACKEND_DIR"
-        $PYTHON_CMD manage.py migrate
-        echo "Migrations applied."
-        exit 0
-        ;;
-    --makemigrations)
-        check_python
-        activate_venv
-        echo "Creating migration files..."
-        cd "$BACKEND_DIR"
-        $PYTHON_CMD manage.py makemigrations
-        echo "Migration files created."
-        exit 0
-        ;;
-    --shell)
-        check_python
-        activate_venv
-        cd "$BACKEND_DIR"
-        $PYTHON_CMD manage.py shell
-        exit 0
-        ;;
-    --superuser)
-        check_python
-        activate_venv
-        echo "Creating superuser..."
-        cd "$BACKEND_DIR"
-        $PYTHON_CMD manage.py createsuperuser
-        exit 0
-        ;;
-    --test)
-        check_python
-        activate_venv
-        echo "Running test suite..."
-        cd "$BACKEND_DIR"
-        $PYTHON_CMD manage.py test
-        echo "Tests complete."
-        exit 0
-        ;;
-    --backup)
-        backup_database
-        exit 0
-        ;;
-    --restore)
-        restore_database "$RESTORE_FILE"
-        exit 0
-        ;;
-esac
+show_banner
 
-# Docker commands require Docker to be available
-check_docker
+# Default command
+if [ -z "$COMMAND" ]; then
+    COMMAND="all"
+fi
 
-# Main logic
+load_env
+
+COMPOSE_FILE="docker-compose.yml"
+
 case "$COMMAND" in
-    --update)
-        stop_services
-        remove_backend_images
-        $DOCKER_COMPOSE_CMD build --no-cache backend
-        if [ "$STAGED_MODE" = true ]; then
-            start_services_staged
+    all)
+        check_docker
+        determine_docker_compose
+        if [ "$STAGED_MODE" = "true" ]; then
+            echo "[INFO] Starting ALL services (staged sequence)..."
+            echo "  Stage 1/4: Core infrastructure (db, redis)..."
+            $DC -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml up -d db redis
+            sleep 10
+            echo "  Stage 2/4: Backend application..."
+            $DC -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml up -d backend
+            sleep 5
+            echo "  Stage 3/4: Background workers (celery, scheduler)..."
+            $DC -f docker-compose.yml -f docker-compose.prod.yml up -d celery scheduler
+            sleep 3
+            echo "  Stage 4/4: Developer tools and reverse proxy (pgadmin, nginx)..."
+            $DC -f docker-compose.yml -f docker-compose.override.yml up -d pgadmin
+            $DC -f docker-compose.yml -f docker-compose.prod.yml up -d nginx
         else
-            start_services_quick
+            echo "[INFO] Starting ALL services (fast mode)..."
+            $DC -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml up --force-recreate -d
+        fi
+        
+        echo "[OK] All services started"
+        echo "  Dev Backend:   http://localhost:${BACKEND_PORT:-8000}"
+        echo "  Swagger:       http://localhost:${BACKEND_PORT:-8000}/swagger/"
+        echo "  pgAdmin:       http://localhost:${PGADMIN_PORT:-5050}"
+        echo "  Redis UI:      http://localhost:8082"
+        echo "  Prod (nginx):  http://localhost"
+        echo "  Grafana:       http://localhost:4000"
+        echo ""
+        ;;
+        
+    dev)
+        check_docker
+        determine_docker_compose
+        echo "[INFO] Starting DEVELOPMENT services (fast mode)..."
+        $DC -f docker-compose.yml -f docker-compose.override.yml up --force-recreate -d
+        echo "[OK] Dev services started"
+        echo "  Dev Backend:   http://localhost:${BACKEND_PORT:-8000}"
+        echo "  Swagger:       http://localhost:${BACKEND_PORT:-8000}/swagger/"
+        echo "  pgAdmin:       http://localhost:${PGADMIN_PORT:-5050}"
+        echo "  Redis UI:      http://localhost:8082"
+        echo "  Grafana:       http://localhost:4000"
+        echo ""
+        ;;
+        
+    prod)
+        check_docker
+        determine_docker_compose
+        echo "[INFO] Starting PRODUCTION services (staged sequence)..."
+        echo "  Stage 1/3: Core infrastructure..."
+        $DC -f docker-compose.yml -f docker-compose.prod.yml up -d db redis
+        sleep 10
+        echo "  Stage 2/3: Application and workers..."
+        $DC -f docker-compose.yml -f docker-compose.prod.yml up -d backend celery scheduler
+        sleep 5
+        echo "  Stage 3/3: Reverse proxy..."
+        $DC -f docker-compose.yml -f docker-compose.prod.yml up -d nginx
+        echo "[OK] Prod services started"
+        echo "  Prod (nginx):  http://localhost"
+        echo "  Grafana:       http://localhost:4000"
+        echo ""
+        ;;
+        
+    build)
+        check_docker
+        determine_docker_compose
+        echo "[INFO] Rebuilding Docker images and starting dev services..."
+        $DC -f docker-compose.yml -f docker-compose.override.yml down
+        $DC -f docker-compose.yml -f docker-compose.override.yml build
+        $DC -f docker-compose.yml -f docker-compose.override.yml up -d
+        echo "[OK] Rebuild complete"
+        ;;
+        
+    down)
+        check_docker
+        determine_docker_compose
+        echo "[INFO] Stopping and removing containers..."
+        $DC -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml down
+        echo "[OK] Containers stopped"
+        ;;
+        
+    clean)
+        check_docker
+        determine_docker_compose
+        echo "[WARN] Destructive action initiated"
+        echo "       This will delete all containers and volumes (data loss)."
+        read -p "       Are you sure you want to continue? (y/N) " confirm
+        if [[ $confirm == [yY] || $confirm == [yY][eE][sS] ]]; then
+            $DC -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml down -v
+            echo "[OK] Cleaned all containers and volumes"
+        else
+            echo "[INFO] Aborted"
         fi
         ;;
-    --update-all)
-        stop_services
-        remove_project_images
-        $DOCKER_COMPOSE_CMD build --no-cache
-        if [ "$STAGED_MODE" = true ]; then
-            start_services_staged
-        else
-            start_services_quick
-        fi
+        
+    logs)
+        check_docker
+        determine_docker_compose
+        $DC -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml logs -f
         ;;
-    "")
-        # Default behavior when no command is provided
-        if $DOCKER_COMPOSE_CMD ps | grep -q "Up\|running"; then
-            echo "Restarting Docker Compose services..."
-            $DOCKER_COMPOSE_CMD --profile dev --profile prod restart
-        else
-            if [ "$STAGED_MODE" = true ]; then
-                start_services_staged
-            else
-                start_services_quick
+        
+    status)
+        check_docker
+        determine_docker_compose
+        $DC -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml ps
+        ;;
+        
+    *)
+        # Commands requiring python
+        if ! command -v python3 &>/dev/null; then
+            if ! command -v python &>/dev/null; then
+                echo "[ERROR] Python is not installed."
+                exit 1
             fi
+            PYTHON_CMD="python"
+        else
+            PYTHON_CMD="python3"
+        fi
+        
+        venv_dir="${PROJECT_ROOT}/.venv"
+        if [ -d "$venv_dir" ]; then
+            source "${venv_dir}/bin/activate" 2>/dev/null || source "${venv_dir}/Scripts/activate" 2>/dev/null || true
+        fi
+        
+        cd "$BACKEND_DIR" || exit 1
+        
+        if [ "$COMMAND" = "local" ]; then
+            echo "[INFO] Starting local Django dev server..."
+            $PYTHON_CMD manage.py runserver
+        elif [ "$COMMAND" = "migrate" ]; then
+            echo "[INFO] Running database migrations..."
+            $PYTHON_CMD manage.py migrate
+        elif [ "$COMMAND" = "makemigrations" ]; then
+            echo "[INFO] Creating migration files..."
+            $PYTHON_CMD manage.py makemigrations
+        elif [ "$COMMAND" = "shell" ]; then
+            $PYTHON_CMD manage.py shell
+        elif [ "$COMMAND" = "superuser" ]; then
+            $PYTHON_CMD manage.py createsuperuser
+        elif [ "$COMMAND" = "test" ]; then
+            echo "[INFO] Running test suite..."
+            pytest --cov=. --cov-report=term-missing
+        elif [ "$COMMAND" = "backup" ]; then
+            check_docker
+            determine_docker_compose
+            cd "$PROJECT_ROOT"
+            backup_file="${PROJECT_ROOT}/backup_$(date +%Y%m%d_%H%M%S).sql"
+            echo "[INFO] Backing up database..."
+            $DC exec -T db pg_dump -U "${DB_USER:-postgres}" "${DB_NAME:-Laguna}" > "$backup_file"
+            echo "[OK] Backup saved to ${backup_file}"
+        elif [ "$COMMAND" = "restore" ]; then
+            check_docker
+            determine_docker_compose
+            cd "$PROJECT_ROOT"
+            if [ -z "$RESTORE_FILE" ]; then
+                echo "[ERROR] Backup file path not provided."
+                exit 1
+            fi
+            if [ ! -f "$RESTORE_FILE" ]; then
+                echo "[ERROR] File not found: ${RESTORE_FILE}"
+                exit 1
+            fi
+            echo "[INFO] Restoring database from ${RESTORE_FILE}..."
+            $DC exec -T db psql -U "${DB_USER:-postgres}" "${DB_NAME:-Laguna}" < "$RESTORE_FILE"
+            echo "[OK] Database restored."
         fi
         ;;
 esac
-
-# Show final status
-echo ""
-echo "Container status:"
-$DOCKER_COMPOSE_CMD --profile dev --profile prod ps -a
-echo ""
-echo "Access points:"
-echo "  Backend:      http://localhost:${BACKEND_PORT:-8000}"
-echo "  Swagger UI:   http://localhost:${BACKEND_PORT:-8000}/swagger/"
-echo "  Redoc:        http://localhost:${BACKEND_PORT:-8000}/redoc/"
-echo "  pgAdmin:      http://localhost:${PGADMIN_PORT:-5050}"
-echo "  Redis UI:     http://localhost:8082"
-echo "  Grafana:      http://localhost:4000"
-echo ""

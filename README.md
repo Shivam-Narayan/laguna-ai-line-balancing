@@ -1,6 +1,56 @@
 # Laguna-AI Backend
 AI line-balancing backend application.
 
+## 🚀 Quick Start for Beginners
+
+Welcome to the team! If you just want to get the application running on your computer as quickly as possible, follow these steps.
+
+### 1. Install Prerequisites
+Make sure you have the following installed on your machine:
+- **[Git](https://git-scm.com/)** (for cloning the repository)
+- **[Docker Desktop](https://www.docker.com/products/docker-desktop/)** (must be installed and running in the background)
+- **[Python 3.10+](https://www.python.org/downloads/)** (helpful for local script execution)
+
+### 2. Clone the Repositories
+We have a separated backend and frontend. You need to clone **both** into the same parent folder. Open your terminal and run:
+
+```bash
+# Create a workspace folder and go into it
+mkdir laguna-workspace
+cd laguna-workspace
+
+# Clone both repositories side-by-side
+git clone https://github.com/Shivam-Narayan/laguna-ai-line-balancing.git
+git clone https://github.com/Shivam-Narayan/laguna-ai-line-balancing-app.git
+```
+
+### 3. Setup Configuration
+Navigate into the backend folder and create your environment file:
+```bash
+cd laguna-ai-line-balancing
+
+# Copy the example environment file
+cp .env.example .env
+```
+*(Note: You can leave the default values in `.env` exactly as they are for local development!)*
+
+### 4. Start the Application!
+We have a helper script that handles all the Docker container setup for you. Run the command for your operating system:
+
+- **Windows (Command Prompt):** `scripts\start.bat --dev`
+- **Windows (PowerShell):** `.\scripts\start.ps1 -Dev`
+- **Mac / Linux:** `bash scripts/start.sh` *(Make sure it is executable: `chmod +x scripts/start.sh`)*
+
+### 5. View the App
+Once the script finishes starting everything up, your local environment is live!
+- **Backend API & Health Check:** [http://localhost:8000](http://localhost:8000)
+- **Interactive API Docs (Swagger):** [http://localhost:8000/swagger/](http://localhost:8000/swagger/)
+- **Database UI (pgAdmin):** [http://localhost:5050](http://localhost:5050) (Login: admin@laguna.com / admin123)
+
+That's it! You're ready to start exploring the code. For deeper technical details, continue reading below.
+
+---
+
 ## Project Structure
 
 ```text
@@ -13,7 +63,11 @@ laguna-ai-line-balancing/             # Repository root
 │   │   ├── data_engine/              # Data processing & employee management
 │   │   └── manning_sheet/            # Manning sheet & resource planning
 │   ├── config/                       # Django project configuration
-│   │   └── settings.py               # Environment-aware settings
+│   │   ├── settings/                 # Modular settings folder
+│   │   │   ├── __init__.py           # Auto-loads dev/prod
+│   │   │   ├── base.py               # Common settings
+│   │   │   ├── development.py        # Local overrides
+│   │   │   └── production.py         # Live environment overrides
 │   ├── csv_files/                    # Auto-generated CSV exports
 │   ├── data/                         # Data files (CSV, fixtures)
 │   ├── Dockerfile                    # Dockerfile for building backend images
@@ -42,12 +96,17 @@ laguna-ai-line-balancing/             # Repository root
 | Document | Purpose |
 | :--- | :--- |
 | 🏗️ [System Architecture](docs/system_architecture.md) | High-level system design, DDD structure, and Data Pipeline diagrams |
+| 🏛️ [Architecture Patterns](docs/architecture_patterns.md) | In-depth guide on Monolithic vs. Microservices system design principles |
+| 🔐 [SSO Implementation Guide](docs/sso-implementation.md) | Complete setup, configuration, and testing guide for Google SSO |
 | 📖 [API Endpoints Guide](docs/api_endpoints_guide.md) | Frontend integration guide (or visit `/swagger/` when running) |
 | 🐳 [Docker Complete](docs/DOCKER_COMPLETE.md) | Setup, configuration, and environment variable references |
 | 🚀 [Kubernetes & Deployment](docs/kubernetes_guide.md) | Production deployment architecture, K8s vs Docker Compose, and cloud testing |
 | 🚑 [Operations Runbook](docs/runbook.md) | Troubleshooting, log extraction, and database backup procedures |
 | 🤖 [CI/CD Pipeline](docs/ci_cd_pipeline.md) | GitHub Actions automation and deployment protections |
-| 🧪 [Testing Guide](backend/TESTING.md) | How to run the automated test suite, mock services, and TDD guidelines |
+| 🛠️ [Scripts & Automation](docs/scripts_guide.md) | Explains the `scripts/` folder, standalone `.bat` files, and the master `start.bat` |
+| 🧹 [Code Quality Guide](docs/CODE_QUALITY_GUIDE.md) | Rationale behind Option A, Linter/Formatter instructions, and end-to-end checks |
+| 🧪 [Testing Guide](docs/TESTING.md) | How to run the automated test suite and overview of testing methodologies |
+| 🎯 [TDD Guide](docs/TDD_GUIDE.md) | Step-by-step tutorial on Test-Driven Development (Red-Green-Refactor) and mocking for developers |
 
 ---
 
@@ -79,7 +138,7 @@ parent-folder/
    ```bash
    cp .env.example .env
    ```
-2. Update `.env` with your settings (database credentials, SendGrid keys, etc.).
+2. Update `.env` with your settings (database credentials, SendGrid keys, SENTRY_DSN, etc.).
 3. Set the environment type:
    - For development: `ENVIRONMENT=development`
    - For production: `ENVIRONMENT=production`
@@ -185,8 +244,10 @@ python -m venv .venv
 # 3) Activate virtual environment
 # Windows (PowerShell)
 .venv\Scripts\Activate.ps1
+
 # Windows (cmd)
 .venv\Scripts\activate.bat
+
 # Linux/macOS
 source .venv/bin/activate
 
@@ -256,12 +317,16 @@ curl -X POST http://localhost:8000/manning-sheet/manning-sheets/d-day/generate/
 ---
 
 ## Key Features & Architectural Standards
+- **Authentication & SSO**: Fully functional JWT-based authentication with integrated Google SSO (OAuth 2.0). Utilizes `dj-rest-auth` and `django-allauth` to allow seamless login and automatic linking of Google profiles to existing local accounts without disrupting the user flow.
 - **Strict Service Layer Architecture**: All features are organized under separate apps in the `backend/apps/` directory, adhering strictly to Domain-Driven Design. Heavy business logic (Pandas/ETL/ML/Database transactions) is isolated in `services/`, keeping `views.py` incredibly thin and focused only on HTTP routing.
-- **Environment-Aware Settings**: A single `settings.py` dynamically adjusts behavior based on the `ENVIRONMENT` variable (development vs production).
+- **TDD (Test-Driven Development) & Service Hardening**: The absenteeism micro-services (`prediction_service`, `report_service`, `export_service`, `prediction_orchestrator`, `data_ingestion_service`) have been fortified against silent failures and edge-cases (KeyErrors, missing data, ZeroDivision errors) with 100% test coverage using Python `unittest.mock`. 
+- **Modular Environment Settings**: The configuration is split into `settings/base.py`, `settings/development.py`, and `settings/production.py` to keep environments safely isolated. An automated `__init__.py` loader dynamically routes to the correct module based on your `ENVIRONMENT` variable.
 - **Production-Grade Security**: 
   - Django 4.0+ strict `CSRF_TRUSTED_ORIGINS` validation is automatically mapped to `ALLOWED_HOSTS` to prevent Cross-Site Request Forgery while supporting Nginx/Docker proxies.
   - User deletions are protected by Django `pre_delete` signals to cleanly wipe SimpleJWT tokens (`OutstandingToken`, `BlacklistedToken`), guaranteeing database integrity and preventing foreign key crashes.
+  - Machine Learning Model state files (`.pkl`) enforce strict absolute path resolution natively anchored to their application directory to completely prevent random directory scaffolding or unauthorized file injections regardless of the Server execution context.
 - **Centralized Templates**: Email HTML templates (e.g., CSV exports, Password Resets) are maintained in a global, centralized `backend/templates/` directory to prevent app-level name collisions and simplify rebranding.
+- **Automated Code Quality Pipeline**: Built-in enforcement of industry standards using `Ruff` (linting/formatting), `Mypy` (static type checking), and `Pytest` (automated testing and coverage). The CI/CD pipeline blocks code that fails these strict checks.
 - **Unified Docker Compose**: One `docker-compose.yml` for all environments. The `.env` file controls the behavior — no need for separate dev/prod compose files.
 - **Production-Ready**: Gunicorn + Celery + Nginx with proper static/media/logs separation.
 
@@ -285,7 +350,7 @@ curl -X POST http://localhost:8000/manning-sheet/manning-sheets/d-day/generate/
   `docker compose down`
 * **Stop everything AND delete database data (Fresh start):**
   `docker compose down -v`
-* **Rebuild containers (Run after pip installs):**
+* **Rebuild containers (Run after modifying requirements or Dockerfiles):**
   `docker compose up --build -d`
 
 ### 🔎 2. Viewing Logs
