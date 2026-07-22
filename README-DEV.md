@@ -31,11 +31,27 @@ cd ../laguna-ai-line-balancing
 *(The default values in these environment files are pre-configured to work instantly for local development).*
 
 ### 3. Start the Services
-Start the development environment using our unified startup scripts (which automatically manage the Docker containers and configuration):
+Start the environments using our unified startup scripts (which automatically manage the Docker containers and configuration):
 
+**For Development (Strictly Dev):**
 - **Windows (Command Prompt):** `scripts\start.bat --dev`
 - **Windows (PowerShell):** `.\scripts\start.ps1 -Dev`
-- **Mac / Linux:** `bash scripts/start.sh`
+- **Mac / Linux:** `bash scripts/start.sh --dev`
+
+**For Production (Strictly Prod):**
+- **Windows (Command Prompt):** `scripts\start.bat --prod`
+- **Windows (PowerShell):** `.\scripts\start.ps1 -Prod`
+- **Mac / Linux:** `bash scripts/start.sh --prod`
+
+#### Important Start Flags (Universal across all platforms):
+- **`--dev`**: Starts **Strictly Development**. Merges `docker-compose.yml` and `docker-compose.override.yml`. Runs the database, Redis, Django, React, and local GUI tools (pgAdmin on 5050 & Redis Commander on 8082). It intentionally skips Celery so you can run it manually to see prints/logs in your IDE.
+- **`--prod`**: Starts **Strictly Production**. Merges `docker-compose.yml` and `docker-compose.prod.yml`. Runs everything *including* the Nginx reverse proxy, Celery background workers, and the custom Scheduler. It skips all development GUI tools.
+- **`(No flag or 'all')`**: Starts **Full-Stack Local Testing**. Merges all three files together, giving you the full production environment (Celery/Nginx) alongside the development GUI tools simultaneously.
+
+#### Utility Flags:
+- **`--down`**: Safely stops and removes all containers.
+- **`--logs`**: Streams the live terminal output from all running containers.
+- **`--shell`**: Drops you into a Django Python shell inside the backend container.
 
 ### 4. Access Points
 Once the script completes and the containers are healthy, you can access your local environment:

@@ -1868,6 +1868,15 @@ def run_dday_generation(viaAPI):
 
         logger.info("D-Day Manning Allocation Completed Successfully.")
 
+        # Invalidate the D-Day API Cache
+        try:
+            from django.core.cache import cache
+            cache_keys = [f"dday_manning_data_Line_{i}" for i in range(1, 11)] + ["dday_manning_data_All"]
+            cache.delete_many(cache_keys)
+            logger.info("Cleared D-Day Redis Cache.")
+        except Exception as cache_err:
+            logger.info(f"Failed to clear cache: {cache_err}")
+
         if not viaAPI:
             get_dday_data()
 

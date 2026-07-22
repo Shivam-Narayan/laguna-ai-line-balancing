@@ -140,3 +140,16 @@ LOGGING = {
 # Redis & Celery
 REDIS_BACKEND = os.getenv("REDIS_BACKEND", "redis://127.0.0.1:6379/0")
 CELERY_BROKER_URL = REDIS_BACKEND
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": REDIS_BACKEND,
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "CONNECTION_POOL_KWARGS": {"max_connections": 100},
+        }
+    }
+}
+CACHE_MIDDLEWARE_ALIAS = 'default'
+CACHE_MIDDLEWARE_SECONDS = 300

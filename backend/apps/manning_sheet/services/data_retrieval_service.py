@@ -8,6 +8,7 @@ from io import BytesIO
 import pandas as pd
 from django.db.models import FloatField, Func, Sum
 from django.http import HttpResponse
+from django.core.cache import cache
 from rest_framework import status
 
 from apps.accounts.models import User
@@ -678,6 +679,21 @@ def run_get_dday_manning_data(line_no):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # 1. Create a unique cache key based on the parameters
+        cache_key = f"dday_manning_data_{line_no.replace(' ', '_')}"
+        
+        # 2. Try to get the data from Redis
+        cached_data = cache.get(cache_key)
+        if cached_data is not None:
+            logger.info(f"CACHE HIT: Returning D-Day data for {line_no} from Redis")
+            return success_response(
+                data=cached_data["data"],
+                message=cached_data["message"],
+                status=cached_data["status"],
+            )
+            
+        logger.info(f"CACHE MISS: Querying the database for D-Day data for {line_no}")
+
         dday_data = fetch_dday_data(line_no)
         today = datetime.today().date()
         prediction_response = get_dday_actual_vs_planned_data(
@@ -686,6 +702,9 @@ def run_get_dday_manning_data(line_no):
         dday_data["data"]["prediction_data"] = prediction_response.data["data"]
         unallocated_emp_data = get_unallocated_employees_count(line_no=line_no)
         dday_data["data"]["unallocated_emp_data"] = unallocated_emp_data
+
+        # 3. Save the result to Redis for 12 hours (43200 seconds)
+        cache.set(cache_key, dday_data, timeout=43200)
 
         return success_response(
             data=dday_data["data"],
