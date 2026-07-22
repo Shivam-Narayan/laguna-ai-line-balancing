@@ -142,15 +142,8 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Logging - Base directories
-LOGGING_DIR = BASE_DIR / "logs"
-if not LOGGING_DIR.exists():
-    LOGGING_DIR.mkdir(parents=True)
-
-INFO_LOG_FILE_SUFFIX = 'info.log'
-ERROR_LOG_FILE_SUFFIX = 'error.log'
-INFO_MIDDLEWARE_LOG_FILE_SUFFIX = 'info_middleware.log'
-ERROR_MIDDLEWARE_LOG_FILE_SUFFIX = 'error_middleware.log'
+# Logging - We only use console logging (captured by Grafana/Loki)
+# File logging has been disabled.
 
 # Spectacular Settings for OpenAPI / Swagger
 SPECTACULAR_SETTINGS = {
@@ -232,3 +225,21 @@ CORS_ALLOW_METHODS = [
 CORS_ALLOW_HEADERS = [
     "content-type", "authorization", "x-requested-with", "accept", "origin",
 ]
+
+# Sentry Configuration
+SENTRY_DSN = os.getenv("SENTRY_DSN")
+if SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.django import DjangoIntegration
+    from sentry_sdk.integrations.celery import CeleryIntegration
+
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[
+            DjangoIntegration(),
+            CeleryIntegration(),
+        ],
+        environment=ENVIRONMENT,
+        traces_sample_rate=1.0 if not IS_PRODUCTION else 0.1,
+        send_default_pii=True
+    )
