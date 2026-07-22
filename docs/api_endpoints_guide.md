@@ -10,10 +10,18 @@ Here is how the endpoints interact in a daily factory workflow.
 *Before any manager or HR rep can do anything, they must authenticate.*
 
 * **`POST /auth/login/`**: Takes email/password and returns JWT access/refresh tokens.
+* **`POST /auth/logout/`**: Blacklists the JWT token and logs the user out.
 * **`POST /api/auth/google/`**: Takes a Google Access Token for SSO and returns standard JWT access/refresh tokens.
-* **`POST /auth/token/refresh/`**: Refreshes an expired access token.
+* **`POST /auth/token/refresh/`**: Refreshes an expired access token using the refresh cookie.
+* **`POST /auth/password/reset/request/`**: Sends a password reset link to the user's email.
+* **`POST /auth/password/reset/confirm/`**: Resets the password using the token sent via email.
+* **`POST /auth/password/change/`**: Changes the password for an authenticated user.
 * **`POST /locations/validate/`**: Ensures the manager clocking in is physically at the factory (Geofencing check based on latitude/longitude).
 * **`POST /users/create/`**: Registers a new user.
+* **`GET /users/`**: Fetches all users (Admin/Authenticated).
+* **`GET /users/<user_id>/`**: Fetches a specific user's details.
+* **`PUT /users/<user_id>/update/`**: Updates user details.
+* **`DELETE /users/<user_id>/delete/`**: Deletes a user account (cascade deletes tokens).
 
 ---
 

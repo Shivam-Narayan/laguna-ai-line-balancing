@@ -138,7 +138,7 @@ parent-folder/
    ```bash
    cp .env.example .env
    ```
-2. Update `.env` with your settings (database credentials, SendGrid keys, etc.).
+2. Update `.env` with your settings (database credentials, SendGrid keys, SENTRY_DSN, etc.).
 3. Set the environment type:
    - For development: `ENVIRONMENT=development`
    - For production: `ENVIRONMENT=production`
@@ -350,7 +350,7 @@ curl -X POST http://localhost:8000/manning-sheet/manning-sheets/d-day/generate/
   `docker compose down`
 * **Stop everything AND delete database data (Fresh start):**
   `docker compose down -v`
-* **Rebuild containers (Run after pip installs):**
+* **Rebuild containers (Run after modifying requirements or Dockerfiles):**
   `docker compose up --build -d`
 
 ### 🔎 2. Viewing Logs

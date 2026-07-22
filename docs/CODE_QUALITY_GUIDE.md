@@ -27,7 +27,7 @@ If you need to verify the code quality pipeline locally before pushing to GitHub
 ### Step 0: Ensure Dependencies are Installed
 If you just pulled new code, make sure you have the code quality tools installed:
 ```bash
-pip install -r requirements.txt
+uv pip install -r requirements.txt
 ```
 
 ### Step 1: Run the Formatter

@@ -99,7 +99,7 @@ GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 ```
 
-*Note: Any time the dependencies or database schema changes for `allauth`, `python manage.py migrate` and `pip install -r requirements.txt` must be run.*
+*Note: Any time the dependencies or database schema changes for `allauth`, `python manage.py migrate` and `uv pip install -r requirements.txt` must be run.*
 
 ---
 

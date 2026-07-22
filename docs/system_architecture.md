@@ -15,7 +15,8 @@ Laguna-AI Line Balancing is an intelligent, automated ERP platform designed to o
 - **Task Queue & Caching:** Celery & Redis
 - **Web Server:** Nginx & Gunicorn
 - **Containerization:** Docker & Docker Compose
-- **API Documentation:** Swagger (drf-yasg)
+- **API Documentation:** Swagger / OpenAPI 3.0 (drf-spectacular)
+- **Error Tracking & Monitoring:** Sentry
 
 ---
 
@@ -111,6 +112,8 @@ Built for production, the application implements strict security and database in
    - We utilize Django `pre_delete` signals on the `User` model to automatically cascade-delete blacklisted tokens. This prevents fatal `ProgrammingError` / Foreign Key Constraint crashes when an administrator deletes a user from the system.
 3. **Centralized Assets:**
    - Email templates are housed globally in `backend/templates/` to prevent app-level collision and enforce a single source of truth for corporate branding.
+4. **Error Tracking & Observability:**
+   - Integrated with Sentry for real-time application error tracking, capturing unhandled exceptions and performance bottlenecks across both synchronous Django views and asynchronous Celery tasks.
 
 ---
 

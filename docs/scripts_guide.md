@@ -21,7 +21,7 @@ For convenience, several single-purpose scripts have been separated out so you c
   * **Under the hood:** `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d`
 
 * **`scripts\build.bat`**
-  * **What it does:** Forces Docker to completely rebuild your container images from scratch. You must run this if you install new packages (like `pip install`) or modify a `Dockerfile`.
+  * **What it does:** Forces Docker to completely rebuild your container images from scratch. You must run this if you install new packages (like modifying `requirements.txt`) or modify a `Dockerfile`.
   * **Under the hood:** `docker compose up --build -d`
 
 * **`scripts\migrate.bat`** (Also available as `.sh` and `.ps1`)

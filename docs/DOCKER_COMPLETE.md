@@ -121,6 +121,9 @@ DJANGO_SUPERUSER_PASSWORD=Laguna@Admin
 # Google SSO Configuration
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+# Sentry Error Tracking (Optional)
+SENTRY_DSN=your-sentry-dsn-url
 ```
 
 ## 🔒 Security Built-in
@@ -157,9 +160,9 @@ It works by splitting the build process into different "stages." Here is the ste
 ```dockerfile
 FROM python:3.11-slim AS builder
 ```
-- **Purpose:** This stage is entirely dedicated to downloading and compiling your Python dependencies.
-- **What it does:** It installs heavy system tools (like `gcc`, a C-compiler) that are required to build certain Python packages (like database drivers for MySQL/Postgres). It then installs your `requirements.txt`.
-- **Why:** We don't want to include the `gcc` compiler in the final production image because it makes the image huge and creates a security risk.
+- **Purpose:** This stage is entirely dedicated to downloading and compiling your Python dependencies incredibly fast using `uv`.
+- **What it does:** It installs system tools (like `gcc`) and the fast package manager `uv`. It then creates a virtual environment at `/opt/venv` and installs your `requirements.txt`.
+- **Why:** We don't want to include the `gcc` compiler or package managers in the final production image because it makes the image huge and creates a security risk.
 
 #### The `base` Stage (Lines 19-52)
 ```dockerfile
@@ -167,10 +170,11 @@ FROM python:3.11-slim AS base
 ```
 - **Purpose:** This is the core image that will actually run your application. It starts completely fresh.
 - **Dependencies:** It installs only the lightweight database clients (MySQL/Postgres) needed to *connect* to the database, skipping the heavy compilers.
-- **Copying Packages:** (`COPY --from=builder...`) It reaches back into the `builder` stage and copies **only** the finished, compiled Python packages (`/root/.local`). 
+- **Copying Packages:** (`COPY --from=builder...`) It reaches back into the `builder` stage and copies **only** the finished, compiled Python virtual environment (`/opt/venv`). 
 - **Environment Variables (`ENV`):**
   - `PYTHONUNBUFFERED=1`: Ensures Python outputs logs directly to the terminal without buffering (great for seeing logs immediately in Docker).
   - `PYTHONDONTWRITEBYTECODE=1`: Stops Python from creating `.pyc` files, saving disk space.
+  - `PATH="/opt/venv/bin:$PATH"`: Activates the virtual environment globally so `python` and `uv/pip` automatically use the installed packages.
   - `PYTHONPATH=/app/apps:/app`: Tells Python exactly where to look when you write `import ...` in your code.
 - **Setup:** It copies your actual code (`COPY . .`), creates necessary folders for logs and media, and sets up a `HEALTHCHECK`. The health check tells Docker to ping `http://localhost:8000/admin/` every 30 seconds to ensure the server hasn't crashed.
 
