@@ -223,7 +223,7 @@ CORS_ALLOW_METHODS = [
     "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS",
 ]
 CORS_ALLOW_HEADERS = [
-    "content-type", "authorization", "x-requested-with", "accept", "origin",
+    "content-type", "authorization", "x-requested-with", "accept", "origin", "x-csrftoken",
 ]
 
 # Sentry Configuration
