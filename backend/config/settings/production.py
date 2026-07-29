@@ -39,8 +39,23 @@ DATABASES = {
         'OPTIONS': {
             'connect_timeout': 10,
         }
+    },
+    'replica': {
+        'ENGINE': os.getenv('DB_ENGINE', 'django.db.backends.postgresql'),
+        'NAME': os.getenv('DB_NAME', 'Laguna'),
+        'USER': os.getenv('DB_REPLICA_USER', os.getenv('DB_USER')),
+        'PASSWORD': os.getenv('DB_REPLICA_PASSWORD', os.getenv('DB_PASSWORD')),
+        'HOST': os.getenv('DB_REPLICA_HOST', os.getenv('DB_HOST')),
+        'PORT': os.getenv('DB_REPLICA_PORT', os.getenv('DB_PORT', '5432')),
+        'CONN_MAX_AGE': 600,
+        'OPTIONS': {
+            'connect_timeout': 10,
+        }
     }
 }
+
+# Database Routers for Primary-Replica architecture
+DATABASE_ROUTERS = ['config.db_routers.PrimaryReplicaRouter']
 
 # AWS S3 Configuration
 AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')

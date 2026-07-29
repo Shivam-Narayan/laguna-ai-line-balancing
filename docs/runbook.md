@@ -7,17 +7,20 @@ This runbook provides standardized procedures for DevOps and Engineering teams t
 ## 1. System Monitoring & Logs
 
 ### Viewing Live Logs
-All services are containerized. To view real-time logs for a specific service:
+All services are containerized. To view real-time logs for all running services:
 
 ```bash
-# View main Django backend logs
-./scripts/start.sh --logs backend
+./scripts/start.sh --logs
+```
 
-# View Celery worker logs (for ML and background tasks)
-./scripts/start.sh --logs celery
+If you need logs for a specific service, use Docker Compose directly:
 
-# View Nginx access/error logs
-./scripts/start.sh --logs nginx
+```bash
+docker compose logs -f backend
+
+docker compose logs -f celery
+
+docker compose logs -f nginx
 ```
 
 ### Inspecting Django Error Files

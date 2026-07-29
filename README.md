@@ -208,14 +208,14 @@ docker compose up --build -d
 | Backend API | http://localhost:8000 |
 | Frontend App | http://localhost:5173 |
 | Swagger UI | http://localhost:8000/swagger/ |
-| Redoc | http://localhost:8000/api/schema/redoc/ |
+| Redoc | http://localhost:8000/redoc/ |
 | Raw OpenAPI Schema | http://localhost:8000/api/schema/ |
 | pgAdmin (Database UI) | http://localhost:5050 |
 | Redis Commander | http://localhost:8082 |
 | Grafana (Monitoring) | http://localhost:4000 |
 
 #### API Documentation
-The backend follows strict **RESTful conventions** (plural nouns, kebab-case) and uses a custom `RequestFilterMiddleware` to enforce an endpoint allowlist. If you add a new endpoint, you MUST add it to the allowlist in `custom_middleware.py`.
+The backend follows strict **RESTful conventions** (plural nouns, kebab-case). The current middleware stack is focused on CSRF handling via `backend/config/middleware.py`.
 
 Because the API structure is dynamic, we do not hardcode the endpoint list in this README. Instead, you can view the live, interactive API documentation by visiting the **Swagger UI** (`http://localhost:8000/swagger/`). From there, you can explore all endpoints, view required payload structures, and even export the OpenAPI Schema directly into Postman.
 

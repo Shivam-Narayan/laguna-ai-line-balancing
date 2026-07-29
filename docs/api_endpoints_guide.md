@@ -32,6 +32,10 @@ Here is how the endpoints interact in a daily factory workflow.
 * **`POST /data/historical-weather/upload/`**: Uploads historical weather data required for the ML model.
 * **`POST /data/attendance/upload/`**: Uploads raw attendance files.
 * **`GET /data/employees/generate/`**: Generates the consolidated Employee Master record.
+* **`GET /data/operators/`**: Fetches processed operator data from the Employee Master.
+* **`GET /data/operators/export/csv/`**: Exports operator data as a CSV file.
+* **`POST /data/operators/export/email/`**: Sends operator CSV data by email.
+* **`POST /data/payable-working-days/`**: Uploads or updates payable working-days configuration.
 
 ---
 
@@ -42,6 +46,8 @@ Here is how the endpoints interact in a daily factory workflow.
 * **`GET /absenteeism/preprocess/`**: Cleans and normalizes the raw CSV data into a format the Machine Learning models understand.
 * **`POST /absenteeism/predictions/generate/`**: Runs the actual AI regressions (combining weather, past attendance, etc.) to train the model and generate absentee rates for the upcoming shift.
 * **`GET /absenteeism/predictions/`**: Retrieves the generated predictions payload.
+* **`POST /absenteeism/predictions/upload/`**: Uploads existing prediction results for later retrieval.
+* **`GET /absenteeism/forecasts/`**: Retrieves absenteeism forecast details for analysis.
 * **`GET /absenteeism/reports/today/`**: Returns a summary of exactly how many workers are expected to be missing per department for the current day.
 
 ---
@@ -53,9 +59,30 @@ Here is how the endpoints interact in a daily factory workflow.
 * **`POST /manning-sheet/emp-facts/generate/`**: Generates Employee Facts by cross-referencing active employees with their skill matrices from Optafloor.
 * **`POST /manning-sheet/attendance/rockhr/`**: Fetches today's real attendance from RockHR.
 * **`POST /manning-sheet/style-obs/upload/`**: Uploads the "Style OB" (the specific sequence of operations/machines needed to build today's garment).
+* **`POST /manning-sheet/loading-plans/upload/`**: Uploads loading plan or OB data for the current shift.
+* **`POST /manning-sheet/emp-facts/upload/`**: Uploads employee facts data manually.
+* **`POST /manning-sheet/wips/upload-file/`**: Uploads WIP data for production planning.
+* **`POST /manning-sheet/manning-sheets/generate/`**: Generates the core manning sheet allocation.
+* **`GET /manning-sheet/manning-sheets/`**: Retrieves the current manning sheet data.
+* **`GET /manning-sheet/manning-sheets/export/`**: Downloads the current manning sheet data.
 * **`POST /manning-sheet/manning-sheets/d-day/generate/`**: **The Core Endpoint.** It takes the required operations, filters out the absent employees (using attendance and predictions), looks at the skill matrix of whoever is left, and automatically assigns people to machines to perfectly balance the line!
 * **`GET /manning-sheet/manning-sheets/d-day/`**: Retrieves the final generated D-Day allocation sheet so the manager can view it on the floor.
-* **`GET /manning-sheet/employees/unallocated/d-day/`**: Lists workers who showed up but weren't assigned to the core line by the algorithm, allowing the manager to assign them to side tasks.
+* **`GET /manning-sheet/employees/unallocated/`**: Lists workers who showed up but were not assigned to the core line.
+* **`GET /manning-sheet/employees/unallocated/d-day/`**: Lists workers who showed up but weren't assigned to the core line on D-Day.
+* **`POST /manning-sheet/employees/allocated/`**: Updates allocated employee assignments.
+* **`POST /manning-sheet/employees/on-hold/`**: Marks an employee as on hold.
+* **`POST /manning-sheet/planned-leaves/upload/`**: Uploads planned leave data.
+* **`POST /manning-sheet/employees/upload/`**: Uploads active employee data.
+* **`GET /manning-sheet/attendance/`**: Retrieves attendance data.
+* **`GET /manning-sheet/attendance/export/`**: Downloads attendance and D-Day records.
+* **`GET /manning-sheet/employees/rockhr/`**: Fetches active employees from RockHR.
+* **`GET /manning-sheet/notifications/`**: Retrieves user notifications.
+* **`GET /manning-sheet/notifications/download/`**: Downloads notification reports.
+* **`POST /manning-sheet/notifications/mark-read/`**: Marks notifications as read.
+* **`POST /manning-sheet/style-obs/generate/`**: Generates the Style OB from uploaded data.
+* **`POST /manning-sheet/employees/capacity/`**: Updates employee capacity allocations.
+* **`POST /manning-sheet/wips/upload/`**: Uploads WIP data to the system.
+* **`POST /manning-sheet/wips/bulk/`**: Uploads bulk WIP rows.
 
 ---
 

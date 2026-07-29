@@ -52,6 +52,7 @@ Microservices are required when a system hits a hard scaling limit (e.g., the ML
 3. **API Gateway Pattern:**
    - Clients (React/Mobile apps) do not talk directly to the 50 microservices. They talk to a single entry point (e.g., Kong, AWS API Gateway, or an Nginx Ingress).
    - The Gateway handles JWT authentication, SSL termination, rate limiting, and routes the request to the internal microservice.
+   - **Laguna-AI (Monolith):** Nginx serves as the API gateway in production — SSL termination, rate limiting, static file serving, and reverse-proxy routing to Gunicorn. See [system_architecture.md](./system_architecture.md) §7.
 
 4. **Saga Pattern (Distributed Transactions):**
    - Because there is no single database, you cannot use standard SQL `COMMIT/ROLLBACK`.
@@ -59,6 +60,7 @@ Microservices are required when a system hits a hard scaling limit (e.g., the ML
 
 5. **Resiliency Patterns (Circuit Breakers):**
    - In distributed systems, network calls fail. Implement **Circuit Breakers** (e.g., using libraries like Resilience4j or Polly). If the `Absenteeism` service goes offline, the `Manning` service should "trip the circuit" and return a cached default value rather than hanging indefinitely waiting for a response.
+   - **Laguna-AI (Monolith):** Implemented via `pybreaker` in `config/circuit_breakers.py` with separate breakers for database and external API calls.
 
 ---
 
@@ -82,3 +84,25 @@ If you begin with a Modular Monolith and eventually need Microservices, **do not
 3. Build a brand new Microservice just for that one feature.
 4. Update the API Gateway to route `/api/absenteeism/*` requests to the new Microservice, while routing everything else to the legacy Monolith.
 5. Over time, slowly "strangle" the monolith by carving out more services until the monolith is retired.
+
+---
+
+## 5. Laguna-AI: Implemented Enterprise Patterns
+
+The Laguna-AI Line Balancing monolith implements all 11 production resilience and scaling patterns described throughout this document. The table below maps each enterprise pattern to its concrete implementation in the codebase.
+
+| Pattern | Laguna Implementation | Key Files |
+|---------|----------------------|-----------|
+| **Caching** | Redis via `django-redis`; service-layer cache hits and idempotency storage | `config/settings/production.py`, [redis_caching_guide.md](./redis_caching_guide.md) |
+| **Database Indexing** | `db_index=True` on dates, employee IDs, lines, departments | `apps/manning_sheet/models.py`, `apps/absenteeism/models.py` |
+| **Message Queues** | Celery + Redis broker for ML, ETL, and scheduled jobs | `docker-compose.prod.yml`, `config/celery.py` |
+| **Rate Limiting** | DRF throttles (Anon/User/Scoped) + Nginx `limit_req` | `config/settings/base.py`, `nginx.conf` |
+| **Database Transactions** | `transaction.atomic()` on all bulk write paths | `apps/manning_sheet/services/`, `apps/absenteeism/services/` |
+| **Observability** | Sentry (errors/traces) + Promtail/Loki/Grafana (logs) | `config/settings/base.py`, `docker-compose.yml` |
+| **Load Balancing** | Gunicorn (4 workers) + Nginx reverse proxy | `backend/Dockerfile`, `nginx.conf` |
+| **Idempotency** | `@idempotent` decorator with `Idempotency-Key` header | `config/idempotency.py`, `tests/test_idempotency.py` |
+| **Circuit Breakers** | `pybreaker` with `db_breaker` and `external_api_breaker` | `config/circuit_breakers.py`, `tests/test_circuit_breakers.py` |
+| **Read Replication** | `PrimaryReplicaRouter` — reads to replica, writes to primary | `config/db_routers.py`, `config/settings/production.py` |
+| **API Gateway / External LB** | Nginx: SSL, routing, rate limiting, static serving | `nginx.conf`, `docker-compose.prod.yml` |
+
+For full architecture diagrams, request lifecycle details, and usage examples, see [system_architecture.md](./system_architecture.md) §7.

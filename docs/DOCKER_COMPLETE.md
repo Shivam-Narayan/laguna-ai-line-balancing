@@ -43,10 +43,12 @@ The architecture is split into three layered files: `docker-compose.yml` (Base),
 - **redis-commander**: Web UI for Redis (port 8082)
 
 ### Production Overrides (`docker-compose.prod.yml`)
-- **backend**: Django API server (runs production Gunicorn server)
+- **backend**: Django API server (runs production Gunicorn server with 4 workers)
 - **celery**: Production background task worker
 - **scheduler**: Background scheduler for absenteeism and manning sheet generation
-- **nginx**: Reverse proxy serving static files and routing traffic
+- **nginx**: API gateway / external load balancer — SSL termination, rate limiting, static file serving, and reverse-proxy routing
+
+> **Production Resilience:** All 11 enterprise patterns (caching, indexing, message queues, rate limiting, transactions, observability, load balancing, idempotency, circuit breakers, read replication, and API gateway) are implemented. See [system_architecture.md](./system_architecture.md) §7 for details.
 
 ## 🚀 Quick Start
 
