@@ -119,6 +119,10 @@ Built for production, the application implements strict security and database in
    - Email templates are housed globally in `backend/templates/` to prevent app-level collision and enforce a single source of truth for corporate branding.
 4. **Error Tracking & Observability:**
    - Integrated with Sentry for real-time application error tracking, capturing unhandled exceptions and performance bottlenecks across both synchronous Django views and asynchronous Celery tasks.
+5. **Idempotency (Safe Retries):**
+   - Critical API endpoints (like generating Manning Sheets or bulk uploading data) are protected by a Redis-backed `@idempotent` decorator (`config/idempotency.py`). This guarantees that duplicate requests (due to network retries) will not corrupt the database or trigger redundant heavy processing.
+6. **Fault Tolerance (Circuit Breakers):**
+   - The system uses `pybreaker` (`config/circuit_breakers.py`) to prevent cascading failures. Database-heavy operations and external API calls automatically "fail fast" and return graceful fallback responses if the underlying service degrades.
 
 ---
 

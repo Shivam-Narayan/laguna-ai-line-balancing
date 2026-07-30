@@ -64,7 +64,26 @@ docker restart laguna-ai-line-balancing-celery-1
 
 ---
 
-## 3. Database Operations
+## 3. Resiliency & Caching
+
+### Circuit Breakers Tripping
+If you see `CircuitBreakerError` in the Sentry or Grafana logs, it means a downstream service (like the Database or SendGrid) is failing or timing out. 
+- The system is designed to "fail fast" and will automatically close the circuit (resume normal operations) after the configured timeout (30-60 seconds) once the downstream service recovers. 
+- **Action:** No immediate action is required for the Circuit Breaker itself, but you should investigate *why* the downstream service (DB or API) is failing.
+
+### Clearing Idempotency Caches
+If a manager complains that they cannot regenerate a manning sheet because the system keeps returning an old result instantly, they likely triggered an Idempotency lock.
+- **Action:** You can safely flush the Redis cache to clear all `idemp_*` keys, forcing the system to recalculate on the next request.
+```bash
+docker exec -it laguna-ai-line-balancing-redis-1 redis-cli FLUSHDB
+```
+
+---
+
+## 4. Database Operations
+
+### Managing the Read Replica
+In production, heavy reads are routed to the Read Replica (`DB_REPLICA_HOST`). If reports are failing or returning stale data, verify the replication lag between the Primary and Replica databases. If the replica crashes, you can temporarily point `DB_REPLICA_HOST` to the Primary database in `.env` to restore reporting functionality while you rebuild the replica.
 
 ### Backing Up the Database
 To create a manual backup of the PostgreSQL database without bringing down the system:
@@ -82,7 +101,7 @@ To create a manual backup of the PostgreSQL database without bringing down the s
 
 ---
 
-## 4. Emergency Procedures
+## 5. Emergency Procedures
 
 ### Full System Restart
 If the entire application becomes unresponsive (e.g., 502 Bad Gateway across all endpoints) and restarting individual services fails:

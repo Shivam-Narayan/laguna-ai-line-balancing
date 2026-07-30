@@ -16,8 +16,23 @@ def test_db_for_write():
 
 def test_allow_relation():
     router = PrimaryReplicaRouter()
+    
+    class MockState:
+        def __init__(self, db):
+            self.db = db
+            
+    class MockInstance:
+        def __init__(self, db):
+            self._state = MockState(db)
+
+    obj1 = MockInstance('default')
+    obj2 = MockInstance('replica')
+    obj3 = MockInstance('other_db')
+
     # Should allow relations between default and replica
-    assert router.allow_relation("obj1", "obj2") is True
+    assert router.allow_relation(obj1, obj2) is True
+    # Should return None if any object is not in default/replica
+    assert router.allow_relation(obj1, obj3) is None
 
 def test_allow_migrate():
     router = PrimaryReplicaRouter()

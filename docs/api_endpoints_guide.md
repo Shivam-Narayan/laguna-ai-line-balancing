@@ -55,6 +55,9 @@ Here is how the endpoints interact in a daily factory workflow.
 ## 4. The Manning Sheet Engine (`/manning-sheet/`)
 *This is the final step. It combines HR API data (who works here and what are their skills) with the Absenteeism AI (who is missing today) to build the final factory line allocation.*
 
+> [!IMPORTANT]
+> **Safe Retries (Idempotency):** Heavy `POST` endpoints in this section (like `/d-day/generate/`) should be passed a unique `Idempotency-Key` header (e.g., a UUID). This ensures that if a network timeout occurs and the client retries, the server will return the cached result instead of duplicating the heavy allocation logic.
+
 * **`POST /manning-sheet/employees/rockhr/`**: Fetches the active employee master list directly from the external RockHR API.
 * **`POST /manning-sheet/emp-facts/generate/`**: Generates Employee Facts by cross-referencing active employees with their skill matrices from Optafloor.
 * **`POST /manning-sheet/attendance/rockhr/`**: Fetches today's real attendance from RockHR.
