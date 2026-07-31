@@ -11,12 +11,13 @@ Laguna-AI Line Balancing is an intelligent, automated ERP platform designed to o
 **Core Technology Stack:**
 - **Backend Framework:** Django (Python) / Django REST Framework
 - **Data Engineering & ML:** Pandas, NumPy, Scikit-Learn
-- **Database:** PostgreSQL
+- **Database:** PostgreSQL (Primary + Read Replica in production)
 - **Task Queue & Caching:** Celery & Redis
-- **Web Server:** Nginx & Gunicorn
+- **Web Server / API Gateway:** Nginx (SSL, routing, rate limiting) & Gunicorn (4 workers)
 - **Containerization:** Docker & Docker Compose
 - **API Documentation:** Swagger / OpenAPI 3.0 (drf-spectacular)
-- **Error Tracking & Monitoring:** Sentry
+- **Error Tracking & Monitoring:** Sentry + Grafana/Loki
+- **Resiliency:** pybreaker (circuit breakers), Redis-backed idempotency keys
 
 ---
 
@@ -26,24 +27,28 @@ The application is fully containerized using Docker, allowing a seamless transit
 
 ```mermaid
 graph TD
-    Client[Web/Mobile Client] -->|HTTPS| Nginx[Nginx Reverse Proxy]
+    Client[Web/Mobile Client] -->|HTTPS| Nginx[Nginx API Gateway / External LB]
     Nginx -->|Static/Media Files| Volumes[(Docker Volumes)]
-    Nginx -->|WSGI/API Requests| Gunicorn[Gunicorn App Server]
-    
+    Nginx -->|Rate-Limited API Requests| Gunicorn[Gunicorn - 4 Workers]
+
     Gunicorn --> Django[Django Backend]
-    
-    Django -->|Sync SQL| DB[(PostgreSQL)]
-    Django -->|Dispatch Async Tasks| Redis[(Redis Broker)]
-    
+
+    Django -->|Writes| DBPrimary[(PostgreSQL Primary)]
+    Django -->|Reads| DBReplica[(PostgreSQL Read Replica)]
+    Django -->|Cache / Idempotency Keys| Redis[(Redis)]
+    Django -->|Dispatch Async Tasks| Redis
+
     Redis --> Celery[Celery Workers]
-    Celery -->|Heavy ML/ETL tasks| DB
+    Celery -->|Heavy ML/ETL tasks| DBPrimary
     Celery -->|Cron Jobs| Django
 ```
 
 ### Key Infrastructure Components:
-1. **Nginx:** Acts as the entry point. It serves static assets (CSS, JS) and media files directly from volumes, routing dynamic API requests to Gunicorn.
-2. **Gunicorn:** A production-grade WSGI HTTP server that runs the Django application with multiple worker processes.
-3. **Celery & Redis:** Heavy Machine Learning computations and daily cron schedulers are offloaded to Celery workers using Redis as the message broker, ensuring the main API never blocks or times out.
+1. **Nginx (API Gateway / External Load Balancer):** The single external entry point in production. Handles SSL/TLS termination, HTTP→HTTPS redirects, static and media file serving, connection and request rate limiting (`limit_req`, `limit_conn`), and reverse-proxy routing of dynamic API traffic to Gunicorn. In cloud deployments, an AWS ALB or Azure Application Gateway can sit in front of Nginx for additional DDoS protection and multi-instance routing.
+2. **Gunicorn:** A production-grade WSGI HTTP server that runs the Django application with **4 worker processes**, providing app-level load distribution across concurrent requests.
+3. **PostgreSQL Primary + Read Replica:** Writes (INSERT/UPDATE/DELETE) route to the primary database. Read-heavy queries (reports, analytics, list endpoints) route to a read replica via `PrimaryReplicaRouter`, offloading the primary during peak traffic.
+4. **Celery & Redis:** Heavy Machine Learning computations and daily cron schedulers are offloaded to Celery workers using Redis as the message broker, ensuring the main API never blocks or times out. Redis also backs the Django cache layer and idempotency key store.
+5. **Observability Stack:** Sentry captures unhandled exceptions and performance traces. Console logs from all containers are scraped by Promtail into Loki and visualized in Grafana.
 
 ---
 
@@ -114,6 +119,10 @@ Built for production, the application implements strict security and database in
    - Email templates are housed globally in `backend/templates/` to prevent app-level collision and enforce a single source of truth for corporate branding.
 4. **Error Tracking & Observability:**
    - Integrated with Sentry for real-time application error tracking, capturing unhandled exceptions and performance bottlenecks across both synchronous Django views and asynchronous Celery tasks.
+5. **Idempotency (Safe Retries):**
+   - Critical API endpoints (like generating Manning Sheets or bulk uploading data) are protected by a Redis-backed `@idempotent` decorator (`config/idempotency.py`). This guarantees that duplicate requests (due to network retries) will not corrupt the database or trigger redundant heavy processing.
+6. **Fault Tolerance (Circuit Breakers):**
+   - The system uses `pybreaker` (`config/circuit_breakers.py`) to prevent cascading failures. Database-heavy operations and external API calls automatically "fail fast" and return graceful fallback responses if the underlying service degrades.
 
 ---
 
@@ -142,3 +151,105 @@ sequenceDiagram
     MS->>MS: Run Allocation Algorithm
     MS-->>HR: Output Final Line Balance / Manning Sheet
 ```
+
+---
+
+## 7. Production Resilience & Scaling Patterns
+
+Laguna-AI implements all **11 enterprise-grade patterns** required for a fault-tolerant, production-scale deployment. Each pattern is wired into the codebase or infrastructure — not aspirational.
+
+| # | Pattern | Status | Implementation |
+|---|---------|--------|----------------|
+| 1 | **Caching** | ✅ Implemented | Redis-backed `django-redis` cache (`CACHES` in production settings). Used for response caching, idempotency key storage, and manual service-layer cache hits. See [redis_caching_guide.md](./redis_caching_guide.md). |
+| 2 | **Database Indexing** | ✅ Implemented | `db_index=True` on critical fields across `manning_sheet`, `absenteeism`, and related models (dates, employee IDs, lines, departments). |
+| 3 | **Message Queues** | ✅ Implemented | Celery workers with Redis broker. Heavy ML inference, CSV ingestion, and scheduled jobs run asynchronously. |
+| 4 | **Rate Limiting** | ✅ Implemented | DRF throttles (`AnonRateThrottle`, `UserRateThrottle`, `ScopedRateThrottle`) plus Nginx `limit_req` / `limit_conn` at the gateway layer. |
+| 5 | **Database Transactions** | ✅ Implemented | `transaction.atomic()` used throughout services (manning engine, data ingestion, absenteeism prediction) to prevent race conditions on bulk writes. |
+| 6 | **Observability** | ✅ Implemented | Sentry (errors + traces) integrated in `config/settings/base.py`. Promtail → Loki → Grafana stack for centralized log aggregation. |
+| 7 | **Load Balancing** | ✅ Implemented | App-level: Gunicorn with 4 workers. Infrastructure-level: Nginx reverse proxy as external load balancer / API gateway. |
+| 8 | **Idempotency** | ✅ Implemented | `@idempotent` decorator in `config/idempotency.py`. Clients send an `Idempotency-Key` header; duplicate retries return the cached response from Redis instead of re-running heavy work. Apply to critical POST endpoints (e.g., manning sheet generation). |
+| 9 | **Circuit Breakers** | ✅ Implemented | `pybreaker` circuit breakers in `config/circuit_breakers.py`. `db_breaker` (5 failures → 60 s open) for database-heavy operations; `external_api_breaker` (3 failures → 30 s open) for SendGrid/Mailgun. Includes `@fallback_response` for graceful degradation. |
+| 10 | **Read Replication** | ✅ Implemented | `PrimaryReplicaRouter` in `config/db_routers.py` routes reads to `replica`, writes to `default`. Configured in `config/settings/production.py` via `DB_REPLICA_HOST` env vars. |
+| 11 | **API Gateway / External LB** | ✅ Implemented | Production Nginx (`nginx.conf`, `docker-compose.prod.yml`) handles SSL termination, routing, rate limiting, and static file serving. Cloud ALBs (AWS/Azure) can front the Nginx container for multi-node deployments. |
+
+### Resilience Layer Architecture
+
+```mermaid
+graph LR
+    Client[Client Request] --> Nginx[Nginx Gateway]
+    Nginx -->|Rate Limit| Gunicorn[Gunicorn Workers]
+    Gunicorn --> Django[Django View]
+
+    Django --> Idemp{Idempotency-Key?}
+    Idemp -->|Duplicate| RedisCache[(Redis Cache)]
+    Idemp -->|New Request| CB{Circuit Breaker}
+    CB -->|Closed| Service[Service Layer]
+    CB -->|Open| Fallback[Fallback Response]
+    Service -->|Write| Primary[(DB Primary)]
+    Service -->|Read| Replica[(DB Replica)]
+    Service -->|Async| Celery[Celery Worker]
+```
+
+### Idempotency Usage
+
+Critical endpoints that trigger expensive computation (manning sheet generation, bulk data uploads) should be decorated with `@idempotent`:
+
+```python
+from config.idempotency import idempotent
+
+@idempotent(timeout=300)
+def generate_manning_sheet(request):
+    # Heavy allocation logic runs once per unique Idempotency-Key
+    ...
+```
+
+Clients must include a unique header on each logical operation:
+
+```
+Idempotency-Key: <uuid-v4>
+```
+
+If the same key is retried within the timeout window (default 300 s), the original response is returned from Redis. Concurrent duplicate requests receive `409 Conflict`.
+
+### Circuit Breaker Usage
+
+Wrap database-heavy or external API calls to fail fast when dependencies degrade:
+
+```python
+from config.circuit_breakers import db_breaker, external_api_breaker, fallback_response
+
+@db_breaker
+def fetch_manning_report():
+    ...
+
+@external_api_breaker
+@fallback_response({"status": "degraded", "message": "Email service unavailable"})
+def send_notification():
+    ...
+```
+
+When a breaker trips to **open**, subsequent calls raise `CircuitBreakerError` immediately (no hanging connections). The `@fallback_response` decorator returns a safe degraded payload instead of a 500 error.
+
+### Read Replica Configuration
+
+Production settings define two database aliases:
+
+| Alias | Role | Env Vars |
+|-------|------|----------|
+| `default` | Primary (writes + migrations) | `DB_HOST`, `DB_USER`, `DB_PASSWORD` |
+| `replica` | Read-only mirror | `DB_REPLICA_HOST`, `DB_REPLICA_USER`, `DB_REPLICA_PASSWORD` |
+
+The router in `config/db_routers.py` automatically directs all ORM reads to the replica and all writes to the primary. Migrations run only against `default`.
+
+### API Gateway Responsibilities (Nginx)
+
+| Concern | Nginx Configuration |
+|---------|---------------------|
+| SSL/TLS termination | `listen 443 ssl http2` with cert/key in `./ssl/` |
+| HTTP → HTTPS redirect | Port 80 server block returns `301` |
+| Rate limiting | `limit_req_zone` (10 req/s, burst 30) + `limit_conn` (20 concurrent) |
+| Static/media serving | Direct volume mounts, bypassing Django |
+| Reverse proxy | `proxy_pass` to Gunicorn with `X-Forwarded-*` headers |
+| Health check | `/health/` endpoint on port 80 |
+
+For multi-container cloud deployments, place an AWS ALB or Azure Application Gateway in front of the Nginx service to distribute traffic across multiple VM instances and absorb DDoS at the edge.

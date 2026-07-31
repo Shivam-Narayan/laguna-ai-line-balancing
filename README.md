@@ -68,8 +68,17 @@ laguna-ai-line-balancing/             # Repository root
 │   │   │   ├── base.py               # Common settings
 │   │   │   ├── development.py        # Local overrides
 │   │   │   └── production.py         # Live environment overrides
+│   │   ├── circuit_breakers.py       # pybreaker circuit breaker wrappers
+│   │   ├── db_routers.py             # Primary/Replica database router
+│   │   └── idempotency.py            # Redis-backed idempotency decorator
+│   ├── tests/                        # Infrastructure & cross-cutting tests
+│   │   ├── test_circuit_breakers.py  # Circuit breaker unit tests
+│   │   ├── test_db_routers.py        # Database router unit tests
+│   │   └── test_idempotency.py       # Idempotency decorator tests
 │   ├── csv_files/                    # Auto-generated CSV exports
 │   ├── data/                         # Data files (CSV, fixtures)
+│   ├── conftest.py                   # Pytest root config (path & Django setup)
+│   ├── pyproject.toml                # Pytest, Ruff, Mypy configuration
 │   ├── Dockerfile                    # Dockerfile for building backend images
 │   ├── .dockerignore                 # Docker ignore file
 │   ├── manage.py                     # Django management script
@@ -78,7 +87,6 @@ laguna-ai-line-balancing/             # Repository root
 │   └── sonar-project.properties      # SonarQube configuration
 ├── docs/                             # Documentation
 ├── scripts/                          # Startup scripts (start.bat, start.ps1, start.sh)
-├── tests/                            # Directory for tests
 ├── .env.example                      # Environment variables template
 ├── .gitattributes                    # Git attributes configuration
 ├── .gitignore                        # Git ignore rules
@@ -107,6 +115,7 @@ laguna-ai-line-balancing/             # Repository root
 | 🧹 [Code Quality Guide](docs/CODE_QUALITY_GUIDE.md) | Rationale behind Option A, Linter/Formatter instructions, and end-to-end checks |
 | 🧪 [Testing Guide](docs/TESTING.md) | How to run the automated test suite and overview of testing methodologies |
 | 🎯 [TDD Guide](docs/TDD_GUIDE.md) | Step-by-step tutorial on Test-Driven Development (Red-Green-Refactor) and mocking for developers |
+| 📦 [Redis & Caching Guide](docs/redis_caching_guide.md) | Redis caching strategies, idempotency keys, and cache invalidation patterns |
 
 ---
 
@@ -208,14 +217,14 @@ docker compose up --build -d
 | Backend API | http://localhost:8000 |
 | Frontend App | http://localhost:5173 |
 | Swagger UI | http://localhost:8000/swagger/ |
-| Redoc | http://localhost:8000/api/schema/redoc/ |
+| Redoc | http://localhost:8000/redoc/ |
 | Raw OpenAPI Schema | http://localhost:8000/api/schema/ |
 | pgAdmin (Database UI) | http://localhost:5050 |
 | Redis Commander | http://localhost:8082 |
 | Grafana (Monitoring) | http://localhost:4000 |
 
 #### API Documentation
-The backend follows strict **RESTful conventions** (plural nouns, kebab-case) and uses a custom `RequestFilterMiddleware` to enforce an endpoint allowlist. If you add a new endpoint, you MUST add it to the allowlist in `custom_middleware.py`.
+The backend follows strict **RESTful conventions** (plural nouns, kebab-case). The current middleware stack is focused on CSRF handling via `backend/config/middleware.py`.
 
 Because the API structure is dynamic, we do not hardcode the endpoint list in this README. Instead, you can view the live, interactive API documentation by visiting the **Swagger UI** (`http://localhost:8000/swagger/`). From there, you can explore all endpoints, view required payload structures, and even export the OpenAPI Schema directly into Postman.
 
@@ -325,6 +334,10 @@ curl -X POST http://localhost:8000/manning-sheet/manning-sheets/d-day/generate/
   - Django 4.0+ strict `CSRF_TRUSTED_ORIGINS` validation is automatically mapped to `ALLOWED_HOSTS` to prevent Cross-Site Request Forgery while supporting Nginx/Docker proxies.
   - User deletions are protected by Django `pre_delete` signals to cleanly wipe SimpleJWT tokens (`OutstandingToken`, `BlacklistedToken`), guaranteeing database integrity and preventing foreign key crashes.
   - Machine Learning Model state files (`.pkl`) enforce strict absolute path resolution natively anchored to their application directory to completely prevent random directory scaffolding or unauthorized file injections regardless of the Server execution context.
+- **Production Resilience & Scaling**:
+  - Built-in **Idempotency** guarantees using Redis (`@idempotent`) to prevent accidental duplicate processing on heavy API requests.
+  - **Circuit Breakers** (`pybreaker`) around database and external API calls ensure the system fails fast with graceful fallback responses instead of cascading crashes during outages.
+  - Configured **Database Read Replicas** via custom database routers to seamlessly offload heavy analytical reads from the primary write database.
 - **Centralized Templates**: Email HTML templates (e.g., CSV exports, Password Resets) are maintained in a global, centralized `backend/templates/` directory to prevent app-level name collisions and simplify rebranding.
 - **Automated Code Quality Pipeline**: Built-in enforcement of industry standards using `Ruff` (linting/formatting), `Mypy` (static type checking), and `Pytest` (automated testing and coverage). The CI/CD pipeline blocks code that fails these strict checks.
 - **Unified Docker Compose**: One `docker-compose.yml` for all environments. The `.env` file controls the behavior — no need for separate dev/prod compose files.

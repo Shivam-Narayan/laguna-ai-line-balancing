@@ -115,7 +115,18 @@ When you look in Redis Commander, you will see folders like:
 
 ---
 
-## 6. Helpful Terminal Commands
+## 6. Important Note on Idempotency Keys
+
+When looking in Redis Commander, you will also see keys starting with:
+- `:1:idemp_<key>` (The cached JSON response for a completed request)
+- `:1:idemp_lock_<key>` (A short-lived lock to prevent concurrent identical requests)
+
+These are managed by the `@idempotent` decorator (`config/idempotency.py`) to ensure safe retries on heavy API endpoints. 
+- **Can I delete them?** Yes! It is safe to delete them if you want to force the system to re-calculate a request immediately. Otherwise, they automatically expire after their configured timeout (usually 300 seconds).
+
+---
+
+## 7. Helpful Terminal Commands
 
 If you ever need to interact with Redis from the terminal without the GUI, use these commands:
 

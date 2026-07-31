@@ -1,4 +1,4 @@
-from django.test import TestCase
+from django.test import SimpleTestCase, override_settings
 from unittest.mock import patch
 import pandas as pd
 
@@ -7,7 +7,8 @@ from apps.absenteeism.services.absenteeism_percentage_service import (
     calculate_line_percentages,
 )
 
-class AbsenteeismPercentageServiceTest(TestCase):
+@override_settings(CACHES={'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'}})
+class AbsenteeismPercentageServiceTest(SimpleTestCase):
     @patch('apps.absenteeism.services.absenteeism_percentage_service.pd.read_csv')
     def test_load_active_employees_returns_dict(self, mock_read_csv):
         # Mock the CSV read to return a sample DataFrame

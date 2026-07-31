@@ -64,7 +64,7 @@ Once the script completes and the containers are healthy, you can access your lo
 
 ### 1. API Routing & Middleware
 - **RESTful Conventions:** All endpoints must use plural nouns and kebab-case (e.g., `/api/users/`, `/api/data-engine/employees/`).
-- **Endpoint Allowlist:** For security, the backend employs a strict `RequestFilterMiddleware` (`backend/backend_laguna/custom_middleware.py`). **Any new endpoints MUST be explicitly added to the allowlist arrays within this middleware**, otherwise they will return a `404 Not Found`.
+- **Middleware:** The backend does not use a custom request allowlist middleware. The current middleware stack is focused on CSRF handling in `backend/config/middleware.py`.
 
 ### 2. Model Standards
 All Django models must strictly adhere to the following enterprise standards:
