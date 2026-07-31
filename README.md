@@ -1,4 +1,4 @@
-# Laguna-Ai Backend
+# Laguna-AI Backend
 AI line-balancing backend application.
 
 ## 🚀 Quick Start for Beginners
