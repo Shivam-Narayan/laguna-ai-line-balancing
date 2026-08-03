@@ -7,7 +7,7 @@ This document describes the development environment setup and best practices for
 If you are a new developer setting up the project for the first time, ensure you have **Git**, **Docker Desktop**, **Python 3.10+**, and **Node.js 18+** installed.
 
 ### 1. Clone the Repositories
-Because the frontend and backend run together in development via Docker Compose, you must clone them into the same parent workspace folder side-by-side:
+Because the frontend and backend run together in development via Docker Compose, you must clone them into the same parent workspace folder side-by-side
 
 ```bash
 mkdir laguna-workspace
