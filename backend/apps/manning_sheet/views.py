@@ -9,6 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from apps.accounts.authentication import CookieJWTAuthentication
 from apps.accounts.utils.response_handlers import error_response
+from config.idempotency import idempotent
 
 from .services.allocation_service import (
     run_update_allocated_capacity,
@@ -72,6 +73,7 @@ NOTIFICATION_DISPLAY_TITLE = {
 @api_view(["POST"])
 @authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
+@idempotent(timeout=300)
 def manning_allocation(request):
     try:
         try:
@@ -127,6 +129,7 @@ def generate_emp_fact(request):
 @api_view(["POST"])
 @authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
+@idempotent(timeout=300)
 def generate_dday_manning_data(request):
     try:
         viaAPI = True
@@ -314,6 +317,7 @@ def upload_active_employees(request):
 @api_view(["POST"])
 @authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
+@idempotent(timeout=300)
 def update_allocated_employees(request):
     final_allocation = request.data.get("final_allocation")
     dday_id = request.data.get("dday_id")
@@ -323,6 +327,7 @@ def update_allocated_employees(request):
 @api_view(["POST"])
 @authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
+@idempotent(timeout=300)
 def update_employee_on_hold_individual(request):
     preferred_employee = request.data.get("preferred_employee")
     allocated_capacity = request.data.get("allocated_capacity")
@@ -335,6 +340,7 @@ def update_employee_on_hold_individual(request):
 @api_view(["POST"])
 @authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
+@idempotent(timeout=300)
 def update_employee_on_hold(request):
     multiple_ids = request.data.get("multiple_IDs", [])
     return run_update_employee_on_hold(multiple_ids)
@@ -343,6 +349,7 @@ def update_employee_on_hold(request):
 @api_view(["POST"])
 @authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
+@idempotent(timeout=300)
 def update_allocated_capacity(request):
     allocated_capacity = request.data.get("allocated_capacity")
     manning_id = request.data.get("manning_id")

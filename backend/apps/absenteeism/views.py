@@ -8,6 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from apps.accounts.authentication import CookieJWTAuthentication
 from apps.accounts.utils.response_handlers import error_response
+from config.idempotency import idempotent
 
 from .services.data_ingestion_service import (
     run_absenteeism_data_preprocessing,
@@ -42,6 +43,7 @@ def upload_absenteesim_data(request):
 @api_view(["POST"])
 @authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
+@idempotent(timeout=300)
 def absenteeism_data_preprocessing(request):
     return run_absenteeism_data_preprocessing()
 
@@ -69,6 +71,7 @@ def export_absenteeism_data(request):
 @api_view(["POST"])
 @authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
+@idempotent(timeout=300)
 def send_csv_via_email(request):
     email = request.data.get("email")
     return run_send_csv_via_email(email)
@@ -86,6 +89,7 @@ def get_absenteeism_forecast(request):
 @api_view(["POST"])
 @authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
+@idempotent(timeout=300)
 def absenteeism_prediction(request):
     return run_absenteeism_prediction_trigger()
 
