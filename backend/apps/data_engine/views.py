@@ -6,6 +6,7 @@ from rest_framework.decorators import (
 from rest_framework.permissions import IsAuthenticated
 
 from apps.accounts.authentication import CookieJWTAuthentication
+from config.idempotency import idempotent
 
 from .services.employee_service import run_generate_employee_master, run_operators_data
 from .services.export_service import (
@@ -43,6 +44,7 @@ def add_local_holiday_calender(request):
 @api_view(["POST"])
 @authentication_classes([CookieJWTAuthentication])
 @permission_classes([IsAuthenticated])
+@idempotent(timeout=300)
 def add_payable_working_days(request):
     return run_add_payable_working_days()
 
