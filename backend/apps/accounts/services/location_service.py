@@ -1,12 +1,13 @@
-from math import radians, sin, cos, sqrt, atan2
-from typing import Tuple
+from math import atan2, cos, radians, sin, sqrt
+from typing import Tuple, Any
 
 EARTH_RADIUS_METERS = 6371000
 
 # Geofence definition
 GEOFENCE = {
-    'radius': 5000  # 5 km radius
+    "radius": 5000  # 5 km radius
 }
+
 
 def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Calculates the distance in meters between two GPS coordinates."""
@@ -15,28 +16,42 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     dlat = lat2 - lat1
     dlon = lon2 - lon1
 
-    a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
+    a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
     c = 2 * atan2(sqrt(a), sqrt(1 - a))
-    
+
     return EARTH_RADIUS_METERS * c
 
-def verify_geofence(user, current_lat, current_lon) -> Tuple[bool, str, int]:
+
+def verify_geofence(user: Any, current_lat: float, current_lon: float) -> Tuple[bool, str, int]:
     """Verifies if a user is within the allowed geofence radius of their assigned location."""
     try:
         current_lat = float(current_lat)
         current_lon = float(current_lon)
     except (TypeError, ValueError):
-        return False, 'Required Latitude and Longitude must be valid numbers.', 400
+        return False, "Required Latitude and Longitude must be valid numbers.", 400
+
+    if not (-90.0 <= current_lat <= 90.0) or not (-180.0 <= current_lon <= 180.0):
+        return False, "Invalid GPS boundaries provided.", 400
 
     user_lat = user.latitude
     user_lon = user.longitude
 
-    if not user_lat or not user_lon:
-        return False, 'User Latitude and Longitude values are empty in the database.', 404
+    if user_lat is None or user_lon is None:
+        return (
+            False,
+            "User Latitude and Longitude values are empty in the database.",
+            404,
+        )
 
-    distance = haversine_distance(current_lat, current_lon, float(user_lat), float(user_lon))
+    distance = haversine_distance(
+        current_lat, current_lon, float(user_lat), float(user_lon)
+    )
 
-    if distance <= GEOFENCE['radius']:
-        return True, 'You are within the geofence.', 200
-    
-    return False, 'You are outside the geofence. Please be within the access range to continue.', 403
+    if distance <= GEOFENCE["radius"]:
+        return True, "You are within the geofence.", 200
+
+    return (
+        False,
+        "You are outside the geofence. Please be within the access range to continue.",
+        403,
+    )

@@ -1,6 +1,8 @@
 services:
   # In local development, map the local backend folder for live reloading
   backend:
+    ports:
+      - "8000:8000"
     volumes:
       - ./backend:/app
 

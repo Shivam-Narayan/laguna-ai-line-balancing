@@ -1,20 +1,22 @@
 from django.db import models
+
 from apps.core.models import BaseModel
+
 
 class LocalHolidayCalendar(BaseModel):
     objects = models.Manager()
     date = models.DateField()
     month = models.IntegerField()
     year = models.IntegerField()
-    day = models.IntegerField()   
+    day = models.IntegerField()
     week = models.IntegerField()
     event = models.CharField(max_length=100)
-    leave_type = models.CharField(max_length=100, default='full')
+    leave_type = models.CharField(max_length=100, default="full")
 
     class Meta:
-        db_table = 'local_holiday_calendar'
-    
-        
+        db_table = "local_holiday_calendar"
+
+
 class HistoricalWeather(BaseModel):
     objects = models.Manager()
     name = models.CharField(max_length=255)
@@ -52,13 +54,13 @@ class HistoricalWeather(BaseModel):
     stations = models.TextField()
 
     class Meta:
-        db_table = 'historical_weather'
-
+        db_table = "historical_weather"
 
 
 class EmployeeStatus(models.TextChoices):
-    ACTIVE = 'active', 'Active'
-    INACTIVE = 'inactive', 'Inactive'
+    ACTIVE = "active", "Active"
+    INACTIVE = "inactive", "Inactive"
+
 
 class EmployeeMaster(BaseModel):
     objects = models.Manager()
@@ -66,15 +68,16 @@ class EmployeeMaster(BaseModel):
     emp_name = models.CharField(max_length=100)
     date_of_joining = models.DateField()
     line = models.CharField(max_length=100, null=True, blank=True)
-    section = models.CharField(max_length=100,null=True, blank=True)
+    section = models.CharField(max_length=100, null=True, blank=True)
     designation = models.CharField(max_length=100)
-    status = models.CharField(max_length=40, choices=EmployeeStatus.choices, default=EmployeeStatus.ACTIVE)
-    primary = models.CharField(max_length=200,null=True, blank=True)
-    secondary = models.CharField(max_length=200,null=True, blank=True)
-    
-    class Meta:
-        db_table = 'employee_master'
+    status = models.CharField(
+        max_length=40, choices=EmployeeStatus.choices, default=EmployeeStatus.ACTIVE
+    )
+    primary = models.CharField(max_length=200, null=True, blank=True)
+    secondary = models.CharField(max_length=200, null=True, blank=True)
 
+    class Meta:
+        db_table = "employee_master"
 
 
 class AttendanceMaster(BaseModel):
@@ -103,8 +106,8 @@ class PayableWorkingDays(BaseModel):
     date = models.DateField()
     month = models.IntegerField()
     year = models.IntegerField()
-    day = models.IntegerField()   
+    day = models.IntegerField()
     week = models.IntegerField()
 
     class Meta:
-        db_table = 'payable_working_days'
+        db_table = "payable_working_days"

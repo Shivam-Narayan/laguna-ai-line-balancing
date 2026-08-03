@@ -1,3 +1,8 @@
-from .user import User, CustomUserManager
-from .tokens import PasswordResetToken, MultiSessionToken, generate_unique_token, default_expiry
 from .locks import EndpointLock
+from .tokens import (
+    MultiSessionToken,
+    PasswordResetToken,
+    default_expiry,
+    generate_unique_token,
+)
+from .user import CustomUserManager, User

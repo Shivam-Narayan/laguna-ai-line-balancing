@@ -1,20 +1,33 @@
 import base64
 import logging
 from datetime import datetime
+
 from django.conf import settings
 from django.template.loader import render_to_string
 from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, Attachment, FileContent, FileName, FileType, Disposition
+from sendgrid.helpers.mail import (
+    Attachment,
+    Disposition,
+    FileContent,
+    FileName,
+    FileType,
+    Mail,
+)
 
-logger = logging.getLogger('general')
+logger = logging.getLogger("general")
 
-def send_email(recipient_emails, data, subject, type, file_name, test=False, encoded_data=None):
+
+def send_email(
+    recipient_emails, data, subject, type, file_name, test=False, encoded_data=None
+):
     try:
-        logger.info(f"*******************************************************************")
+        logger.info(
+            "*******************************************************************"
+        )
         logger.info(f"Running EMAIL FUNCTION at {str(datetime.now())} hours!")
         # Get today's date
         # Render the email body from the template
-        email_body = render_to_string('absenteeism_export.html', {'subject': subject})
+        email_body = render_to_string("absenteeism_export.html", {"subject": subject})
 
         # SendGrid API configuration
         sendgrid_api_key = settings.SENDGRID_API_KEY
@@ -22,7 +35,9 @@ def send_email(recipient_emails, data, subject, type, file_name, test=False, enc
 
         # Ensure recipient_emails is a list
         if isinstance(recipient_emails, str):
-            recipient_emails = recipient_emails.split(',')  # Split comma-separated string into a list
+            recipient_emails = recipient_emails.split(
+                ","
+            )  # Split comma-separated string into a list
 
         # Create the Mail object
         message = Mail(
@@ -45,19 +60,19 @@ def send_email(recipient_emails, data, subject, type, file_name, test=False, enc
                 file_content=FileContent(encoded_data),
                 file_name=FileName(file_name),
                 file_type=FileType(type),
-                disposition=Disposition('attachment')
+                disposition=Disposition("attachment"),
             )
             # message.attachment = attached_file
             attachments_list.append(attached_file)
 
         if test:
-            with open('csv_files/attendance.csv', 'rb') as f:
+            with open("csv_files/attendance.csv", "rb") as f:
                 encoded_csv = base64.b64encode(f.read()).decode()
                 attached_file_2 = Attachment(
                     file_content=FileContent(encoded_csv),
                     file_name=FileName("attendance.csv"),
                     file_type=FileType("text/csv"),
-                    disposition=Disposition('attachment')
+                    disposition=Disposition("attachment"),
                 )
                 attachments_list.append(attached_file_2)
 

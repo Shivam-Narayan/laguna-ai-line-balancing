@@ -11,9 +11,17 @@ RUN apt-get update && apt-get install -y \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/
+
+# Create a virtual environment
+ENV VIRTUAL_ENV=/opt/venv
+RUN uv venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
-RUN pip install --user --no-cache-dir -r requirements.txt
+RUN uv pip install -r requirements.txt
 
 # Common runtime base
 FROM python:3.11-slim AS base
@@ -26,11 +34,11 @@ RUN apt-get update && apt-get install -y \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Python dependencies from builder
-COPY --from=builder /root/.local /root/.local
+# Copy virtual environment from builder
+COPY --from=builder /opt/venv /opt/venv
 
-# Set PATH to use user's local Python packages
-ENV PATH=/root/.local/bin:$PATH
+# Set PATH to use the virtual environment
+ENV PATH="/opt/venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONPATH=/app/apps:/app
@@ -39,7 +47,7 @@ ENV PYTHONPATH=/app/apps:/app
 COPY . .
 
 # Create necessary directories
-RUN mkdir -p /app/logs /app/media /app/static_files /app/csv_files
+RUN mkdir -p /app/media /app/static_files /app/csv_files
 
 # Collect static files (optional, for production)
 # RUN python manage.py collectstatic --noinput

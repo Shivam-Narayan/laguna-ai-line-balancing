@@ -20,7 +20,7 @@ The CI pipeline acts as an automated gatekeeper. Every time a developer pushes c
 3. **Code Checkout & Dependency Installation**
    - The virtual machine clones the latest repository code.
    - It sets up Python 3.11.
-   - It executes `pip install -r requirements.txt` to pull all backend dependencies.
+   - It uses `uv` to execute a lightning-fast installation of all backend dependencies.
 
 4. **Django System Integrity Checks**
    - The pipeline injects test environment variables (`DB_USER`, `SECRET_KEY`, etc.) allowing Django to connect to the ephemeral Postgres/Redis containers.

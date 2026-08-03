@@ -1,12 +1,16 @@
 import os
 import pathlib
-from typing import Tuple, Optional
+from typing import Optional, Tuple
+
 from django.conf import settings
 
 # Path to logs directory
 LOGS_DIR = os.path.join(settings.BASE_DIR, "logs")
 
-def _get_validated_log_path(log_filename: str) -> Tuple[Optional[str], Optional[str], int]:
+
+def _get_validated_log_path(
+    log_filename: str,
+) -> Tuple[Optional[str], Optional[str], int]:
     """Validates the log filename and returns the safe path, error, and status code."""
     # Sanitize filename: strip directory components to prevent path traversal
     safe_name = pathlib.Path(log_filename).name

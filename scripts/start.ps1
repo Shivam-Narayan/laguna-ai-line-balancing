@@ -77,12 +77,6 @@ function Show-Help {
     Write-Host "  -Staged           Enable staged startup sequence  (default)"
     Write-Host "  -Fast             Disable staged startup (quick, parallel start)"
     Write-Host ""
-    Write-Colour "Examples:" White
-    Write-Host "  .\scripts\start.ps1 -Dev              # Start dev with Docker"
-    Write-Host "  .\scripts\start.ps1 -Dev -Fast        # Quick-start dev"
-    Write-Host "  .\scripts\start.ps1 -Local            # Run Django locally"
-    Write-Host "  .\scripts\start.ps1 -Down             # Stop everything"
-    Write-Host ""
 }
 
 # ── Load .env ───────────────────────────────────────────────────────────────
@@ -100,7 +94,7 @@ function Import-Env {
         }
     }
     elseif (Test-Path (Join-Path $ProjectRoot ".env.example")) {
-        Write-Colour "[WARN] No .env file found. Copying .env.example -> .env" Yellow
+        Write-Colour "[WARN] No .env file found. Copying .env.example to .env" Yellow
         Copy-Item (Join-Path $ProjectRoot ".env.example") $EnvFile
         Import-Env
     }
@@ -109,44 +103,36 @@ function Import-Env {
     }
 }
 
-# ── Docker Compose command ──────────────────────────────────────────────────
-function Get-DockerCompose {
-    try {
-        docker compose version 2>&1 | Out-Null
-        if ($LASTEXITCODE -eq 0) { return "docker compose" }
-    }
-    catch {}
-
-    try {
-        $null = Get-Command docker-compose -ErrorAction Stop
-        return "docker-compose"
-    }
-    catch {}
-
-    Write-Colour "[ERROR] Docker Compose is not installed." Red
-    exit 1
-}
-
-function Invoke-DC {
-    param([string]$CommandArgs)
-    $dc = Get-DockerCompose
-    Invoke-Expression "$dc $CommandArgs"
-}
-
-# ── Check prerequisites ────────────────────────────────────────────────────
+# ── Assertions ──────────────────────────────────────────────────────────────
 function Assert-Docker {
-    try { $null = Get-Command docker -ErrorAction Stop } catch {
-        Write-Colour "[ERROR] Docker is not installed." Red; exit 1
+    try {
+        $null = Get-Command docker -ErrorAction Stop
+        $dockerInfo = docker info 2>&1
+        if ($LASTEXITCODE -ne 0 -or $dockerInfo -match "error during connect") {
+            Write-Colour "[ERROR] Docker daemon is not running. Please start Docker Desktop." Red
+            exit 1
+        }
+        Write-Colour "[OK] Docker is available" Green
     }
-    docker info 2>&1 | Out-Null
-    if ($LASTEXITCODE -ne 0) {
-        Write-Colour "[ERROR] Docker daemon is not running. Start Docker Desktop." Red; exit 1
+    catch {
+        Write-Colour "[ERROR] Docker is not installed or not in PATH." Red
+        exit 1
     }
-    Write-Colour "[OK] Docker is available" Green
+}
+
+function Invoke-DC($ArgsList) {
+    if (Get-Command "docker-compose" -ErrorAction SilentlyContinue) {
+        Invoke-Expression "docker-compose $ArgsList"
+    } else {
+        Invoke-Expression "docker compose $ArgsList"
+    }
 }
 
 function Assert-Python {
-    try { $null = Get-Command python -ErrorAction Stop } catch {
+    try {
+        $null = Get-Command python -ErrorAction Stop
+    }
+    catch {
         Write-Colour "[ERROR] Python is not installed or not in PATH." Red; exit 1
     }
     $ver = python --version 2>&1
@@ -168,52 +154,65 @@ function Enable-Venv {
 # DOCKER COMMANDS
 # ════════════════════════════════════════════════════════════════════════════
 
-function Start-DevStaged {
-    Write-Colour "[INFO] Starting dev services (staged sequence)..." Blue
+function Start-AllStaged {
+    Write-Colour "[INFO] Starting ALL services (staged sequence)..." Blue
 
     Write-Colour "  Stage 1/4: Core infrastructure (db, redis)..." Cyan
-    Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml up -d db redis"
+    Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml up -d db redis"
     Write-Host "  Waiting for databases to be healthy..."
-    Start-Sleep -Seconds 8
+    Start-Sleep -Seconds 10
 
     Write-Colour "  Stage 2/4: Backend application..." Cyan
-    Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml up -d backend"
+    Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml up -d backend"
     Start-Sleep -Seconds 5
 
-    Write-Colour "  Stage 3/4: Developer tools (pgadmin)..." Cyan
+    Write-Colour "  Stage 3/4: Background workers (celery, scheduler)..." Cyan
+    Invoke-DC "-f docker-compose.yml -f docker-compose.prod.yml up -d celery scheduler"
+    Start-Sleep -Seconds 3
+
+    Write-Colour "  Stage 4/4: Developer tools and reverse proxy (pgadmin, nginx)..." Cyan
     Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml up -d pgadmin"
+    Invoke-DC "-f docker-compose.yml -f docker-compose.prod.yml up -d nginx"
 
-    Write-Colour "  Stage 4/4: Reverse proxy (nginx)..." Cyan
-    Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml up -d nginx"
+    Write-Colour "[OK] All services started" Green
+}
 
+function Start-AllFast {
+    Write-Colour "[INFO] Starting ALL services (fast mode)..." Blue
+    Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml up --force-recreate -d"
+    Write-Colour "[OK] All services started" Green
+}
+
+
+function Start-DevStaged {
+    Write-Colour "[INFO] Starting dev services (staged sequence)..." Blue
+    Write-Colour "  Stage 1/3: Core infrastructure (db, redis)..." Cyan
+    Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml up -d db redis"
+    Start-Sleep -Seconds 8
+    Write-Colour "  Stage 2/3: Backend application..." Cyan
+    Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml up -d backend"
+    Start-Sleep -Seconds 5
+    Write-Colour "  Stage 3/3: Developer tools (pgadmin)..." Cyan
+    Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml up -d pgadmin"
     Write-Colour "[OK] All dev services started" Green
 }
 
 function Start-DevFast {
     Write-Colour "[INFO] Starting dev services (fast mode)..." Blue
     Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml up --force-recreate -d"
-    Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml up -d nginx"
     Write-Colour "[OK] All dev services started" Green
 }
 
 function Start-ProdStaged {
     Write-Colour "[INFO] Starting production services (staged sequence)..." Blue
-
-    Write-Colour "  Stage 1/4: Core infrastructure (db, redis)..." Cyan
+    Write-Colour "  Stage 1/3: Core infrastructure (db, redis)..." Cyan
     Invoke-DC "-f docker-compose.yml -f docker-compose.prod.yml up -d db redis"
     Start-Sleep -Seconds 10
-
-    Write-Colour "  Stage 2/4: Backend application (gunicorn)..." Cyan
-    Invoke-DC "-f docker-compose.yml -f docker-compose.prod.yml up -d backend"
+    Write-Colour "  Stage 2/3: Application and workers..." Cyan
+    Invoke-DC "-f docker-compose.yml -f docker-compose.prod.yml up -d backend celery scheduler"
     Start-Sleep -Seconds 8
-
-    Write-Colour "  Stage 3/4: Background workers (celery)..." Cyan
-    Invoke-DC "-f docker-compose.yml -f docker-compose.prod.yml up -d celery"
-    Start-Sleep -Seconds 5
-
-    Write-Colour "  Stage 4/4: Reverse proxy (nginx)..." Cyan
+    Write-Colour "  Stage 3/3: Reverse proxy (nginx)..." Cyan
     Invoke-DC "-f docker-compose.yml -f docker-compose.prod.yml up -d nginx"
-
     Write-Colour "[OK] All production services started" Green
 }
 
@@ -229,15 +228,10 @@ function Start-ProdFast {
 
 $StagedMode = -not $Fast
 
-# No flags provided => show help
+# No flags provided => start ALL
 $anyCommand = $Dev -or $Prod -or $Build -or $Down -or $Clean -or $Logs -or $Status `
     -or $Local -or $Migrate -or $MakeMigrations -or $Shell -or $Superuser `
     -or $Test -or $Backup -or ($Restore -ne "") -or $Help
-
-if (-not $anyCommand) {
-    Show-Help
-    exit 0
-}
 
 if ($Help) { Show-Help; exit 0 }
 
@@ -248,145 +242,142 @@ $env:COMPOSE_FILE = "docker-compose.yml"
 
 # ── Docker commands ─────────────────────────────────────────────────────────
 
+if (-not $anyCommand) {
+    Assert-Docker
+    if ($StagedMode) { Start-AllStaged } else { Start-AllFast }
+    
+    $bp = if ($env:BACKEND_PORT) { $env:BACKEND_PORT } else { "8000" }
+    $pp = if ($env:PGADMIN_PORT) { $env:PGADMIN_PORT } else { "5050" }
+    Write-Host "  Dev Backend:   http://localhost:$bp"
+    Write-Host "  Swagger:       http://localhost:$bp/swagger/"
+    Write-Host "  pgAdmin:       http://localhost:$pp"
+    Write-Host "  Redis UI:      http://localhost:8082"
+    Write-Host "  Prod (nginx):  http://localhost"
+    Write-Host "  Grafana:       http://localhost:4000"
+    Write-Host ""
+    exit 0
+}
+
 if ($Dev) {
     Assert-Docker
     if ($StagedMode) { Start-DevStaged } else { Start-DevFast }
-    Write-Host ""
-    Invoke-DC "ps -a"
-    Write-Host ""
-    $port = if ($env:BACKEND_PORT) { $env:BACKEND_PORT } else { "8000" }
-    $pgport = if ($env:PGADMIN_PORT) { $env:PGADMIN_PORT } else { "5050" }
-    Write-Colour "  Backend:  http://localhost:$port" Green
-    Write-Colour "  Swagger:  http://localhost:$port/swagger/" Green
-    Write-Colour "  pgAdmin:  http://localhost:$pgport" Green
-    Write-Colour "  Redis UI: http://localhost:8082" Green
-    Write-Colour "  Grafana:  http://localhost:4000" Green
+    
+    $bp = if ($env:BACKEND_PORT) { $env:BACKEND_PORT } else { "8000" }
+    $pp = if ($env:PGADMIN_PORT) { $env:PGADMIN_PORT } else { "5050" }
+    Write-Host "  Dev Backend:   http://localhost:$bp"
+    Write-Host "  Swagger:       http://localhost:$bp/swagger/"
+    Write-Host "  pgAdmin:       http://localhost:$pp"
+    Write-Host "  Redis UI:      http://localhost:8082"
+    Write-Host "  Grafana:       http://localhost:4000"
     Write-Host ""
 }
 
 if ($Prod) {
     Assert-Docker
     if ($StagedMode) { Start-ProdStaged } else { Start-ProdFast }
-    Write-Host ""
-    Invoke-DC "ps -a"
-    Write-Host ""
-    Write-Colour "  Application: http://localhost (via nginx)" Green
+    Write-Host "  Prod (nginx):  http://localhost"
+    Write-Host "  Grafana:       http://localhost:4000"
     Write-Host ""
 }
 
 if ($Build) {
     Assert-Docker
-    Write-Colour "[INFO] Rebuilding Docker images..." Blue
-    Invoke-DC "build --no-cache"
-    Write-Colour "[OK] Images rebuilt" Green
-    if ($StagedMode) { Start-DevStaged } else { Start-DevFast }
-    Invoke-DC "ps -a"
+    Write-Colour "[INFO] Rebuilding Docker images and starting dev services..." Blue
+    Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml down"
+    Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml build"
+    Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml up -d"
+    Write-Colour "[OK] Rebuild complete" Green
 }
 
 if ($Down) {
     Assert-Docker
-    Write-Colour "[INFO] Stopping and removing all containers..." Blue
+    Write-Colour "[INFO] Stopping and removing containers..." Blue
     Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml down"
-    Write-Colour "[OK] All containers stopped and removed" Green
+    Write-Colour "[OK] Containers stopped" Green
 }
 
 if ($Clean) {
     Assert-Docker
-    Write-Colour "[WARNING] This will remove all containers AND volumes (database data will be lost!)" Red
-    $confirm = Read-Host "Continue? (y/N)"
-    if ($confirm -eq "y") {
+    Write-Colour "[WARN] Destructive action initiated. This will delete all containers and volumes." Yellow
+    $confirm = Read-Host "Are you sure you want to continue? (y/N)"
+    if ($confirm -match "^[yY](es)?$") {
         Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml down -v"
-        Write-Colour "[OK] Containers and volumes removed" Green
-    }
-    else {
-        Write-Host "  Cancelled."
+        Write-Colour "[OK] Cleaned all containers and volumes" Green
+    } else {
+        Write-Colour "[INFO] Aborted" Blue
     }
 }
 
-if ($Logs) { Invoke-DC "logs -f" }
-if ($Status) { Invoke-DC "ps -a" }
+if ($Logs) {
+    Assert-Docker
+    Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml logs -f"
+}
+
+if ($Status) {
+    Assert-Docker
+    Invoke-DC "-f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml ps"
+}
+
+# ── Local commands (Python) ─────────────────────────────────────────────────
+
+$requiresPython = $Local -or $Migrate -or $MakeMigrations -or $Shell -or $Superuser -or $Test
+if ($requiresPython) {
+    Assert-Python
+    Enable-Venv
+    Set-Location $BackendDir
+}
+
+if ($Local) {
+    Write-Colour "[INFO] Starting local Django dev server..." Blue
+    python manage.py runserver
+}
+
+if ($Migrate) {
+    Write-Colour "[INFO] Running database migrations..." Blue
+    python manage.py migrate
+}
+
+if ($MakeMigrations) {
+    Write-Colour "[INFO] Creating migration files..." Blue
+    python manage.py makemigrations
+}
+
+if ($Shell) {
+    python manage.py shell
+}
+
+if ($Superuser) {
+    Write-Colour "[INFO] Creating superuser..." Blue
+    python manage.py createsuperuser
+}
+
+if ($Test) {
+    Write-Colour "[INFO] Running test suite..." Blue
+    pytest --cov=. --cov-report=term-missing
+}
 
 if ($Backup) {
-    $dbUser = if ($env:DB_USER) { $env:DB_USER } else { "postgres" }
-    $dbName = if ($env:DB_NAME) { $env:DB_NAME } else { "Laguna" }
+    Assert-Docker
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
     $backupFile = Join-Path $ProjectRoot "backup_$timestamp.sql"
+    $dbUser = if ($env:DB_USER) { $env:DB_USER } else { "postgres" }
+    $dbName = if ($env:DB_NAME) { $env:DB_NAME } else { "Laguna" }
     Write-Colour "[INFO] Backing up database..." Blue
-    Invoke-DC "exec -T db pg_dump -U $dbUser $dbName" | Out-File -FilePath $backupFile -Encoding utf8
+    Set-Location $ProjectRoot
+    Invoke-DC "exec -T db pg_dump -U $dbUser $dbName > `"$backupFile`""
     Write-Colour "[OK] Backup saved to $backupFile" Green
 }
 
-if ($Restore -ne "") {
+if ($Restore) {
+    Assert-Docker
     if (-not (Test-Path $Restore)) {
-        Write-Colour "[ERROR] File not found: $Restore" Red; exit 1
+        Write-Colour "[ERROR] File not found: $Restore" Red
+        exit 1
     }
     $dbUser = if ($env:DB_USER) { $env:DB_USER } else { "postgres" }
     $dbName = if ($env:DB_NAME) { $env:DB_NAME } else { "Laguna" }
     Write-Colour "[INFO] Restoring database from $Restore..." Blue
-    Get-Content $Restore | Invoke-DC "exec -T db psql -U $dbUser $dbName"
-    Write-Colour "[OK] Database restored" Green
-}
-
-# ── Local commands ──────────────────────────────────────────────────────────
-
-if ($Local) {
-    Assert-Python
-    Enable-Venv
-    Write-Colour "[INFO] Starting Django development server..." Blue
-    Write-Host "  Backend dir: $BackendDir"
-    Write-Host ""
-    Write-Colour "  Server:   http://127.0.0.1:8000" Green
-    Write-Colour "  Swagger:  http://127.0.0.1:8000/swagger/" Green
-    Write-Colour "  Redoc:    http://127.0.0.1:8000/redoc/" Green
-    Write-Host ""
-    Push-Location $BackendDir
-    python manage.py runserver
-    Pop-Location
-}
-
-if ($Migrate) {
-    Assert-Python; Enable-Venv
-    Write-Colour "[INFO] Running database migrations..." Blue
-    Push-Location $BackendDir
-    python manage.py migrate
-    Pop-Location
-    Write-Colour "[OK] Migrations applied" Green
-}
-
-if ($MakeMigrations) {
-    Assert-Python; Enable-Venv
-    Write-Colour "[INFO] Creating migration files..." Blue
-    Push-Location $BackendDir
-    python manage.py makemigrations
-    Pop-Location
-    Write-Colour "[OK] Migration files created" Green
-}
-
-if ($Shell) {
-    Assert-Python; Enable-Venv
-    Push-Location $BackendDir
-    python manage.py shell
-    Pop-Location
-}
-
-if ($Superuser) {
-    Assert-Python; Enable-Venv
-    Push-Location $BackendDir
-    python manage.py createsuperuser
-    Pop-Location
-}
-
-if ($Test) {
-    Assert-Python; Enable-Venv
-    if ($Test) {
-        Assert-Python; Enable-Venv
-        if ( $Test) {
-            Assert-Python; Enable-Venv
-            Write-Colour "[INFO] Running test suite..." Blue
-            Push-Location $BackendDir
-            python manage.py test
-            Pop-Location
-            Write-Colour "[OK] Tests complete" Green
-        }
-    }
+    Set-Location $ProjectRoot
+    Invoke-DC "exec -T db psql -U $dbUser $dbName < `"$Restore`""
+    Write-Colour "[OK] Database restored." Green
 }

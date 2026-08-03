@@ -1,33 +1,41 @@
-from typing import Tuple, Optional, Dict, Any
+from typing import Any, Dict, Optional, Tuple
+import logging
+
 from django.contrib.auth import get_user_model
 from rest_framework.exceptions import ValidationError
+
+from apps.accounts.serializers import (
+    RegisterUserSerializer,
+    UpdateUserSerializer,
+    UserSerializer,
+)
 from apps.accounts.utils.validators import validate_password
 
-User = get_user_model()
-import logging
-from apps.accounts.serializers import RegisterUserSerializer, UserSerializer, UpdateUserSerializer
-
 logger = logging.getLogger(__name__)
+User = get_user_model()
 
-def register_new_user(data: Dict[str, Any]) -> Tuple[Optional[Dict[str, Any]], Optional[Any], int]:
+
+def register_new_user(
+    data: Dict[str, Any],
+) -> Tuple[Optional[Dict[str, Any]], Optional[Any], int]:
     try:
         serializer = RegisterUserSerializer(data=data)
         if serializer.is_valid():
             user = serializer.save()
             user_details = {
-                'id': user.id,
-                'username': user.username,
-                'email': user.email,
-                'location': user.location,
-                'department': user.department,
-                'status': user.status,
-                'send_mail': user.send_mail,
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "location": user.location,
+                "department": user.department,
+                "status": user.status,
+                "send_mail": user.send_mail,
             }
             return user_details, None, 201
         return None, serializer.errors, 400
     except ValidationError as e:
         return None, str(e), 400
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error during register_new_user")
         return None, "An unexpected error occurred.", 500
 
@@ -37,7 +45,7 @@ def get_all_users() -> Tuple[Optional[Any], Optional[str], int]:
         users = User.objects.filter(user_type=0)
         serializer = UserSerializer(users, many=True)
         return serializer.data, None, 200
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error during get_all_users")
         return None, "An unexpected error occurred.", 500
 
@@ -49,37 +57,45 @@ def get_user_by_id(user_id: int) -> Tuple[Optional[Any], Optional[str], int]:
         return serializer.data, None, 200
     except User.DoesNotExist:
         return None, "User not found", 404
-    except Exception as e:
+    except Exception:
         logger.exception("Unexpected error during get_user_by_id")
         return None, "An unexpected error occurred.", 500
 
 
-def update_user_details(user_id: int, data: Dict[str, Any]) -> Tuple[Optional[Dict[str, Any]], Optional[Any], int]:
+def update_user_details(
+    user_id: int, data: Dict[str, Any]
+) -> Tuple[Optional[Dict[str, Any]], Optional[Any], int]:
     try:
         user = User.objects.get(id=user_id)
     except User.DoesNotExist:
         return None, "User not found.", 404
 
-    serializer = UpdateUserSerializer(user, data=data)
+    serializer = UpdateUserSerializer(user, data=data, partial=True)
     if serializer.is_valid():
         updated_user = serializer.save()
         user_details = {
-            'id': updated_user.id,
-            'username': updated_user.username,
-            'email': updated_user.email,
-            'location': updated_user.location,
-            'department': updated_user.department,
-            'phonenumber': updated_user.phonenumber,
-            'user_type': updated_user.user_type,
-            'status': updated_user.status,
+            "id": updated_user.id,
+            "username": updated_user.username,
+            "email": updated_user.email,
+            "location": updated_user.location,
+            "department": updated_user.department,
+            "phonenumber": updated_user.phonenumber,
+            "user_type": updated_user.user_type,
+            "status": updated_user.status,
         }
         return user_details, None, 200
     return None, serializer.errors, 400
 
-def change_user_password(user, current_password: str, new_password: str, confirm_password: str) -> Tuple[Optional[str], int]:
+
+def change_user_password(
+    user, current_password: str, new_password: str, confirm_password: str
+) -> Tuple[Optional[str], int]:
     """Changes the password for a user after validating the current password and new password rules."""
     if not all([current_password, new_password, confirm_password]):
-        return "All fields are required: current_password, new_password, confirm_password", 400
+        return (
+            "All fields are required: current_password, new_password, confirm_password",
+            400,
+        )
 
     if not user.check_password(current_password):
         return "Current password is incorrect", 400
@@ -100,16 +116,18 @@ def change_user_password(user, current_password: str, new_password: str, confirm
     return None, 200
 
 
-def delete_user_account(user_id: int) -> Tuple[Optional[Dict[str, Any]], Optional[str], int]:
+def delete_user_account(
+    user_id: int,
+) -> Tuple[Optional[Dict[str, Any]], Optional[str], int]:
     """Deletes a user account by ID and returns the details of the deleted user."""
     try:
         user = User.objects.get(id=user_id)
         user_details = {
-            'username': user.username,
-            'email': user.email,
-            'location': user.location,
-            'department': user.department,
-            'status': user.status,
+            "username": user.username,
+            "email": user.email,
+            "location": user.location,
+            "department": user.department,
+            "status": user.status,
         }
         user.delete()
         return user_details, None, 200
