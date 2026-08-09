@@ -50,8 +50,11 @@ class MultiSessionToken(BaseModel):
         return timezone.now() > self.expiry
 
     def refresh_token(self) -> None:
-        """Refresh token validity (extends expiry by 1 year from now)"""
-        self.expiry = timezone.now() + timedelta(days=365)
+        """Refresh token validity by extending from the current expiry."""
+        if self.expiry is None:
+            self.expiry = timezone.now() + timedelta(days=365)
+        else:
+            self.expiry = self.expiry + timedelta(days=365)
         self.save(update_fields=['expiry', 'updated_at'])
 
     def __str__(self) -> str:

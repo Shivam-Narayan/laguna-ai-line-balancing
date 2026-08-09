@@ -38,7 +38,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       target: prod
-    command: celery -A config worker -l info
+    command: celery -A config worker -l info --max-tasks-per-child=50
     env_file: .env
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-development}

@@ -9,15 +9,9 @@ from django.db import transaction
 from django.db.models import FloatField, Func
 from django.db.utils import DatabaseError, IntegrityError
 from rest_framework import status
-from rest_framework.decorators import (
-    api_view,
-    authentication_classes,
-    permission_classes,
-)
-from rest_framework.permissions import IsAuthenticated
+
 
 from apps.absenteeism.utils import is_allowed_working_day
-from apps.accounts.authentication import CookieJWTAuthentication
 from apps.accounts.models import User
 from apps.accounts.utils.response_handlers import error_response, success_response
 from apps.data_engine.models import (
@@ -95,10 +89,7 @@ class Round(Func):
     output_field = FloatField()
 
 
-@api_view(["POST"])
-@authentication_classes([CookieJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def manning_sheet_generation(request):
+def manning_sheet_generation():
     try:
         ManningSheetData.objects.all().delete()
         manning_sheet_df = {}
@@ -2013,3 +2004,32 @@ def run_generate_style_ob(viaAPI):
             exc_info=True,
         )
         return error_response(error=str(e), status=status.HTTP_400_BAD_REQUEST)
+
+
+class ManningEngineService:
+    """
+    OOP facade over the four core Manning engine operations.
+    Each method delegates to the underlying run_ function which contains
+    the complex allocation logic. This keeps the service layer extensible
+    and testable without rewriting the heavy algorithm code.
+    """
+
+    @staticmethod
+    def generate_manning(viaAPI, period):
+        """Trigger the Manning Sheet generation algorithm."""
+        return run_manning_generation(viaAPI, period)
+
+    @staticmethod
+    def generate_emp_fact():
+        """Fetch from RockHR and populate the EMPFact table."""
+        return run_generate_emp_fact()
+
+    @staticmethod
+    def generate_dday(viaAPI):
+        """Run the D-Day intraday allocation algorithm."""
+        return run_dday_generation(viaAPI)
+
+    @staticmethod
+    def generate_style_ob(viaAPI):
+        """Fetch and rebuild the StyleOB table from the skills matrix."""
+        return run_generate_style_ob(viaAPI)

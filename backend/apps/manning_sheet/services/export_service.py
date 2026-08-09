@@ -7,12 +7,8 @@ from io import BytesIO
 import pandas as pd
 from django.db.models import Count, FloatField, Func
 from django.http import FileResponse, HttpResponse
-from rest_framework import status
 
-from apps.accounts.utils.response_handlers import error_response, success_response
-from apps.data_engine.models import (
-    EmployeeMaster,
-)
+from apps.data_engine.models import EmployeeMaster
 
 from ..models import (
     ManningGeneralInfo,
@@ -28,23 +24,7 @@ from ..utils import (
 logger = logging.getLogger("general")
 
 CHUNK_SIZE = 1000
-
 os.makedirs("exports", exist_ok=True)
-COMPANY_CODE = 843
-
-NOTIFICATION_DISPLAY_TIME = {
-    "dday_8_50": "8:50 AM",
-    "dday_12_45": "12:45 PM",
-    "dday_5_30": "5:30 PM",
-}
-
-NOTIFICATION_DISPLAY_TITLE = {
-    "dday_8_50": "D-Day 8:50 AM Allocation Data",
-    "dday_12_45": "D-day 12:45 PM Allocation Data",
-    "dday_5_30": "D-Day 5:30 PM Allocation Data",
-    "manning_sheet": "Manning Sheet Allocation Data",
-    "absenteeism_prediction": "Absenteeism Prediction Data",
-}
 
 
 class Round(Func):
@@ -53,40 +33,61 @@ class Round(Func):
     output_field = FloatField()
 
 
-def run_download_manning_data_by_section(line_no, period):
-    line_no = line_no.capitalize()
+class ExportServiceError(Exception):
+    pass
 
+
+def get_unallocated_employees_count(line_no):
+    """Helper: returns the count of unallocated operators from the CSV report."""
+    file_path = "exports/unallocated_report_dday.csv"
+    if not os.path.exists(file_path):
+        return 0
     try:
-        # Validate required fields
+        df = pd.read_csv(file_path, usecols=["line", "reason", "type"])
+        df = df[(df["reason"] != "Employee Absent") & (df["type"] == "Primary")]
+        if line_no.lower() != "all":
+            return (df["line"] == line_no.title()).sum()
+        else:
+            return len(df)
+    except Exception as e:
+        logger.info(f"Error reading unallocated report: {e}")
+        return 0
+
+
+def get_actual_vs_planned_data(line_no, forecast_period, today, section=None):
+    """Helper: imported from data_retrieval_service to avoid circular imports."""
+    from .data_retrieval_service import get_actual_vs_planned_data as _get
+    return _get(line_no=line_no, forecast_period=forecast_period, today=today, section=section)
+
+
+def get_dday_actual_vs_planned_data(line_no, today):
+    """Helper: imported from data_retrieval_service."""
+    from .data_retrieval_service import get_dday_actual_vs_planned_data as _get
+    return _get(line_no=line_no, today=today)
+
+
+class ExportService:
+    """Handles Excel export and file download business logic."""
+
+    @staticmethod
+    def download_manning_data_by_section(line_no, period):
+        """Returns an HttpResponse with the manning sheet Excel file."""
+        line_no = line_no.capitalize()
+
         if not line_no or not period:
-            return error_response(
-                error='"line" and "forecast_period" are required.',
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            raise ValueError('"line" and "forecast_period" are required.')
 
         valid_lines = [f"Line {i}" for i in range(1, 11)] + ["All"]
         valid_periods = ["1", "7", "30", "60"]
 
         if line_no not in valid_lines:
-            return error_response(
-                error='Invalid line number. Use "Line X" or "all"',
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            raise ValueError('Invalid line number. Use "Line X" or "all"')
         if period not in valid_periods:
-            return error_response(
-                error="Invalid forecast period. Choose from 1, 7, 30, 60.",
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            raise ValueError("Invalid forecast period. Choose from 1, 7, 30, 60.")
 
-        period = int(period)  # Convert forecast_period to integer
-
-        # nextDay = today + timedelta(days=1)
+        period = int(period)
         today = datetime.today().date()
-        date_range = [
-            (today + timedelta(days=i)) for i in range(1, period + 1)
-        ]  # This list won't include today's date
-
-        # Apply filters dynamically based on conditions
+        date_range = [(today + timedelta(days=i)) for i in range(1, period + 1)]
         filters = {"planned_dates__in": date_range}
         employee_master_filters = {"designation": "machinist"}
 
@@ -94,53 +95,39 @@ def run_download_manning_data_by_section(line_no, period):
             filters["line"] = line_no
             employee_master_filters["line"] = line_no.upper()
 
-        # Query filtered data
         filtered_data_table = ManningSheetData.objects.filter(**filters).distinct()
         filtered_data_info = ManningGeneralInfo.objects.filter(**filters).distinct()
 
         if not filtered_data_table.exists() and not filtered_data_info.exists():
-            return success_response(
-                message="No data to display",
-                data={
-                    "table_data": [
-                        {
-                            "Operation": "N/A",
-                            "Machine": "N/A",
-                            "Operator Name": "N/A",
-                            "SMV": "N/A",
-                            "Actual Perf%": "N/A",
-                        }
-                    ],
-                    "general_info": {
-                        "total_machinist_available": 0,
-                        "total_non_machinist_available": 0,
-                        "machinist_required": 0,
-                        "non_machinist_required": 0,
-                        "total_required": 0,
-                        "total_available": 0,
-                    },
-                    "machine_nonMachine_info": {},
-                    "message": "No data to display",
-                },
-                status=status.HTTP_200_OK,
+            empty_data = {
+                "table_data": {},
+                "machinist_nonMachinist_count": {},
+                "machinist_nonMachinist_info": {},
+                "info": {},
+                "unique_styles": {},
+                "prediction_report": {},
+                "message": "No data to display",
+            }
+            excel_data = export_json_to_excel(empty_data)
+            response = HttpResponse(
+                excel_data.getvalue(),
+                content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
+            response["Content-Disposition"] = (
+                f'attachment; filename="{line_no.title()}_ManningSheet__{period}Days.xlsx"'
+            )
+            return response
 
-        table_data_query = filtered_data_table.order_by(
-            "planned_dates", "op_seq"
-        ).values()  # Order first by section, then within each section
+        table_data_query = filtered_data_table.order_by("planned_dates", "op_seq").values()
 
-        # Group data by section if section is not passed
         grouped_table_data = {}
         for row in table_data_query:
             section = row["section"]
             if section not in grouped_table_data:
                 grouped_table_data[section] = []
-
             grouped_table_data[section].append(
                 {
-                    "Date": row["planned_dates"].strftime("%d-%m-%Y")
-                    if row["planned_dates"]
-                    else row["planned_dates"],
+                    "Date": row["planned_dates"].strftime("%d-%m-%Y") if row["planned_dates"] else row["planned_dates"],
                     "Operation": row["operation"],
                     "Style": row["style"],
                     "Buyer": row["buyer"],
@@ -162,110 +149,58 @@ def run_download_manning_data_by_section(line_no, period):
             EmployeeMaster.objects.filter(**employee_master_filters)
             .values("section")
             .annotate(actual_machinists=Count("emp_code"))
-        )  # or another unique field like 'emp_code'
-
-        # Step 1: Group data by section and operation with unique (machine_type, operator_name, operator_id)
-        grouped_result = defaultdict(lambda: defaultdict(set))
-
-        grouped_data = filtered_data_table.only(
-            "section",
-            "operation",
-            "machine_type",
-            "allocated_emp_name",
-            "allocated_emp_id",
         )
+
+        grouped_result = defaultdict(lambda: defaultdict(set))
+        grouped_data = filtered_data_table.only("section", "operation", "machine_type", "allocated_emp_name", "allocated_emp_id")
 
         for row in grouped_data:
             section = row.section or "Unknown"
             operation = row.operation or "Unknown"
-            key = (
-                row.machine_type,
-                row.allocated_emp_name or "N/A",
-                row.allocated_emp_id,
-            )
+            key = (row.machine_type, row.allocated_emp_name or "N/A", row.allocated_emp_id)
             grouped_result[section][operation].add(key)
 
-        # Step 2: Flatten grouped data into required output structure
         grouped_machine_nonMachine_info = {}
         required_machinists = []
 
         for section, operations in grouped_result.items():
             machine_type_count = defaultdict(int)
             machinist_count = 0
-
             for entries in operations.values():
                 for machine_type, operator_name, operator_id in entries:
                     machine_type_count[machine_type] += 1
                     machinist_count += 1
-
-            # Store machine type counts
             grouped_machine_nonMachine_info[section] = dict(machine_type_count)
+            required_machinists.append({"section": section, "required_machinists": machinist_count})
 
-            # Store machinist count if needed
-            required_machinists.append(
-                {"section": section, "required_machinists": machinist_count}
-            )
+        actual_dict = {item["section"]: item["actual_machinists"] for item in actual_machinists}
+        required_dict = {item["section"]: item["required_machinists"] for item in required_machinists}
 
-        # Convert lists to dictionaries keyed by 'section'
-        actual_dict = {
-            item["section"]: item["actual_machinists"] for item in actual_machinists
-        }
-        required_dict = {
-            item["section"]: item["required_machinists"] for item in required_machinists
-        }
-
-        # Merge into desired format
         grouped_general_info = {}
-        for section in set(actual_dict) | set(required_dict):  # union of both keys
+        for section in set(actual_dict) | set(required_dict):
             grouped_general_info[section] = {
                 "total_required": required_dict.get(section, 0),
                 "total_available": actual_dict.get(section, 0),
             }
 
-        # Aggregate info data from filtered_data_table (grouped by section)
-        info_query = filtered_data_table.values("section").annotate(
-            buyers=Count("buyer", distinct=True)
-        )
-
-        # Group buyers info by section
         grouped_info = {}
+        info_query = filtered_data_table.values("section").annotate(buyers=Count("buyer", distinct=True))
         for entry in info_query:
             section = entry["section"]
-            buyers_list = list(
-                filtered_data_table.filter(section=section)
-                .values_list("buyer", flat=True)
-                .distinct()
-            )
-            grouped_info[section] = {
-                "buyers": [buyer.upper() for buyer in buyers_list if buyer]
-            }  # Capitalize
+            buyers_list = list(filtered_data_table.filter(section=section).values_list("buyer", flat=True).distinct())
+            grouped_info[section] = {"buyers": [buyer.upper() for buyer in buyers_list if buyer]}
 
-        # Aggregate unique styles by section
-        unique_styles_query = filtered_data_table.values("section").annotate(
-            styles=Count("style", distinct=True)  # Count distinct styles
-        )
-
-        # Group unique styles by section
         grouped_unique_styles = {}
-        for entry in unique_styles_query:
+        for entry in filtered_data_table.values("section").annotate(styles=Count("style", distinct=True)):
             section = entry["section"]
-            styles_list = list(
-                filtered_data_table.filter(section=section)
-                .values_list("style", flat=True)
-                .distinct()
-            )
-            grouped_unique_styles[section] = {
-                "unique_styles": [style.upper() for style in styles_list if style]
-            }  # Capitalize
+            styles_list = list(filtered_data_table.filter(section=section).values_list("style", flat=True).distinct())
+            grouped_unique_styles[section] = {"unique_styles": [style.upper() for style in styles_list if style]}
 
         grouped_prediction_report = {}
         for sec in ["Assembly", "Cuff", "Front", "Back", "Sleeve", "Collar"]:
-            prediction_response = get_actual_vs_planned_data(
-                line_no=line_no, forecast_period=period, today=today, section=sec
-            )
+            prediction_response = get_actual_vs_planned_data(line_no=line_no, forecast_period=period, today=today, section=sec)
             grouped_prediction_report[sec] = prediction_response.data["data"]
 
-        # Prepare response data
         response_data = {
             "table_data": grouped_table_data,
             "machinist_nonMachinist_count": grouped_general_info,
@@ -277,7 +212,6 @@ def run_download_manning_data_by_section(line_no, period):
         }
 
         excel_data = export_json_to_excel(response_data)
-
         response = HttpResponse(
             excel_data.getvalue(),
             content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -287,68 +221,38 @@ def run_download_manning_data_by_section(line_no, period):
         )
         return response
 
-    except Exception as e:
-        return success_response(
-            message=f"Error: {str(e)}",
-            data=None,
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
-
-
-def run_download_manning_attendance_data(line_no, type_of_export, email):
-    """
-    Retrieve attendance statistics with a single highly optimized database query
-    using Django's conditional expressions and fetch dday data and export it as excel or via email
-    """
-    try:
-        # Check if line parameter is provided, handle 'null' string safely
+    @staticmethod
+    def download_manning_attendance_data(line_no, type_of_export, email):
+        """Returns an HttpResponse (excel download) or sends an email with the attendance export."""
         if not line_no:
-            return error_response(
-                error='"line" is required.', status=status.HTTP_400_BAD_REQUEST
-            )
-        # Fast validation with set lookup
+            raise ValueError('"line" is required.')
         if line_no not in {f"Line {i}" for i in range(1, 11)} | {"All"}:
-            return error_response(
-                error='Enter a valid line number (Valid Formats: "Line 1" or "line 3" or "LINE 5" or "all")',
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        # Calculate dates
+            raise ValueError('Enter a valid line number (Valid Formats: "Line 1" or "line 3" or "LINE 5" or "all")')
+
         today = datetime.now().date()
         yesterday = today - timedelta(days=1)
         dday_data = fetch_dday_data(line_no)
         attendance_data = fetch_attendance_data(line_no, today, yesterday)
-        prediction_response = get_dday_actual_vs_planned_data(
-            line_no=line_no, today=today
-        )
+        prediction_response = get_dday_actual_vs_planned_data(line_no=line_no, today=today)
         prediction_data = prediction_response.data["data"]["Target data"]
-        # FIXED: Correct structure based on get_dday_actual_vs_planned_data function
-        if line_no == "All":
-            # For "All" lines: {"Target data": {"production_target": x, "predicted_production": y, "line_wise_breakdown": [...]}}
-            production_target = prediction_data.get("production_target", 0.0)
-            predicted_production = prediction_data.get("predicted_production", 0.0)
-        else:
-            # For single line: {"Target data": {"line": "Line X", "production_target": x, "predicted_production": y, "style_breakdown": [...]}}
-            production_target = prediction_data.get("production_target", 0.0)
-            predicted_production = prediction_data.get("predicted_production", 0.0)
+
+        production_target = prediction_data.get("production_target", 0.0)
+        predicted_production = prediction_data.get("predicted_production", 0.0)
         unallocated_emp_data = get_unallocated_employees_count(line_no=line_no)
-        # type and email logic is handled directly by parameters
+
         df = pd.DataFrame(dday_data["data"]["records"])
         df.drop(columns=["Dday_ID", "WIP Qty"], inplace=True)
-        # Generate Excel file in memory
+
         output = BytesIO()
         with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
             df.to_excel(writer, sheet_name="Sheet1", startrow=9, index=False)
-            # Get the worksheet AFTER writing the DataFrame
             worksheet = writer.sheets["Sheet1"]
             workbook = writer.book
-            bold_format = workbook.add_format({"bold": True})  # Bold format for headers
-            # Write attendance data at the top with proper alignment
+            bold_format = workbook.add_format({"bold": True})
             worksheet.write(0, 0, "Line number", bold_format)
             worksheet.write(0, 1, line_no)
             worksheet.write(1, 0, "Planned Attendance", bold_format)
-            worksheet.write(
-                1, 1, attendance_data["data"]["attendance_data"]["Planned Attendance"]
-            )
+            worksheet.write(1, 1, attendance_data["data"]["attendance_data"]["Planned Attendance"])
             worksheet.write(2, 0, "Present", bold_format)
             worksheet.write(2, 1, attendance_data["data"]["attendance_data"]["Present"])
             worksheet.write(3, 0, "Absent", bold_format)
@@ -357,164 +261,105 @@ def run_download_manning_attendance_data(line_no, type_of_export, email):
             worksheet.write(4, 1, unallocated_emp_data)
             worksheet.write(5, 0, "Production Target", bold_format)
             worksheet.write(5, 1, production_target)
-            worksheet.write(
-                6, 0, "Predicted Production", bold_format
-            )  # Changed label for clarity
+            worksheet.write(6, 0, "Predicted Production", bold_format)
             worksheet.write(6, 1, predicted_production)
-            # Adjust column width for A and B (0 and 1)
-            worksheet.set_column(0, 0, 25)  # Column A (Labels)
-            worksheet.set_column(1, 1, 15)  # Column B (Values)
-            # Adjust column widths dynamically based on data
+            worksheet.set_column(0, 0, 25)
+            worksheet.set_column(1, 1, 15)
             for i, col in enumerate(df.columns):
                 if col != "Factory":
-                    max_len = (
-                        max(df[col].astype(str).map(len).max(), len(col)) + 2
-                    )  # Adjust width
-                    worksheet.set_column(
-                        i, i, max_len, workbook.add_format({"text_wrap": False})
-                    )  # Disable text wrapping
-            # Handle "Preferred Employees" column formatting
+                    max_len = max(df[col].astype(str).map(len).max(), len(col)) + 2
+                    worksheet.set_column(i, i, max_len, workbook.add_format({"text_wrap": False}))
             preferred_col_index = list(df.columns).index("Preferred Employees")
-            worksheet.set_column(
-                preferred_col_index, preferred_col_index, 30
-            )  # Fixed width
-            # Create a custom format to prevent text overflow in "Preferred Employees"
-            truncate_format = workbook.add_format(
-                {
-                    "text_wrap": False,
-                    "num_format": "@",  # Text format
-                }
-            )
-            # Apply format to all rows in "Preferred Employees" column
-            for row_num in range(
-                10, 10 + len(df)
-            ):  # Since headers are at row 9, data starts at 10
-                worksheet.write(
-                    row_num,
-                    preferred_col_index,
-                    df["Preferred Employees"].iloc[row_num - 10],
-                    truncate_format,
-                )
+            worksheet.set_column(preferred_col_index, preferred_col_index, 30)
+            truncate_format = workbook.add_format({"text_wrap": False, "num_format": "@"})
+            for row_num in range(10, 10 + len(df)):
+                worksheet.write(row_num, preferred_col_index, df["Preferred Employees"].iloc[row_num - 10], truncate_format)
         output.seek(0)
+
         if type_of_export == "email":
             if not email:
-                return error_response(
-                    error="Email address is required.",
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            subject = "Download D-Day Manning Data File"
-            file_name = f"Dday_Manning_data_{line_no}.xlsx"
-            file_data = output  # Pass the BytesIO object directly
-            content_type = (
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-            # Call the send_email_task function
+                raise ValueError("Email address is required.")
             import base64
-
             from apps.absenteeism.tasks import send_email_task
-
-            encoded_excel = base64.b64encode(file_data.getvalue()).decode()
-
+            encoded_excel = base64.b64encode(output.getvalue()).decode()
             send_email_task.delay(
                 recipient_emails=email,
                 encoded_data=encoded_excel,
-                subject=subject,
-                file_type=content_type,
-                file_name=file_name,
+                subject="Download D-Day Manning Data File",
+                file_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                file_name=f"Dday_Manning_data_{line_no}.xlsx",
             )
-
-            return success_response(
-                message=f"Email is being sent to {email} in the background.",
-                data={"message": "File attached to the email."},
-                status=status.HTTP_200_OK,
-            )
+            return None, f"Email is being sent to {email} in the background."
         elif type_of_export == "excel":
-            # Return the file as a downloadable response
             response = HttpResponse(
                 output.getvalue(),
                 content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
-            response["Content-Disposition"] = (
-                f'attachment; filename="Dday_Manning_data_{line_no}.xlsx"'
-            )
-            return response
+            response["Content-Disposition"] = f'attachment; filename="Dday_Manning_data_{line_no}.xlsx"'
+            return response, None
         else:
-            return error_response(
-                error='Type should be "email" or "excel".',
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-    except Exception:
-        return error_response(
-            error="An unexpected error occurred. Please try again later.",
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
+            raise ValueError('Type should be "email" or "excel".')
 
-
-def run_download_notification_file(notification_id, user):
-    """
-    Download a file attached to a specific notification for the authenticated user.
-
-    Request Parameters (query):
-        - notification_id (int): ID of the notification containing the file.
-
-    Behavior:
-        - Verifies the presence of notification_id.
-        - Retrieves the corresponding PushNotification for the logged-in user.
-        - Checks if the notification contains a 'fileName' in its data field.
-        - Checks if the corresponding file exists in the 'exports' directory.
-        - Returns the file as a downloadable response if found.
-
-    Returns:
-        - 200 OK with the file if everything is valid.
-        - 400 if notification_id is missing.
-        - 404 if the notification, data, or fileName is not found.
-        - 500 on unexpected server error.
-    """
-    try:
+    @staticmethod
+    def download_notification_file(notification_id, user):
+        """Returns a FileResponse for the file attached to a notification."""
         if not notification_id:
-            return error_response(
-                error="Notification ID is required", status=status.HTTP_400_BAD_REQUEST
-            )
+            raise ValueError("Notification ID is required")
 
-        # Create base filter dictionary
         base_filter = {"user": user, "id": notification_id}
-
-        # Get notification object using the filter dictionary
-        notification = PushNotification.objects.get(**base_filter)
-
-        if not notification:
-            return error_response(
-                error="Notification not found", status=status.HTTP_404_NOT_FOUND
-            )
+        try:
+            notification = PushNotification.objects.get(**base_filter)
+        except PushNotification.DoesNotExist:
+            raise LookupError("Notification not found")
 
         if not notification.data:
-            return error_response(
-                error="No data available for this notification",
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
+            raise LookupError("No data available for this notification")
         if "fileName" not in notification.data:
-            return error_response(
-                error="File name not found in notification data",
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            raise LookupError("File name not found in notification data")
+
         file_name = notification.data["fileName"]
         file_path = os.path.join("exports", file_name)
 
-        # Check if the file exists
         if not os.path.exists(file_path):
-            return error_response(
-                error="File not found", status=status.HTTP_404_NOT_FOUND
-            )
+            raise LookupError("File not found")
 
-        # Open the file and return it as a response for download
-        response = FileResponse(
-            open(file_path, "rb"), as_attachment=True, filename=file_name
-        )
-        return response
+        return FileResponse(open(file_path, "rb"), as_attachment=True, filename=file_name)
 
+
+# --- Backward Compatibility Wrappers ---
+def run_download_manning_data_by_section(line_no, period):
+    from rest_framework import status
+    from apps.accounts.utils.response_handlers import error_response, success_response
+    try:
+        return ExportService.download_manning_data_by_section(line_no, period)
+    except ValueError as e:
+        return error_response(error=str(e), status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
-        return error_response(
-            error=f"Failed to retrieve notification's data: {str(e)}",
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
+        return error_response(error=str(e), status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def run_download_manning_attendance_data(line_no, type_of_export, email):
+    from rest_framework import status
+    from apps.accounts.utils.response_handlers import error_response, success_response
+    try:
+        result, msg = ExportService.download_manning_attendance_data(line_no, type_of_export, email)
+        if result is None:
+            return success_response(message=msg, data={"message": "File attached to the email."}, status=status.HTTP_200_OK)
+        return result
+    except ValueError as e:
+        return error_response(error=str(e), status=status.HTTP_400_BAD_REQUEST)
+    except Exception:
+        return error_response(error="An unexpected error occurred. Please try again later.", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def run_download_notification_file(notification_id, user):
+    from rest_framework import status
+    from apps.accounts.utils.response_handlers import error_response
+    try:
+        return ExportService.download_notification_file(notification_id, user)
+    except ValueError as e:
+        return error_response(error=str(e), status=status.HTTP_400_BAD_REQUEST)
+    except LookupError as e:
+        return error_response(error=str(e), status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return error_response(error=f"Failed to retrieve notification's data: {str(e)}", status=status.HTTP_500_INTERNAL_SERVER_ERROR)

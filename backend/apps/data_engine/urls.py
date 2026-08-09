@@ -3,44 +3,47 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path("holiday-calendars/", views.get_calendar, name="view calendar"),
+    path("holiday-calendars/", views.CalendarAPIView.as_view(), name="get-calendar"),
     path(
         "holiday-calendars/upload/",
-        views.add_local_holiday_calender,
-        name="add_local_holiday_calender",
+        views.LocalHolidayCalendarUploadAPIView.as_view(),
+        name="add-local-holiday-calender",
     ),
     path(
         "historical-weather/upload/",
-        views.upload_historical_weather_data,
-        name="historical-weather-data",
+        views.HistoricalWeatherUploadAPIView.as_view(),
+        name="upload-historical-weather-data",
     ),
-    path("operators/", views.operators_data, name="operatos-data-from-employee-master"),
+    path(
+        "operators/", 
+        views.OperatorsDataAPIView.as_view(), 
+        name="operators-data"
+    ),
     path(
         "operators/export/csv/",
-        views.export_operators_data,
+        views.ExportOperatorsDataAPIView.as_view(),
         name="export-operators-data",
     ),
     path(
         "operators/export/email/",
-        views.export_operators_data_email,
+        views.ExportOperatorsDataEmailAPIView.as_view(),
         name="export-operators-data-email",
     ),
     path(
         "attendance/upload/",
-        views.upload_attendance_file,
-        name="upload attendance file",
+        views.AttendanceFileUploadAPIView.as_view(),
+        name="upload-attendance-file",
     ),
     path(
         "employees/generate/",
-        views.generate_employee_master,
-        name="generate_employee_master",
+        views.GenerateEmployeeMasterAPIView.as_view(),
+        name="generate-employee-master",
     ),
     path(
         "payable-working-days/",
-        views.add_payable_working_days,
-        name="add_payable_working_days",
+        views.PayableWorkingDaysAPIView.as_view(),
+        name="add-payable-working-days",
     ),
 ]
-
 
 data_engine_endpoints = [f"/data/{pattern.pattern}" for pattern in urlpatterns]

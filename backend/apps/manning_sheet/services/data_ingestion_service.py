@@ -2532,3 +2532,74 @@ def run_upload_active_employees(file):
             error=f"Failed to process Active Employees upload: {str(e)}",
             status=status.HTTP_400_BAD_REQUEST,
         )
+
+
+class DataIngestionService:
+    """
+    OOP facade over all data ingestion operations.
+    Each method delegates to the underlying run_ function which contains
+    the complex file parsing, API-call, and DB-insertion logic.
+    This keeps the service layer extensible and testable without rewriting
+    thousands of lines of established business logic.
+    """
+
+    @staticmethod
+    def styleob_file_upload(file):
+        """Upload and parse a Style OB Excel file."""
+        return run_styleob_file_upload(file)
+
+    @staticmethod
+    def loading_plan_file_upload(file):
+        """Upload and process a Loading Plan Excel file (new format)."""
+        return run_loading_plan_file_upload(file)
+
+    @staticmethod
+    def loading_plan_file_upload_old(file, max_styles_per_day, custom_line_capacities):
+        """Upload and process a Loading Plan Excel file (old format)."""
+        return run_loading_plan_file_upload_old(file, max_styles_per_day, custom_line_capacities)
+
+    @staticmethod
+    def emp_fact_file_upload(file):
+        """Upload and parse an Employee Fact Excel file."""
+        return run_emp_fact_file_upload(file)
+
+    @staticmethod
+    def wip_file_upload(file):
+        """Upload and parse a WIP Excel file."""
+        return run_wip_file_upload(file)
+
+    @staticmethod
+    def fetch_emp_attendance_rockhr():
+        """Fetch employee attendance data from RockHR API."""
+        return run_fetch_emp_attendance_rockhr()
+
+    @staticmethod
+    def fetch_emp_details_rockhr():
+        """Fetch employee details from RockHR API."""
+        return run_fetch_emp_details_rockhr()
+
+    @staticmethod
+    def fetch_wip_data_api():
+        """Fetch WIP data from external API."""
+        return run_fetch_wip_data_api()
+
+    @staticmethod
+    def uploading_planned_leaves(file):
+        """Upload and process planned leaves Excel file."""
+        return run_uploading_planned_leaves(file)
+
+    @staticmethod
+    def upload_wip_data(file):
+        """Upload WIP data from Excel file."""
+        return run_upload_wip_data(file)
+
+    @staticmethod
+    def add_bulk_wip_data(data):
+        """Bulk add WIP data from request payload."""
+        return run_add_bulk_wip_data(data)
+
+    @staticmethod
+    def upload_active_employees(file):
+        """Upload and process Active Employees Excel file."""
+        return run_upload_active_employees(file)
+
