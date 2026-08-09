@@ -3,21 +3,21 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path("holiday-calendars/", views.CalendarAPIView.as_view(), name="view calendar"),
+    path("holiday-calendars/", views.CalendarAPIView.as_view(), name="get-calendar"),
     path(
         "holiday-calendars/upload/",
         views.LocalHolidayCalendarUploadAPIView.as_view(),
-        name="add_local_holiday_calender",
+        name="add-local-holiday-calender",
     ),
     path(
         "historical-weather/upload/",
         views.HistoricalWeatherUploadAPIView.as_view(),
-        name="historical-weather-data",
+        name="upload-historical-weather-data",
     ),
     path(
         "operators/", 
         views.OperatorsDataAPIView.as_view(), 
-        name="operatos-data-from-employee-master"
+        name="operators-data"
     ),
     path(
         "operators/export/csv/",
@@ -32,17 +32,17 @@ urlpatterns = [
     path(
         "attendance/upload/",
         views.AttendanceFileUploadAPIView.as_view(),
-        name="upload attendance file",
+        name="upload-attendance-file",
     ),
     path(
         "employees/generate/",
         views.GenerateEmployeeMasterAPIView.as_view(),
-        name="generate_employee_master",
+        name="generate-employee-master",
     ),
     path(
         "payable-working-days/",
         views.PayableWorkingDaysAPIView.as_view(),
-        name="add_payable_working_days",
+        name="add-payable-working-days",
     ),
 ]
 

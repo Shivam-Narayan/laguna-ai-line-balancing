@@ -7,12 +7,12 @@ urlpatterns = [
     path(
         "style-obs/upload/",
         views.StyleObFileUploadAPIView.as_view(),
-        name="uploading style ob data",
+        name="styleob-file-upload",
     ),
     path(
         "loading-plans/upload/",
         views.LoadingPlanFileUploadAPIView.as_view(),
-        name="uploading Uploading ob data",
+        name="loading-plan-file-upload",
     ),
     path(
         "emp-facts/upload/",
@@ -49,17 +49,17 @@ urlpatterns = [
     path(
         "manning-sheets/generate/",
         views.ManningAllocationAPIView.as_view(),
-        name="Generating Manning Sheet",
+        name="manning-allocation",
     ),
     path(
         "manning-sheets/d-day/generate/",
         views.GenerateDdayManningAPIView.as_view(),
-        name="Generating Dday Manning Sheet",
+        name="generate-dday-manning-data",
     ),
     path(
         "emp-facts/generate/",
         views.GenerateEmpFactAPIView.as_view(),
-        name="generate_emp_fact",
+        name="generate-emp-fact",
     ),
     path(
         "style-obs/generate/",
@@ -71,7 +71,7 @@ urlpatterns = [
     path(
         "manning-sheets/",
         views.ManningDataAPIView.as_view(),
-        name="get manning data",
+        name="get-manning-data",
     ),
     path(
         "manning-sheets/d-day/",
@@ -81,7 +81,7 @@ urlpatterns = [
     path(
         "attendance/",
         views.AttendanceDataAPIView.as_view(),
-        name="get Attendance data",
+        name="get-attendance-data",
     ),
     path(
         "employees/unallocated/",
@@ -115,7 +115,7 @@ urlpatterns = [
     path(
         "notifications/",
         views.UserNotificationsAPIView.as_view(),
-        name="get_user_notifications",
+        name="get-user-notifications",
     ),
     path(
         "notifications/mark-read/",
@@ -127,7 +127,7 @@ urlpatterns = [
     path(
         "attendance/rockhr/",
         views.FetchEmpAttendanceRockHRAPIView.as_view(),
-        name="fetch_emp_attendance_rockhr",
+        name="fetch-emp-attendance-rockhr",
     ),
     path(
         "employees/rockhr/",
@@ -144,7 +144,7 @@ urlpatterns = [
     path(
         "employees/allocated/",
         views.UpdateAllocatedEmployeesAPIView.as_view(),
-        name="update_allocated_employee",
+        name="update-allocated-employees",
     ),
     path(
         "employees/on-hold/",

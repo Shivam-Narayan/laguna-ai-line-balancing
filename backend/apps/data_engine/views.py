@@ -1,3 +1,4 @@
+from django.http import HttpResponse
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
@@ -18,6 +19,19 @@ from .services.upload_service import (
     run_upload_attendance_file,
     run_upload_historical_weather_data,
 )
+
+
+def run_operators_data(line_no: str):
+    return EmployeeService.get_operators_data(line_no)
+
+
+def run_generate_employee_master():
+    generator = EmployeeMasterGenerator()
+    generator.generate()
+    return success_response(
+        message="Employee Master data is generated successfully.",
+        status=status.HTTP_200_OK,
+    )
 
 
 class HistoricalWeatherUploadAPIView(APIView):
@@ -81,14 +95,16 @@ class OperatorsDataAPIView(APIView):
     def get(self, request):
         line_no = request.query_params.get("line", " ").strip()
         try:
-            data = EmployeeService.get_operators_data(line_no)
-            if not data:
+            result = run_operators_data(line_no)
+            if isinstance(result, (HttpResponse,)):
+                return result
+            if not result:
                 return error_response(
                     error=f"No data found for {line_no}", status=status.HTTP_200_OK
                 )
             return success_response(
                 message=f"Data for {line_no} fetched successfully.",
-                data=data,
+                data=result,
                 status=status.HTTP_200_OK,
             )
         except ValueError as e:
@@ -103,12 +119,10 @@ class GenerateEmployeeMasterAPIView(APIView):
 
     def get(self, request):
         try:
-            generator = EmployeeMasterGenerator()
-            generator.generate()
-            return success_response(
-                message="Employee Master data is generated successfully.",
-                status=status.HTTP_200_OK,
-            )
+            result = run_generate_employee_master()
+            if isinstance(result, HttpResponse):
+                return result
+            return result
         except ValueError as e:
             return error_response(error=str(e), status=status.HTTP_400_BAD_REQUEST)
         except EmployeeServiceError as e:

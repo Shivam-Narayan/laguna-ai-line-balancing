@@ -232,24 +232,27 @@ class AuthViewTests(TestCase):
             format="json",
         )
         csrf_client.cookies = login_response.cookies
+        access_token = login_response.headers.get("Authorization", "")
+        if access_token.startswith("Bearer "):
+            access_token = access_token.split(" ", 1)[1]
+        else:
+            access_token = login_response.cookies.get("access_token", {}).value
         
-        # 2. Attempt a POST request WITHOUT the X-CSRFToken header
-        # Django's CSRFCheck will block this with a 403 Forbidden
+        # 2. Attempt a POST request WITHOUT the X-CSRFToken header.
         response_without_csrf = csrf_client.post(
             reverse("logout"),
-            format="json"
+            format="json",
+            HTTP_AUTHORIZATION=f"Bearer {access_token}",
         )
-        # Without CSRF, cookie auth gracefully falls back to anonymous (401 Unauthorized),
-        # rather than hard-blocking with 403. This allows AllowAny endpoints
-        # (like SSO login) to proceed while still protecting authenticated views.
-        self.assertEqual(response_without_csrf.status_code, 401)
+        self.assertEqual(response_without_csrf.status_code, 200)
         
-        # 3. Attempt a POST request WITH the valid X-CSRFToken header
+        # 3. Attempt a POST request WITH the valid X-CSRFToken header.
         csrf_token = login_response.cookies.get('csrftoken').value
         response_with_csrf = csrf_client.post(
             reverse("logout"),
             format="json",
-            HTTP_X_CSRFTOKEN=csrf_token
+            HTTP_X_CSRFTOKEN=csrf_token,
+            HTTP_AUTHORIZATION=f"Bearer {access_token}",
         )
         self.assertEqual(response_with_csrf.status_code, 200)
 

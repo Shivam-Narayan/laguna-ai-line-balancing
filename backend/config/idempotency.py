@@ -13,8 +13,15 @@ def idempotent(timeout=300):
             # Only POST, PUT, PATCH are typically idempotent-protected, 
             # but we'll apply it whenever the key is present for flexibility.
             
+            # Support both DRF view instances and plain Django request objects.
+            meta = getattr(request, 'META', None)
+            if meta is None and hasattr(request, 'request'):
+                meta = getattr(request.request, 'META', {})
+            if meta is None:
+                meta = {}
+
             # Check for Idempotency-Key header
-            idemp_key = request.META.get('HTTP_IDEMPOTENCY_KEY')
+            idemp_key = meta.get('HTTP_IDEMPOTENCY_KEY')
             if not idemp_key:
                 # No key provided, just run the view
                 return view_func(request, *args, **kwargs)
